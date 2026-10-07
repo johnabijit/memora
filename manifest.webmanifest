@@ -1,0 +1,10 @@
+{
+  "name": "Memora",
+  "short_name": "Memora",
+  "description": "A private personal memory and life timeline assistant.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101114",
+  "theme_color": "#101114",
+  "icons": []
+}
