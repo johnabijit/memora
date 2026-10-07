@@ -730,12 +730,12 @@ async function authScreen(mode='login'){
       const display_name=document.getElementById('name').value.trim()
       const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name},emailRedirectTo:window.location.origin}})
       if(error) return msg.textContent=error.message
-      if(data.session){user=data.user;render()}else msg.textContent='Account created. Check your email to confirm, then return here and sign in.'
+      if(data.session){user=data.user;await bootstrapSignedIn()}else msg.textContent='Account created. Check your email to confirm, then return here and sign in.'
     }else{
       const {data,error}=await supabase.auth.signInWithPassword({email,password})
       if(error) return msg.textContent=error.message
       user=data.user
-      render()
+      await bootstrapSignedIn()
     }
   }
 }
@@ -3345,12 +3345,29 @@ async function settings(){
   }
 }
 
+async function bootstrapSignedIn(){
+  await loadExperiencePreferences()
+  if(!ambientPreferences.enabled) stopAmbient()
+  else if(ambientAudioContext?.state==='running') await startAmbient()
+  await migrateLegacyChat()
+  if(navigationInitialized) await renderRoute(view)
+  else await initializeNavigation()
+}
+
 setupAtmosphere()
 
 const session=await supabase.auth.getSession()
 user=session.data.session?.user||null
-supabase.auth.onAuthStateChange((_event,sessionNow)=>{user=sessionNow?.user||null})
-if(user) render()
+supabase.auth.onAuthStateChange((event,sessionNow)=>{
+  user=sessionNow?.user||null
+  if(event==='SIGNED_OUT'){
+    navigationInitialized=false
+    currentThreadId=null
+    chat=[]
+    chatThreads=[]
+  }
+})
+if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{})
