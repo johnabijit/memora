@@ -2499,13 +2499,25 @@ async function settings(){
     toast(error?error.message:'Profile saved')
   }
   document.getElementById('exportData').onclick=async()=>{
-    const [{data:memoryData},{data:thingData},{data:peopleData},{data:contexts}]=await Promise.all([
+    const [{data:memoryData},{data:factData},{data:thingData},{data:peopleData},{data:placeData},{data:docData},{data:contexts}]=await Promise.all([
       supabase.from('memories').select('*').order('created_at'),
+      supabase.from('memory_facts').select('*').order('fact_key'),
       supabase.from('things').select('*'),
       supabase.from('people').select('*'),
+      supabase.from('places').select('*'),
+      supabase.from('documents').select('*'),
       supabase.from('memory_contexts').select('*')
     ])
-    const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),memories:memoryData,things:thingData,people:peopleData,contexts},null,2)],{type:'application/json'})
+    const blob=new Blob([JSON.stringify({
+      exported_at:new Date().toISOString(),
+      memories:memoryData,
+      structured_facts:factData,
+      things:thingData,
+      people:peopleData,
+      places:placeData,
+      documents:docData,
+      contexts
+    },null,2)],{type:'application/json'})
     const link=document.createElement('a')
     link.href=URL.createObjectURL(blob)
     link.download='memora-export.json'
@@ -2514,8 +2526,12 @@ async function settings(){
   }
   document.getElementById('deleteAll').onclick=async()=>{
     if(!confirm('Delete all memories? This cannot be undone.')) return
-    const {error}=await supabase.from('memories').delete().eq('user_id',user.id)
-    toast(error?error.message:'Memories deleted')
+    const {error}=await supabase.rpc('delete_all_my_memory_data')
+    if(error) return toast(error.message)
+    chat=[]
+    conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+    persistConversationState()
+    toast('Memory data deleted')
   }
 }
 
