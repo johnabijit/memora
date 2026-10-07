@@ -6,7 +6,7 @@ const app = document.getElementById('app')
 let user = null
 let view = 'home'
 let chat = []
-let pendingAttachments = []
+let pendingMedia = []
 
 const nav = [
   ['home','Home'],['ask','Ask Memora'],['memories','Memories'],['timeline','Timeline'],
@@ -14,602 +14,635 @@ const nav = [
   ['connections','Connections'],['settings','Settings']
 ]
 
-const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
+const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
 const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Unknown date'
+const shortDate = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)) : 'Unknown'
 const toast = message => {
   const el = document.createElement('div')
   el.className = 'toast'
   el.textContent = message
   document.body.appendChild(el)
-  setTimeout(() => el.remove(), 2400)
+  setTimeout(()=>el.remove(),2600)
 }
+const typeLabel = type => ({
+  note:'Moment',object:'Object',activity:'Activity',event:'Event',person:'Person',place:'Place',
+  task:'Task',document:'Document',preference:'Preference',personal_fact:'Personal fact',
+  object_location:'Object location',reminder:'Reminder',document_fact:'Document fact',
+  conversation:'Conversation',other:'Memory'
+}[type] || 'Memory')
 
-function authScreen(mode='login') {
+function authScreen(mode='login'){
   app.innerHTML = `
   <div class="auth-wrap">
-    <div class="card auth-card">
-      <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Your private life memory</small></div></div>
-      <h2>${mode === 'login' ? 'Welcome back' : 'Create your memory space'}</h2>
-      <p class="muted">Remember moments, places, people, documents and where you kept important things.</p>
+    <div class="glass auth-card">
+      <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Your life, remembered beautifully</small></div></div>
+      <div class="eyebrow">Private memory space</div>
+      <h2>${mode==='login'?'Welcome back':'Begin your memory vault'}</h2>
+      <p class="muted">Capture moments, photos, people, places, documents and the little details you never want to lose.</p>
       <form id="authForm">
-        ${mode === 'signup' ? '<input class="input" id="name" placeholder="Your name" required>' : ''}
+        ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
         <input class="input" id="email" type="email" placeholder="Email" required>
         <input class="input" id="password" type="password" minlength="8" placeholder="Password" required>
-        <button class="btn primary" type="submit">${mode === 'login' ? 'Sign in' : 'Create account'}</button>
+        <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create my space'}</button>
       </form>
       <div class="tabbar"><button class="btn" id="loginTab">Sign in</button><button class="btn" id="signupTab">Sign up</button></div>
       <p id="authMsg" class="muted"></p>
     </div>
   </div>`
-  document.getElementById('loginTab').onclick = () => authScreen('login')
-  document.getElementById('signupTab').onclick = () => authScreen('signup')
-  document.getElementById('authForm').onsubmit = async event => {
+  document.getElementById('loginTab').onclick=()=>authScreen('login')
+  document.getElementById('signupTab').onclick=()=>authScreen('signup')
+  document.getElementById('authForm').onsubmit=async event=>{
     event.preventDefault()
-    const email = document.getElementById('email').value.trim()
-    const password = document.getElementById('password').value
-    const msg = document.getElementById('authMsg')
-    msg.textContent = 'Working...'
-    if (mode === 'signup') {
-      const display_name = document.getElementById('name').value.trim()
-      const { data, error } = await supabase.auth.signUp({email,password,options:{data:{display_name},emailRedirectTo:window.location.origin}})
-      if (error) return msg.textContent = error.message
-      if (data.session) {
-        user = data.user
-        render()
-      } else {
-        msg.textContent = 'Account created. Check your email if confirmation is enabled, then sign in.'
-      }
-    } else {
-      const { data, error } = await supabase.auth.signInWithPassword({email,password})
-      if (error) return msg.textContent = error.message
-      user = data.user
+    const email=document.getElementById('email').value.trim()
+    const password=document.getElementById('password').value
+    const msg=document.getElementById('authMsg')
+    msg.textContent='Working...'
+    if(mode==='signup'){
+      const display_name=document.getElementById('name').value.trim()
+      const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name},emailRedirectTo:window.location.origin}})
+      if(error) return msg.textContent=error.message
+      if(data.session){user=data.user;render()}else msg.textContent='Account created. Check your email to confirm, then return here and sign in.'
+    }else{
+      const {data,error}=await supabase.auth.signInWithPassword({email,password})
+      if(error) return msg.textContent=error.message
+      user=data.user
       render()
     }
   }
 }
 
-function shell(content,title) {
+function shell(content,title){
+  const navHtml=nav.map(([id,label])=>`<button data-nav="${id}" class="${view===id?'active':''}"><span class="nav-dot"></span>${label}</button>`).join('')
   return `
   <div class="shell">
     <aside class="sidebar">
       <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Personal memory OS</small></div></div>
-      <nav class="nav">${nav.map(([id,label]) => `<button data-nav="${id}" class="${view === id ? 'active' : ''}">${label}</button>`).join('')}</nav>
+      <nav class="nav">${navHtml}</nav>
       <div class="sidebar-footer"><button class="btn" id="logout">Sign out</button></div>
     </aside>
     <main class="main">
-      <div class="topbar"><div><h2>${esc(title)}</h2><div class="muted">Private to your account</div></div><button class="btn primary" id="quick">+ Remember</button></div>
+      <div class="topbar">
+        <div><div class="eyebrow">Your private universe</div><h2>${esc(title)}</h2></div>
+        <button class="btn primary" id="quick">+ New memory</button>
+      </div>
       ${content}
     </main>
-    <div class="mobile-nav">${[['home','Home'],['ask','Ask'],['timeline','Timeline'],['memories','Memories'],['settings','Profile']].map(([id,label]) => `<button data-nav="${id}" class="${view === id ? 'active' : ''}">${label}</button>`).join('')}</div>
+    <div class="mobile-nav">
+      ${[['home','Home'],['ask','Ask'],['timeline','Timeline'],['memories','Memories'],['settings','Profile']].map(([id,label])=>`<button data-nav="${id}" class="${view===id?'active':''}">${label}</button>`).join('')}
+    </div>
   </div>`
 }
 
-function wire() {
-  document.querySelectorAll('[data-nav]').forEach(button => button.onclick = () => go(button.dataset.nav))
-  document.getElementById('quick')?.addEventListener('click', () => go('home',true))
-  document.getElementById('logout')?.addEventListener('click', async () => {
+function wire(){
+  document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
+  document.getElementById('quick')?.addEventListener('click',()=>go('home',true))
+  document.getElementById('logout')?.addEventListener('click',async()=>{
     await supabase.auth.signOut()
-    user = null
+    user=null
+    pendingMedia=[]
     authScreen()
   })
 }
 
-async function go(next,focus=false) {
-  view = next
-  const routes = {
-    home:home, ask:ask, memories:memories, timeline:timeline, people:people,
-    places:places, things:things, documents:documents, connections:connections, settings:settings
-  }
-  await (routes[next] || home)()
-  if (focus) document.getElementById('memoryInput')?.focus()
+async function go(next,focus=false){
+  view=next
+  const routes={home,ask,memories,timeline,people,places,things,documents,connections,settings}
+  await (routes[next]||home)()
+  if(focus) document.getElementById('memoryInput')?.focus()
 }
-const render = () => go(view)
+const render=()=>go(view)
 
-function interpret(text) {
-  const result = {memory_type:'note',summary:text,interpreted_data:{}}
-  const patterns = [
+function interpret(text){
+  const result={memory_type:'note',summary:text,interpreted_data:{}}
+  const patterns=[
     /(?:i\s+)?(?:kept|put|left|placed|stored)\s+(?:my\s+)?(.+?)\s+(?:in|inside|under|below|on|at|near)\s+(.+?)(?:\.|$)/i,
     /(?:my\s+)?(.+?)\s+(?:is|was)\s+(?:in|inside|under|below|on|at|near)\s+(.+?)(?:\.|$)/i,
     /(?:i\s+)?moved\s+(?:my\s+)?(.+?)\s+(?:to|into)\s+(.+?)(?:\.|$)/i
   ]
-  for (const pattern of patterns) {
-    const match = text.match(pattern)
-    if (match) {
-      result.memory_type = 'object'
-      result.summary = `${match[1].trim()} is at ${match[2].trim()}`
-      result.interpreted_data = {thing:match[1].trim(),location:match[2].trim()}
+  for(const pattern of patterns){
+    const match=text.match(pattern)
+    if(match){
+      result.memory_type='object'
+      result.summary=`${match[1].trim()} is at ${match[2].trim()}`
+      result.interpreted_data={thing:match[1].trim(),location:match[2].trim()}
       return result
     }
   }
-  const activity = text.match(/(?:i\s+)?(?:played|did|attended|visited)\s+(.+?)(?:\s+with\s+([A-Z][A-Za-z .'-]+?))?(?:\s+(today|yesterday))?(?:\.|$)/i)
-  if (activity) {
-    result.memory_type = 'activity'
-    result.interpreted_data = {activity:activity[1]?.trim(),person:activity[2]?.trim() || null,relative_date:activity[3] || null}
-  } else if (/prefer|favorite|favourite|like|love/i.test(text)) result.memory_type = 'preference'
-  else if (/need to|must|todo|to-do/i.test(text)) result.memory_type = 'task'
-  else if (/remember|important|note/i.test(text)) result.memory_type = 'personal_fact'
+  const activity=text.match(/(?:i\s+)?(?:played|did|attended|visited)\s+(.+?)(?:\s+with\s+([A-Z][A-Za-z .'-]+?))?(?:\s+(today|yesterday))?(?:\.|$)/i)
+  if(activity){
+    result.memory_type='activity'
+    result.interpreted_data={activity:activity[1]?.trim(),person:activity[2]?.trim()||null,relative_date:activity[3]||null}
+  }else if(/prefer|favorite|favourite|like|love/i.test(text)) result.memory_type='preference'
+  else if(/need to|must|todo|to-do/i.test(text)) result.memory_type='task'
+  else if(/met|spoke with|talked with/i.test(text)) result.memory_type='person'
+  else if(/visited|went to|at the|at my/i.test(text)) result.memory_type='place'
+  else if(/remember|important|note/i.test(text)) result.memory_type='personal_fact'
   return result
 }
 
-async function findThing(name) {
-  const { data } = await supabase.from('things').select('*').ilike('name',name).limit(1).maybeSingle()
+async function findThing(name){
+  const {data}=await supabase.from('things').select('*').ilike('name',name).limit(1).maybeSingle()
   return data
 }
 
-async function trackThing(name,location,memoryId) {
-  let thing = await findThing(name)
-  const now = new Date().toISOString()
-  if (!thing) {
-    const created = await supabase.from('things').insert({user_id:user.id,name,current_location:location,last_memory_id:memoryId}).select().single()
-    if (created.error) throw created.error
-    thing = created.data
-  } else {
-    if (thing.last_memory_id) {
+async function trackThing(name,location,memoryId){
+  let thing=await findThing(name)
+  const now=new Date().toISOString()
+  if(!thing){
+    const created=await supabase.from('things').insert({user_id:user.id,name,current_location:location,last_memory_id:memoryId}).select().single()
+    if(created.error) throw created.error
+    thing=created.data
+  }else{
+    if(thing.last_memory_id){
       await supabase.from('memories').update({state:'superseded',valid_to:now}).eq('id',thing.last_memory_id)
       await supabase.from('memories').update({supersedes_memory_id:thing.last_memory_id}).eq('id',memoryId)
     }
     await supabase.from('thing_locations').update({is_current:false,valid_to:now}).eq('thing_id',thing.id).eq('is_current',true)
-    const update = await supabase.from('things').update({current_location:location,last_memory_id:memoryId}).eq('id',thing.id)
-    if (update.error) throw update.error
+    const update=await supabase.from('things').update({current_location:location,last_memory_id:memoryId}).eq('id',thing.id)
+    if(update.error) throw update.error
   }
-  const locationInsert = await supabase.from('thing_locations').insert({
+  const loc=await supabase.from('thing_locations').insert({
     user_id:user.id,thing_id:thing.id,memory_id:memoryId,location,recorded_at:now,valid_from:now,is_current:true
   })
-  if (locationInsert.error) throw locationInsert.error
+  if(loc.error) throw loc.error
 }
 
-async function saveMemory(text) {
-  const parsed = interpret(text)
-  let occurred = new Date()
-  if (parsed.interpreted_data.relative_date === 'yesterday') occurred.setDate(occurred.getDate() - 1)
-  const payload = {
-    user_id:user.id,
-    original_text:text,
-    summary:parsed.summary,
-    memory_type:parsed.memory_type,
-    state:'current',
-    occurred_at:occurred.toISOString(),
-    source_type:'manual',
-    provenance_kind:'user_stated',
-    confidence:1,
-    interpreted_data:parsed.interpreted_data,
-    valid_from:new Date().toISOString()
+async function uploadMedia(memoryId,files){
+  for(const file of files){
+    const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
+    const path=`${user.id}/${memoryId}/${Date.now()}-${safe}`
+    const upload=await supabase.storage.from('memora-media').upload(path,file,{contentType:file.type,upsert:false})
+    if(upload.error) throw upload.error
+    const mediaType=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':'image'
+    const row=await supabase.from('memory_media').insert({
+      user_id:user.id,memory_id:memoryId,storage_path:path,file_name:file.name,mime_type:file.type,media_type:mediaType
+    })
+    if(row.error) throw row.error
   }
-  const { data:memory, error } = await supabase.from('memories').insert(payload).select().single()
-  if (error) throw error
-  if (parsed.interpreted_data.thing && parsed.interpreted_data.location) {
-    await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
+}
+
+async function saveMemory(text,files=[]){
+  const parsed=interpret(text)
+  let occurred=new Date()
+  if(parsed.interpreted_data.relative_date==='yesterday') occurred.setDate(occurred.getDate()-1)
+  const payload={
+    user_id:user.id,original_text:text,summary:parsed.summary,memory_type:parsed.memory_type,state:'current',
+    occurred_at:occurred.toISOString(),source_type:'manual',provenance_kind:'user_stated',confidence:1,
+    interpreted_data:parsed.interpreted_data,valid_from:new Date().toISOString()
   }
-  if (parsed.interpreted_data.person) {
-    const existing = await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
-    if (!existing.data) await supabase.from('people').insert({user_id:user.id,name:parsed.interpreted_data.person,first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+  const {data:memory,error}=await supabase.from('memories').insert(payload).select().single()
+  if(error) throw error
+  if(parsed.interpreted_data.thing&&parsed.interpreted_data.location) await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
+  if(parsed.interpreted_data.person){
+    const existing=await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
+    if(!existing.data) await supabase.from('people').insert({user_id:user.id,name:parsed.interpreted_data.person,first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
   }
-  if (parsed.memory_type === 'activity') {
+  if(parsed.memory_type==='activity'){
     await supabase.from('events').insert({
       user_id:user.id,title:text,event_at:memory.occurred_at,memory_id:memory.id,
-      person_name:parsed.interpreted_data.person || null,source_type:'manual',event_type:'activity'
+      person_name:parsed.interpreted_data.person||null,source_type:'manual',event_type:'activity'
     })
   }
+  if(files.length) await uploadMedia(memory.id,files)
   return memory
 }
 
-function memoryTone(type) {
-  if (['object','object_location'].includes(type)) return 'violet'
-  if (['activity','event'].includes(type)) return 'coral'
-  if (['document','document_fact'].includes(type)) return 'blue'
-  if (['preference','conversation'].includes(type)) return 'pink'
-  if (['place','personal_fact'].includes(type)) return 'teal'
-  if (['task','reminder'].includes(type)) return 'amber'
-  return 'violet'
-}
-
-function attachmentKind(file) {
-  if (file.type.startsWith('image/')) return 'image'
-  if (file.type.startsWith('audio/')) return 'audio'
-  if (file.type.startsWith('video/')) return 'video'
-  if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('sheet') || file.type.startsWith('text/')) return 'document'
-  return 'other'
-}
-
-function addPendingFiles(files, source='upload') {
-  for (const file of [...files]) {
-    if (file.size > 25 * 1024 * 1024) { toast(`${file.name} is larger than 25 MB`); continue }
-    if (pendingAttachments.some(x => x.file.name === file.name && x.file.size === file.size)) continue
-    pendingAttachments.push({file, source, kind:attachmentKind(file), preview:file.type.startsWith('image/') ? URL.createObjectURL(file) : null})
-  }
-  renderPendingFiles()
-}
-
-function renderPendingFiles() {
-  const tray = document.getElementById('attachmentTray')
-  if (!tray) return
-  tray.innerHTML = pendingAttachments.map((x,i) => `<div class="pending-file">${x.preview ? `<img src="${x.preview}" alt="Preview">` : `<span class="file-glyph">FILE</span>`}<div><b>${esc(x.file.name)}</b><small>${Math.max(1,Math.round(x.file.size/1024))} KB · ${x.source === 'camera' ? 'Camera' : 'Attachment'}</small></div><button data-remove-file="${i}">×</button></div>`).join('')
-  tray.querySelectorAll('[data-remove-file]').forEach(button => button.onclick = () => {
-    const i = Number(button.dataset.removeFile)
-    if (pendingAttachments[i]?.preview) URL.revokeObjectURL(pendingAttachments[i].preview)
-    pendingAttachments.splice(i,1)
-    renderPendingFiles()
+function renderPending(){
+  const target=document.getElementById('pendingPreview')
+  if(!target) return
+  target.innerHTML=pendingMedia.map((file,index)=>{
+    const url=URL.createObjectURL(file)
+    const media=file.type.startsWith('video/')?`<video src="${url}" muted></video>`:`<img src="${url}" alt="">`
+    return `<div class="preview">${media}<button data-remove-media="${index}">×</button></div>`
+  }).join('')
+  document.querySelectorAll('[data-remove-media]').forEach(button=>button.onclick=()=>{
+    pendingMedia.splice(Number(button.dataset.removeMedia),1)
+    renderPending()
   })
 }
 
-async function uploadMemoryAttachments(memoryId) {
-  for (const item of pendingAttachments) {
-    const safe = item.file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
-    const path = `${user.id}/${memoryId}/${crypto.randomUUID()}-${safe}`
-    const upload = await supabase.storage.from('memora-media').upload(path,item.file,{contentType:item.file.type || undefined})
-    if (upload.error) throw upload.error
-    const row = await supabase.from('memory_attachments').insert({user_id:user.id,memory_id:memoryId,storage_path:path,file_name:item.file.name,mime_type:item.file.type,size_bytes:item.file.size,attachment_type:item.kind,source:item.source})
-    if (row.error) throw row.error
-  }
+function bindComposerInputs(){
+  const photo=document.getElementById('photoInput')
+  const camera=document.getElementById('cameraInput')
+  document.getElementById('photoBtn')?.addEventListener('click',()=>photo?.click())
+  document.getElementById('cameraBtn')?.addEventListener('click',()=>camera?.click())
+  ;[photo,camera].forEach(input=>input?.addEventListener('change',event=>{
+    const files=[...event.target.files].filter(f=>f.type.startsWith('image/')||f.type.startsWith('video/'))
+    pendingMedia.push(...files.slice(0,6-pendingMedia.length))
+    renderPending()
+    event.target.value=''
+  }))
 }
 
-async function hydrateMemoryMedia() {
-  const cards = [...document.querySelectorAll('[data-memory-id]')]
-  const ids = cards.map(card => card.dataset.memoryId)
-  if (!ids.length) return
-  const {data} = await supabase.from('memory_attachments').select('*').in('memory_id',ids).order('created_at')
-  if (!data?.length) return
-  for (const attachment of data) {
-    const slot = document.querySelector(`[data-media-slot="${attachment.memory_id}"]`)
-    if (!slot) continue
-    if (attachment.attachment_type === 'image') {
-      const signed = await supabase.storage.from('memora-media').createSignedUrl(attachment.storage_path,3600)
-      if (signed.data?.signedUrl) {
-        const button = document.createElement('button')
-        button.className = 'memory-photo'
-        button.innerHTML = `<img src="${signed.data.signedUrl}" alt="${esc(attachment.file_name)}" loading="lazy">`
-        button.onclick = () => openMemoryImage(signed.data.signedUrl, attachment.file_name)
-        slot.appendChild(button)
-      }
-    } else {
-      const file = document.createElement('span')
-      file.className = 'memory-file-chip'
-      file.textContent = attachment.file_name
-      slot.appendChild(file)
+async function hydrateMemoryMedia(memoriesList){
+  if(!memoriesList?.length) return
+  const ids=memoriesList.map(m=>m.id)
+  const {data:media}=await supabase.from('memory_media').select('*').in('memory_id',ids).order('created_at')
+  if(!media?.length) return
+  const grouped={}
+  for(const item of media){
+    grouped[item.memory_id] ||= []
+    if(grouped[item.memory_id].length<3){
+      const signed=await supabase.storage.from('memora-media').createSignedUrl(item.storage_path,3600)
+      if(signed.data?.signedUrl) grouped[item.memory_id].push({...item,url:signed.data.signedUrl})
     }
   }
+  Object.entries(grouped).forEach(([memoryId,items])=>{
+    const slot=document.querySelector(`[data-media-slot="${memoryId}"]`)
+    if(!slot) return
+    const first=items[0]
+    if(first.media_type==='video') slot.innerHTML=`<video src="${first.url}" controls playsinline></video>`
+    else slot.innerHTML=`<img src="${first.url}" alt="Memory attachment">`
+    slot.classList.remove('hidden')
+    const badge=document.querySelector(`[data-photo-badge="${memoryId}"]`)
+    if(badge) badge.classList.remove('hidden')
+  })
 }
 
-function openMemoryImage(url,name) {
-  const lightbox = document.createElement('div')
-  lightbox.className = 'memory-lightbox'
-  lightbox.innerHTML = `<button>×</button><img src="${url}" alt="${esc(name || 'Memory photo')}"><span>${esc(name || 'Memory photo')}</span>`
-  document.body.appendChild(lightbox)
-  requestAnimationFrame(() => lightbox.classList.add('open'))
-  const close = () => { lightbox.classList.remove('open'); setTimeout(() => lightbox.remove(),200) }
-  lightbox.querySelector('button').onclick = close
-  lightbox.onclick = e => { if (e.target === lightbox) close() }
-}
-
-function setupVoiceCapture() {
-  const button = document.getElementById('voiceMemory')
-  if (!button) return
-  button.onclick = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) return toast('Voice dictation is not supported in this browser yet.')
-    const recognition = new SpeechRecognition()
-    recognition.lang = navigator.language || 'en-IN'
-    recognition.interimResults = true
-    button.classList.add('recording')
-    button.textContent = 'Listening...'
-    recognition.onresult = e => document.getElementById('memoryInput').value = [...e.results].map(r => r[0].transcript).join(' ')
-    recognition.onend = () => { button.classList.remove('recording'); button.textContent = 'Voice' }
-    recognition.onerror = () => toast('I could not hear that clearly. Try again.')
-    recognition.start()
-  }
-}
-
-async function home() {
-  const [{ count:memoryCount },{ count:thingCount },{ count:photoCount },{ data:recent }] = await Promise.all([
-    supabase.from('memories').select('*',{count:'exact',head:true}),
-    supabase.from('things').select('*',{count:'exact',head:true}),
-    supabase.from('memory_attachments').select('*',{count:'exact',head:true}).eq('attachment_type','image'),
-    supabase.from('memories').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(8)
-  ])
-  app.innerHTML = shell(`
-    <section class="hero-premium">
-      <div class="hero-aurora one"></div><div class="hero-aurora two"></div>
-      <div class="hero-premium-copy"><span class="premium-eyebrow">CAPTURE A MEMORY</span><h3>What should your future self remember?</h3><p>Write it, say it, photograph it or attach the file. Memora keeps the context together.</p></div>
-      <div class="memory-composer">
-        <textarea id="memoryInput" placeholder="I kept my keys in the top drawer beside the watch..." rows="3"></textarea>
-        <div id="attachmentTray" class="attachment-tray"></div>
-        <div class="composer-bar"><div class="composer-tools">
-          <label class="capture-tool">Photo<input type="file" id="photoInput" accept="image/*" multiple hidden></label>
-          <label class="capture-tool">Camera<input type="file" id="cameraInput" accept="image/*" capture="environment" hidden></label>
-          <label class="capture-tool">File<input type="file" id="memoryFileInput" multiple hidden></label>
-          <button class="capture-tool" id="voiceMemory">Voice</button>
-        </div><button class="btn primary remember-btn" id="saveMemory">Remember this ✦</button></div>
+function memoryCard(m){
+  return `<article class="glass memory-card">
+    <div class="memory-media hidden" data-media-slot="${m.id}"></div>
+    <div class="memory-body">
+      <div class="memory-top">
+        <div><span class="badge">${esc(typeLabel(m.memory_type))}</span> <span class="badge photo hidden" data-photo-badge="${m.id}">Visual</span></div>
+        <button class="kebab" data-delete-memory="${m.id}" title="Delete">•••</button>
       </div>
-      <div class="prompt-chips"><button data-example="I kept my house key in the top drawer beside the watch.">Where I kept something</button><button data-example="I played basketball with Arun today.">Something I did</button><button data-example="Remember that my vehicle insurance renewal is important.">Something important</button></div>
-    </section>
-    <div class="premium-stats"><div><span class="stat-swatch violet">✦</span><b>${memoryCount || 0}</b><small>Memories</small></div><div><span class="stat-swatch teal">◎</span><b>${photoCount || 0}</b><small>Photos</small></div><div><span class="stat-swatch coral">⌖</span><b>${thingCount || 0}</b><small>Things tracked</small></div><div><span class="stat-swatch blue">✓</span><b>Private</b><small>RLS protected</small></div></div>
-    <div class="section-title premium-title"><div><span class="premium-eyebrow">YOUR MEMORY SPACE</span><h3>Recent memories</h3></div><button class="text-link" data-nav="memories">View all →</button></div>
-    <div class="memory-grid">${recent?.length ? recent.map(memoryCard).join('') : '<div class="empty-premium"><span>✦</span><h3>Your first memory starts here</h3><p>Add a note, photo or file above. Your personal timeline will grow from real moments.</p></div>'}</div>
-  `,'Home')
-  wire()
-  document.querySelectorAll('[data-example]').forEach(button => button.onclick = () => { document.getElementById('memoryInput').value = button.dataset.example; document.getElementById('memoryInput').focus() })
-  document.getElementById('photoInput').onchange = e => addPendingFiles(e.target.files,'upload')
-  document.getElementById('cameraInput').onchange = e => addPendingFiles(e.target.files,'camera')
-  document.getElementById('memoryFileInput').onchange = e => addPendingFiles(e.target.files,'upload')
-  setupVoiceCapture()
-  document.getElementById('saveMemory').onclick = async () => {
-    const input = document.getElementById('memoryInput')
-    const text = input.value.trim()
-    if (!text && !pendingAttachments.length) return toast('Add a note, photo or file first.')
-    const button = document.getElementById('saveMemory')
-    button.disabled = true
-    button.textContent = pendingAttachments.length ? 'Saving memory + media...' : 'Saving memory...'
-    try {
-      const fallback = pendingAttachments.length ? `Saved ${pendingAttachments.map(x => x.file.name).join(', ')}` : 'Saved memory'
-      const memory = await saveMemory(text || fallback)
-      if (pendingAttachments.length) await uploadMemoryAttachments(memory.id)
-      pendingAttachments.forEach(x => x.preview && URL.revokeObjectURL(x.preview))
-      pendingAttachments = []
-      toast('Memory saved beautifully')
-      await home()
-    } catch (error) { toast(error.message); button.disabled = false; button.textContent = 'Remember this ✦' }
-  }
-  bindDeletes()
-  await hydrateMemoryMedia()
-}
-
-
-function memoryCard(m) {
-  const tone = memoryTone(m.memory_type)
-  const source = m.provenance_kind === 'imported' ? 'Imported' : m.provenance_kind === 'document_derived' ? 'From document' : m.provenance_kind === 'ai_inferred' ? 'AI interpreted' : 'You added this'
-  return `<article class="memory-card tone-${tone}" data-memory-id="${m.id}" data-type="${esc(m.memory_type)}">
-    <div class="memory-glow"></div>
-    <div class="memory-card-head"><span class="type-dot"></span><span>${esc((m.memory_type || 'memory').replaceAll('_',' '))}</span><time>${when(m.occurred_at || m.created_at)}</time></div>
-    <div class="memory-media" data-media-slot="${m.id}"></div>
-    <div class="memory-card-body"><h3>${esc(m.summary || m.original_text)}</h3>${m.summary && m.summary !== m.original_text ? `<p>${esc(m.original_text)}</p>` : ''}</div>
-    <div class="memory-card-foot"><span class="source-chip">✓ ${esc(source)}</span><div class="memory-actions"><button class="star-button" data-pin-memory="${m.id}" title="Pin">${m.pinned ? '★' : '☆'}</button><button class="delete-x" data-delete-memory="${m.id}" title="Delete">×</button></div></div>
+      <div class="memory-title" style="margin-top:12px">${esc(m.summary||m.original_text)}</div>
+      <div class="memory-original">${esc(m.original_text)}</div>
+      <div class="memory-meta"><span>${shortDate(m.occurred_at||m.created_at)}</span><span>•</span><span>${esc((m.provenance_kind||'user_stated').replaceAll('_',' '))}</span></div>
+    </div>
   </article>`
 }
 
+async function home(){
+  const [{count:memoryCount},{count:thingCount},{count:docCount},{data:recent}]=await Promise.all([
+    supabase.from('memories').select('*',{count:'exact',head:true}),
+    supabase.from('things').select('*',{count:'exact',head:true}),
+    supabase.from('documents').select('*',{count:'exact',head:true}),
+    supabase.from('memories').select('*').order('created_at',{ascending:false}).limit(6)
+  ])
+  app.innerHTML=shell(`
+    <section class="glass hero">
+      <div class="hero-content">
+        <div class="eyebrow">Capture a moment</div>
+        <h3><span class="gradient-text">Your life deserves a better memory.</span></h3>
+        <p>Write it, photograph it, scan it or simply tell Memora where you kept something. Every memory stays linked to its source, time and history.</p>
+        <div class="composer">
+          <textarea id="memoryInput" placeholder="I kept my keys in the top drawer beside the watch..."></textarea>
+          <div id="pendingPreview" class="preview-strip"></div>
+          <div class="composer-tools">
+            <div class="tool-row">
+              <button class="btn icon" id="cameraBtn">Camera</button>
+              <button class="btn icon" id="photoBtn">Photos</button>
+              <button class="btn icon" id="fileJump">File</button>
+              <input class="hidden" id="cameraInput" type="file" accept="image/*" capture="environment">
+              <input class="hidden" id="photoInput" type="file" accept="image/*,video/*" multiple>
+            </div>
+            <button class="btn primary" id="saveMemory">Remember this</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="section-title"><div><h3>Your memory space</h3><p>A living map of the things that matter.</p></div></div>
+    <div class="grid three">
+      <div class="glass stat" style="--accent:rgba(139,124,255,.22)"><span class="muted">Memories</span><b>${memoryCount||0}</b></div>
+      <div class="glass stat" style="--accent:rgba(83,216,208,.20)"><span class="muted">Things tracked</span><b>${thingCount||0}</b></div>
+      <div class="glass stat" style="--accent:rgba(255,120,168,.18)"><span class="muted">Files remembered</span><b>${docCount||0}</b></div>
+    </div>
+    <div class="section-title"><div><h3>Recent memories</h3><p>Moments, objects and details you captured recently.</p></div><button class="btn" data-nav="memories">View all</button></div>
+    <div class="memory-grid">${recent?.length?recent.map(memoryCard).join(''):'<div class="glass empty"><strong>Your canvas is empty</strong>Start with a sentence, photo or file.</div>'}</div>
+  `,'Home')
+  wire()
+  bindComposerInputs()
+  renderPending()
+  document.getElementById('fileJump').onclick=()=>go('documents')
+  document.getElementById('saveMemory').onclick=async()=>{
+    const input=document.getElementById('memoryInput')
+    let text=input.value.trim()
+    if(!text&&pendingMedia.length) text='Photo memory'
+    if(!text) return toast('Add a note or photo first')
+    const button=document.getElementById('saveMemory')
+    button.disabled=true
+    button.textContent='Saving...'
+    try{
+      await saveMemory(text,pendingMedia)
+      pendingMedia=[]
+      toast('Memory saved beautifully')
+      await home()
+    }catch(error){
+      toast(error.message)
+      button.disabled=false
+      button.textContent='Remember this'
+    }
+  }
+  bindDeletes()
+  await hydrateMemoryMedia(recent||[])
+}
 
-async function memories() {
-  const { data, error } = await supabase.from('memories').select('*').order('created_at',{ascending:false})
-  app.innerHTML = shell(`
-    <div class="capture"><input class="input" id="memorySearch" placeholder="Search your memories"><button class="btn primary" id="searchMemory">Search</button></div>
-    <div class="section-title"><h3>All memories</h3></div>
-    <div class="list" id="memoryList">${error ? esc(error.message) : data?.length ? data.map(memoryCard).join('') : '<div class="card empty">No memories yet.</div>'}</div>
+async function memories(){
+  const {data,error}=await supabase.from('memories').select('*').order('created_at',{ascending:false})
+  app.innerHTML=shell(`
+    <div class="glass" style="padding:16px">
+      <div class="capture" style="display:grid;grid-template-columns:1fr auto;gap:10px">
+        <input class="input" id="memorySearch" placeholder="Search a person, object, place, activity or phrase">
+        <button class="btn primary" id="searchMemory">Search</button>
+      </div>
+    </div>
+    <div class="section-title"><div><h3>Memory gallery</h3><p>Your searchable visual archive.</p></div></div>
+    <div class="memory-grid" id="memoryList">${error?esc(error.message):data?.length?data.map(memoryCard).join(''):'<div class="glass empty"><strong>No memories yet</strong>Capture your first one from Home.</div>'}</div>
   `,'Memories')
   wire()
   bindDeletes()
-  await hydrateMemoryMedia()
-  document.getElementById('searchMemory').onclick = async () => {
-    const q = document.getElementById('memorySearch').value.trim()
-    if (!q) return memories()
-    const result = await supabase.rpc('search_memories',{search_query:q,result_limit:50})
-    document.getElementById('memoryList').innerHTML = result.error ? esc(result.error.message) : result.data?.length ? result.data.map(m => memoryCard({...m,created_at:m.occurred_at})).join('') : '<div class="card empty">No matching memories.</div>'
+  await hydrateMemoryMedia(data||[])
+  document.getElementById('searchMemory').onclick=async()=>{
+    const q=document.getElementById('memorySearch').value.trim()
+    if(!q) return memories()
+    const result=await supabase.rpc('search_memories',{search_query:q,result_limit:50})
+    const found=result.data||[]
+    document.getElementById('memoryList').innerHTML=result.error?esc(result.error.message):found.length?found.map(m=>memoryCard({...m,created_at:m.occurred_at})).join(''):'<div class="glass empty"><strong>Nothing matched</strong>Try another word or phrase.</div>'
     bindDeletes()
-    await hydrateMemoryMedia()
+    await hydrateMemoryMedia(found)
   }
 }
 
-function bindDeletes() {
-  document.querySelectorAll('[data-delete-memory]').forEach(button => button.onclick = async () => {
-    if (!confirm('Delete this memory?')) return
-    const memoryId = button.dataset.deleteMemory
-    const {data:attachments} = await supabase.from('memory_attachments').select('storage_path').eq('memory_id',memoryId)
-    if (attachments?.length) await supabase.storage.from('memora-media').remove(attachments.map(x => x.storage_path))
-    const { error } = await supabase.from('memories').delete().eq('id',memoryId)
-    if (error) toast(error.message)
-    else { toast('Memory deleted'); go(view) }
-  })
-  document.querySelectorAll('[data-pin-memory]').forEach(button => button.onclick = async () => {
-    const memoryId = button.dataset.pinMemory
-    const {data} = await supabase.from('memories').select('pinned').eq('id',memoryId).single()
-    if (!data) return
-    const {error} = await supabase.from('memories').update({pinned:!data.pinned}).eq('id',memoryId)
-    if (error) toast(error.message)
-    else go(view)
+function bindDeletes(){
+  document.querySelectorAll('[data-delete-memory]').forEach(button=>button.onclick=async()=>{
+    if(!confirm('Delete this memory and its links?')) return
+    const memoryId=button.dataset.deleteMemory
+    const {data:media}=await supabase.from('memory_media').select('storage_path').eq('memory_id',memoryId)
+    if(media?.length) await supabase.storage.from('memora-media').remove(media.map(x=>x.storage_path))
+    const {error}=await supabase.from('memories').delete().eq('id',memoryId)
+    if(error) toast(error.message)
+    else{toast('Memory deleted');go(view)}
   })
 }
 
-async function answer(question) {
-  const q = question.trim()
-  let match = q.match(/where (?:is|did i (?:keep|put|leave)) (?:my )?(.+?)(?:\?|$)/i)
-  if (match) {
-    const thing = await findThing(match[1].trim())
-    if (!thing) return {text:"I don't have a memory about that yet."}
+async function answer(question){
+  const q=question.trim()
+  let match=q.match(/where (?:is|did i (?:keep|put|leave)) (?:my )?(.+?)(?:\?|$)/i)
+  if(match){
+    const thing=await findThing(match[1].trim())
+    if(!thing) return {text:"I don't have a memory about that yet."}
     return {text:`Your ${thing.name} is currently recorded as being at ${thing.current_location}.`,source:'Latest personal memory'}
   }
-  match = q.match(/where was (?:my )?(.+?) before/i)
-  if (match) {
-    const thing = await findThing(match[1].trim())
-    if (!thing) return {text:"I don't have a memory about that yet."}
-    const { data } = await supabase.from('thing_locations').select('*').eq('thing_id',thing.id).order('recorded_at',{ascending:false}).limit(2)
-    if (!data || data.length < 2) return {text:`I know the current location of your ${thing.name}, but I do not have an earlier location yet.`}
+  match=q.match(/where was (?:my )?(.+?) before/i)
+  if(match){
+    const thing=await findThing(match[1].trim())
+    if(!thing) return {text:"I don't have a memory about that yet."}
+    const {data}=await supabase.from('thing_locations').select('*').eq('thing_id',thing.id).order('recorded_at',{ascending:false}).limit(2)
+    if(!data||data.length<2) return {text:`I know the current location of your ${thing.name}, but I do not have an earlier location yet.`}
     return {text:`Before ${data[0].location}, your ${thing.name} was recorded at ${data[1].location}.`,source:`Personal memory from ${when(data[1].recorded_at)}`}
   }
-  match = q.match(/when did i last (.+?)(?:\?|$)/i)
-  if (match) {
-    const term = match[1].trim()
-    const { data } = await supabase.rpc('search_memories',{search_query:term,result_limit:5})
-    if (!data?.length) return {text:"I don't have a memory about that yet."}
-    return {text:`The most recent matching memory I found is: "${data[0].original_text}" on ${when(data[0].occurred_at)}.`,source:'Your stored memories'}
+  match=q.match(/when did i last (.+?)(?:\?|$)/i)
+  if(match){
+    const {data}=await supabase.rpc('search_memories',{search_query:match[1].trim(),result_limit:5})
+    if(!data?.length) return {text:"I don't have a memory about that yet."}
+    return {text:`The most recent matching memory I found is “${data[0].original_text}” from ${when(data[0].occurred_at)}.`,source:'Your stored memories'}
   }
-  const { data, error } = await supabase.rpc('search_memories',{search_query:q,result_limit:5})
-  if (error || !data?.length) return {text:"I don't have a memory about that yet."}
-  return {text:`I found this memory: "${data[0].original_text}"`,source:`Stored memory from ${when(data[0].occurred_at)}`}
+  const {data,error}=await supabase.rpc('search_memories',{search_query:q,result_limit:5})
+  if(error||!data?.length) return {text:"I don't have a memory about that yet."}
+  return {text:`I found this in your memory vault: “${data[0].original_text}”`,source:`Stored memory from ${when(data[0].occurred_at)}`}
 }
 
-async function ask() {
-  app.innerHTML = shell(`
-    <div class="ask-layout">
-      <div class="chat" id="chat">${chat.length ? chat.map(message => `<div class="bubble ${message.role === 'user' ? 'user' : ''}">${esc(message.text)}${message.source ? `<div class="source">Source: ${esc(message.source)}</div>` : ''}</div>`).join('') : '<div class="card empty">Try "Where is my wallet?", "Where was my wallet before?", or "When did I last play basketball?"</div>'}</div>
-      <div class="capture"><input class="input" id="askInput" placeholder="Ask Memora about your life"><button class="btn primary" id="askButton">Ask</button></div>
+async function ask(){
+  app.innerHTML=shell(`
+    <div class="ask-wrap">
+      <div class="glass" style="padding:18px;overflow:auto">
+        <div class="chat" id="chat">${chat.length?chat.map(message=>`<div class="bubble ${message.role==='user'?'user':''}">${esc(message.text)}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`).join(''):'<div class="empty"><strong>Ask your own life</strong>Try “Where are my keys?”, “Where were they before?” or “When did I last play basketball?”</div>'}</div>
+      </div>
+      <div class="glass ask-composer"><input class="input" id="askInput" placeholder="Ask Memora anything about your memories"><button class="btn primary" id="askButton">Ask</button></div>
     </div>
   `,'Ask Memora')
   wire()
-  const submit = async () => {
-    const input = document.getElementById('askInput')
-    const q = input.value.trim()
-    if (!q) return
+  const submit=async()=>{
+    const input=document.getElementById('askInput')
+    const q=input.value.trim()
+    if(!q) return
     chat.push({role:'user',text:q})
-    const result = await answer(q)
-    chat.push({role:'assistant',...result})
+    chat.push({role:'assistant',...(await answer(q))})
     ask()
   }
-  document.getElementById('askButton').onclick = submit
-  document.getElementById('askInput').onkeydown = event => { if (event.key === 'Enter') submit() }
+  document.getElementById('askButton').onclick=submit
+  document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter')submit()}
 }
 
-async function timeline() {
-  const { data } = await supabase.from('memories').select('*').order('occurred_at',{ascending:false})
-  app.innerHTML = shell(`
-    <div class="section-title premium-title"><div><span class="premium-eyebrow">LIFE IN ORDER</span><h3>Your timeline</h3></div></div>
-    <div class="memory-grid timeline">${data?.length ? data.map(memoryCard).join('') : '<div class="empty-premium"><h3>Your timeline is empty</h3><p>Memories with dates will appear here in chronological order.</p></div>'}</div>
+async function timeline(){
+  const {data}=await supabase.from('memories').select('*').order('occurred_at',{ascending:false})
+  app.innerHTML=shell(`
+    <div class="section-title"><div><h3>Your life stream</h3><p>A chronological trail of what you chose to remember.</p></div></div>
+    <div class="timeline">${data?.length?data.map(m=>`<div class="timeline-entry"><div class="timeline-dot"></div><div class="glass timeline-card"><span class="badge">${esc(typeLabel(m.memory_type))}</span><h3 style="margin:10px 0 6px">${esc(m.summary||m.original_text)}</h3><div class="muted">${esc(m.original_text)}</div><div class="memory-meta"><span>${when(m.occurred_at)}</span><span>•</span><span>${esc((m.provenance_kind||'user_stated').replaceAll('_',' '))}</span></div></div></div>`).join(''):'<div class="glass empty"><strong>Your timeline is waiting</strong>Memories will appear here in time order.</div>'}</div>
   `,'Timeline')
   wire()
-  bindDeletes()
-  await hydrateMemoryMedia()
 }
 
-async function people() {
-  const { data } = await supabase.from('people').select('*').order('name')
-  app.innerHTML = shell(`<div class="list">${data?.length ? data.map(p => `<div class="card item"><strong>${esc(p.name)}</strong><div class="muted">${esc(p.relationship || 'Person from your memories')}</div><div>Last seen: ${when(p.last_seen_at || p.created_at)}</div></div>`).join('') : '<div class="card empty">People identified in memories will appear here.</div>'}</div>`,'People')
+async function people(){
+  const {data}=await supabase.from('people').select('*').order('name')
+  app.innerHTML=shell(`
+    <div class="section-title"><div><h3>People in your story</h3><p>Names Memora has recognized from your memories.</p></div></div>
+    <div class="vault">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="big">◎</div><h3>${esc(p.name)}</h3><div class="muted">${esc(p.relationship||'Person from your memories')}</div><div class="memory-meta">Last seen ${when(p.last_seen_at||p.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No people yet</strong>Mention someone in a memory and they can appear here.</div>'}</div>
+  `,'People')
   wire()
 }
 
-async function places() {
-  const { data } = await supabase.from('places').select('*').order('name')
-  app.innerHTML = shell(`<div class="list">${data?.length ? data.map(p => `<div class="card item"><strong>${esc(p.name)}</strong><div class="muted">${esc(p.address || p.category || 'Saved place')}</div></div>`).join('') : '<div class="card empty">Places you add or import will appear here.</div>'}</div>`,'Places')
+async function places(){
+  const {data}=await supabase.from('places').select('*').order('name')
+  app.innerHTML=shell(`
+    <div class="section-title"><div><h3>Places that matter</h3><p>Homes, cafes, cities and meaningful locations.</p></div></div>
+    <div class="vault">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="big">⌖</div><h3>${esc(p.name)}</h3><div class="muted">${esc(p.address||p.category||'Saved place')}</div></div>`).join(''):'<div class="glass empty"><strong>No places yet</strong>Place recognition and imported location history will collect here.</div>'}</div>
+  `,'Places')
   wire()
 }
 
-async function things() {
-  const { data } = await supabase.from('things').select('*').order('updated_at',{ascending:false})
-  app.innerHTML = shell(`<div class="list">${data?.length ? data.map(t => `<div class="card item"><div class="item-head"><strong>${esc(t.name)}</strong><span class="pill success">Current</span></div><div>Location: <b>${esc(t.current_location || 'Unknown')}</b></div><button class="btn" data-history="${t.id}">View history</button><div id="history-${t.id}"></div></div>`).join('') : '<div class="card empty">Tell Memora where you keep an object and it will appear here.</div>'}</div>`,'Things')
+async function things(){
+  const {data}=await supabase.from('things').select('*').order('updated_at',{ascending:false})
+  app.innerHTML=shell(`
+    <div class="section-title"><div><h3>Things you never want to lose</h3><p>Current location plus the history of where each item was kept.</p></div></div>
+    <div class="vault">${data?.length?data.map(t=>`<div class="glass vault-card"><div class="big">◇</div><div class="item-head"><h3 style="margin:0">${esc(t.name)}</h3><span class="badge photo">Current</span></div><p>Location: <b>${esc(t.current_location||'Unknown')}</b></p><button class="btn" data-history="${t.id}">Location history</button><div id="history-${t.id}" style="margin-top:14px"></div></div>`).join(''):'<div class="glass empty"><strong>No objects tracked yet</strong>Try “I kept my key in the drawer.”</div>'}</div>
+  `,'Things')
   wire()
-  document.querySelectorAll('[data-history]').forEach(button => button.onclick = async () => {
-    const { data:history } = await supabase.from('thing_locations').select('*').eq('thing_id',button.dataset.history).order('recorded_at',{ascending:false})
-    document.getElementById('history-' + button.dataset.history).innerHTML = history?.length ? `<div class="list">${history.map(h => `<div><span class="pill">${h.is_current ? 'Current' : 'Previous'}</span> ${esc(h.location)} <span class="muted">${when(h.recorded_at)}</span></div>`).join('')}</div>` : '<div class="muted">No history.</div>'
+  document.querySelectorAll('[data-history]').forEach(button=>button.onclick=async()=>{
+    const {data:history}=await supabase.from('thing_locations').select('*').eq('thing_id',button.dataset.history).order('recorded_at',{ascending:false})
+    document.getElementById('history-'+button.dataset.history).innerHTML=history?.length?history.map(h=>`<div style="padding:8px 0;border-top:1px solid var(--line)"><span class="badge">${h.is_current?'Current':'Previous'}</span> ${esc(h.location)} <span class="muted">${shortDate(h.recorded_at)}</span></div>`).join(''):'<div class="muted">No earlier location.</div>'
   })
 }
 
-async function documents() {
-  const { data } = await supabase.from('documents').select('*').order('created_at',{ascending:false})
-  app.innerHTML = shell(`<section class="document-hero"><span class="premium-eyebrow">FILES AS MEMORIES</span><h3>Remember why a file matters</h3><p>Save a PDF, Word file, spreadsheet, image or text file with a note that gives it context.</p><textarea id="documentNote" placeholder="Example: Vehicle insurance policy for my bike"></textarea><label class="btn primary document-pick">Choose a file<input type="file" id="fileInput" hidden></label><div id="uploadMsg" class="muted"></div></section><div class="section-title premium-title"><div><span class="premium-eyebrow">PRIVATE FILE VAULT</span><h3>Your documents</h3></div></div><div class="document-grid">${data?.length ? data.map(d => `<article class="document-card"><span class="doc-mark">DOC</span><div><b>${esc(d.file_name)}</b><p>${esc(d.description || 'Saved in your private vault')}</p><small>${when(d.created_at)}</small></div></article>`).join('') : '<div class="empty-premium"><h3>No documents saved yet</h3><p>Add a file above and Memora will create a searchable memory for it.</p></div>'}</div>`,'Documents')
-  wire()
-  document.getElementById('fileInput').onchange = async event => {
-    const file = event.target.files[0]; if (!file) return
-    const note = document.getElementById('documentNote').value.trim()
-    const msg = document.getElementById('uploadMsg'); msg.textContent = 'Saving file and memory...'
-    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
-    const path = `${user.id}/${Date.now()}-${safe}`
-    const uploaded = await supabase.storage.from('memora-documents').upload(path,file,{contentType:file.type || undefined})
-    if (uploaded.error) return msg.textContent = uploaded.error.message
-    const record = await supabase.from('documents').insert({user_id:user.id,file_name:file.name,storage_path:path,mime_type:file.type,size_bytes:file.size,description:note || null,category:'personal',processing_status:'ready'}).select().single()
-    if (record.error) return msg.textContent = record.error.message
-    const memory = await saveMemory(note || `Saved document: ${file.name}`)
-    await supabase.from('memories').update({memory_type:'document',document_id:record.data.id}).eq('id',memory.id)
-    toast('Document remembered')
-    documents()
-  }
-}
-
-
-async function importChatGPTFile(file) {
-  let parsed
-  try { parsed = JSON.parse(await file.text()) } catch { throw new Error('Choose conversations.json from your ChatGPT data export.') }
-  if (!Array.isArray(parsed)) throw new Error('This does not look like ChatGPT conversations.json.')
-  const rows = []
-  for (const conversation of parsed.slice(0,500)) {
-    const messages = []
-    for (const node of Object.values(conversation.mapping || {})) {
-      const msg = node?.message
-      if (msg?.author?.role !== 'user') continue
-      const parts = msg?.content?.parts
-      const content = Array.isArray(parts) ? parts.filter(x => typeof x === 'string').join(' ') : ''
-      if (content.trim()) messages.push(content.trim())
-    }
-    const combined = messages.join('\n\n').slice(0,12000)
-    if (!combined) continue
-    rows.push({user_id:user.id,original_text:combined,summary:conversation.title || 'Imported ChatGPT conversation',memory_type:'conversation',state:'historical',occurred_at:conversation.create_time ? new Date(conversation.create_time*1000).toISOString() : new Date().toISOString(),source_type:'chatgpt_import',provenance_kind:'imported',confidence:1,interpreted_data:{conversation_title:conversation.title || null},metadata:{imported_from:'ChatGPT export'},valid_from:new Date().toISOString()})
-  }
-  if (!rows.length) throw new Error('No user messages were found in that export.')
-  for (let i=0;i<rows.length;i+=50) {
-    const {error} = await supabase.from('memories').insert(rows.slice(i,i+50))
-    if (error) throw error
-  }
-  return rows.length
-}
-
-async function connections() {
-  const providers = [
-    ['chatgpt','ChatGPT','Import your official ChatGPT conversations.json export into searchable memories.','Available now','violet'],
-    ['maps','Google Maps Timeline','Bring exported location history into your life timeline and places.','Import option','teal'],
-    ['calendar','Google Calendar','Turn meetings, trips and events into life context.','OAuth setup next','coral'],
-    ['gmail','Gmail','Remember selected receipts, bookings and important conversations.','OAuth setup next','pink'],
-    ['drive','Google Drive','Index files you choose without making them public.','OAuth setup next','blue'],
-    ['photos','Google Photos','Use selected photos as visual anchors for moments and places.','OAuth setup next','pink'],
-    ['microsoft','Microsoft 365','Future connection for Outlook, Calendar, OneDrive and SharePoint.','OAuth setup next','blue'],
-    ['files','Files and archives','Documents can already be saved directly in Memora.','Available now','amber']
-  ]
-  app.innerHTML = shell(`<section class="connections-hero"><span class="premium-eyebrow">MEMORY SOURCES</span><h3>Connect the places your life already lives</h3><p>Memora is designed to become one private index across conversations, calendars, locations, photos and files. Only working imports are marked available.</p></section><div class="connection-grid">${providers.map(([id,name,desc,status,tone]) => `<article class="connection-card tone-${tone}"><div class="connection-logo">${name.slice(0,1)}</div><div><div class="connection-head"><h3>${name}</h3><span>${status}</span></div><p>${desc}</p><button class="btn" data-source="${id}">${id === 'chatgpt' ? 'Import export' : id === 'files' ? 'Open Documents' : id === 'maps' ? 'Add export' : 'Connect'}</button></div></article>`).join('')}</div><input type="file" id="chatgptImport" accept=".json,application/json" hidden><input type="file" id="mapsImport" accept=".json,application/json" hidden>`,'Connections')
-  wire()
-  document.querySelectorAll('[data-source]').forEach(button => button.onclick = () => {
-    const id = button.dataset.source
-    if (id === 'chatgpt') return document.getElementById('chatgptImport').click()
-    if (id === 'maps') return document.getElementById('mapsImport').click()
-    if (id === 'files') return go('documents')
-    toast('This connection needs its provider OAuth setup in a later build. No fake connection was created.')
+async function rememberDocument(file,note){
+  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
+  const path=`${user.id}/${Date.now()}-${safe}`
+  const uploaded=await supabase.storage.from('memora-documents').upload(path,file,{contentType:file.type||'application/octet-stream'})
+  if(uploaded.error) throw uploaded.error
+  const {data:doc,error}=await supabase.from('documents').insert({
+    user_id:user.id,file_name:file.name,storage_path:path,mime_type:file.type,size_bytes:file.size,
+    description:note||null,processing_status:'pending'
+  }).select().single()
+  if(error) throw error
+  const text=note?.trim()? `${note.trim()} | File: ${file.name}` : `Remember this file: ${file.name}`
+  const memory=await supabase.from('memories').insert({
+    user_id:user.id,original_text:text,summary:note?.trim()||file.name,memory_type:'document',state:'current',
+    occurred_at:new Date().toISOString(),source_type:'document',provenance_kind:'user_stated',confidence:1,
+    document_id:doc.id,valid_from:new Date().toISOString(),interpreted_data:{file_name:file.name}
   })
-  document.getElementById('chatgptImport').onchange = async e => {
-    const file = e.target.files[0]; if (!file) return
-    try { toast('Importing ChatGPT memories...'); const count = await importChatGPTFile(file); toast(`${count} ChatGPT conversations imported`) } catch (error) { toast(error.message) }
-  }
-  document.getElementById('mapsImport').onchange = e => { if (e.target.files[0]) toast('Maps Timeline export selected. Format-specific parsing will be added next.') }
+  if(memory.error) throw memory.error
 }
 
-
-async function settings() {
-  const { data:profile } = await supabase.from('profiles').select('*').maybeSingle()
-  app.innerHTML = shell(`
+async function documents(){
+  const {data}=await supabase.from('documents').select('*').order('created_at',{ascending:false})
+  app.innerHTML=shell(`
     <div class="grid two">
-      <div class="card item">
-        <h3>Profile</h3>
-        <input class="input" id="displayName" value="${esc(profile?.display_name || '')}" placeholder="Display name">
-        <input class="input" id="timezone" value="${esc(profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}" placeholder="Timezone">
-        <button class="btn primary" id="saveProfile">Save profile</button>
+      <div class="glass" style="padding:22px">
+        <div class="eyebrow">Memory from a file</div>
+        <h3>Drop in something important</h3>
+        <p class="muted">PDFs, Word documents, receipts, screenshots and other files can become part of your memory vault.</p>
+        <textarea class="input" id="docNote" placeholder="Optional note, for example: My vehicle insurance policy for 2026"></textarea>
+        <label class="file-zone" style="display:block;margin-top:12px">
+          <strong>Choose a file</strong><div class="muted" style="margin-top:6px">Stored privately in your account</div>
+          <input type="file" id="fileInput">
+        </label>
+        <div id="uploadMsg" class="muted" style="margin-top:10px"></div>
       </div>
-      <div class="card item">
-        <h3>Privacy and data</h3>
-        <p class="muted">Your rows are restricted by Supabase Row Level Security. Documents are stored in a private user folder.</p>
-        <button class="btn" id="exportData">Export memories as JSON</button>
-        <button class="btn danger" id="deleteAll">Delete all memories</button>
+      <div class="glass" style="padding:22px">
+        <div class="eyebrow">What happens next</div>
+        <h3>Files become searchable memory</h3>
+        <p class="muted">The current version stores and links the file securely. Deep text extraction and AI document Q&A are prepared as the next intelligence layer.</p>
+        <div class="chips"><span class="chip active">Private storage</span><span class="chip">Source tracking</span><span class="chip">Document memory</span></div>
+      </div>
+    </div>
+    <div class="section-title"><div><h3>Your files</h3><p>Documents you asked Memora to remember.</p></div></div>
+    <div class="list">${data?.length?data.map(d=>`<div class="glass item"><div class="item-head"><div><strong>${esc(d.file_name)}</strong><div class="muted">${esc(d.description||d.mime_type||'Stored document')}</div></div><span class="badge imported">File</span></div><div class="memory-meta">${when(d.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No files yet</strong>Add a document above and give it a note.</div>'}</div>
+  `,'Documents')
+  wire()
+  document.getElementById('fileInput').onchange=async event=>{
+    const file=event.target.files[0]
+    if(!file) return
+    const msg=document.getElementById('uploadMsg')
+    msg.textContent='Saving file into your memory vault...'
+    try{
+      await rememberDocument(file,document.getElementById('docNote').value)
+      toast('File remembered')
+      documents()
+    }catch(error){msg.textContent=error.message}
+  }
+}
+
+function extractConversationText(conversation){
+  const messages=[]
+  const mapping=conversation?.mapping||{}
+  Object.values(mapping).forEach(node=>{
+    const parts=node?.message?.content?.parts
+    if(Array.isArray(parts)){
+      const joined=parts.filter(x=>typeof x==='string').join(' ').trim()
+      if(joined) messages.push(joined)
+    }
+  })
+  return messages.join('\n').slice(0,12000)
+}
+
+async function importChatGPT(file){
+  const raw=await file.text()
+  const parsed=JSON.parse(raw)
+  const conversations=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.conversations)?parsed.conversations:[])
+  if(!conversations.length) throw new Error('I could not find ChatGPT conversations in this JSON file.')
+  const source=await supabase.from('sources').insert({
+    user_id:user.id,source_type:'chatgpt_import',source_name:file.name,metadata:{imported_at:new Date().toISOString(),count:conversations.length}
+  }).select().single()
+  if(source.error) throw source.error
+  let imported=0
+  for(const conversation of conversations.slice(0,100)){
+    const body=extractConversationText(conversation)
+    if(!body) continue
+    const title=conversation.title||'Imported ChatGPT conversation'
+    const result=await supabase.from('memories').insert({
+      user_id:user.id,original_text:body,summary:title,memory_type:'conversation',state:'historical',
+      occurred_at:conversation.create_time?new Date(conversation.create_time*1000).toISOString():new Date().toISOString(),
+      source_type:'import',provenance_kind:'imported',source_id:source.data.id,confidence:1,
+      interpreted_data:{source:'ChatGPT export',title}
+    })
+    if(!result.error) imported++
+  }
+  return imported
+}
+
+async function connections(){
+  app.innerHTML=shell(`
+    <div class="section-title"><div><h3>Bring your digital life together</h3><p>Imports work today where possible. Direct account connections require each provider's OAuth/API setup and will never be faked.</p></div></div>
+    <div class="source-board">
+      <div class="glass source-card"><span class="source-status">Works now</span><div class="source-icon">AI</div><h4>ChatGPT history</h4><p>Import your ChatGPT conversations from an exported JSON file and make them searchable memories.</p><button class="btn primary" id="chatgptImportBtn">Import export</button><input class="hidden" id="chatgptFile" type="file" accept=".json,application/json"></div>
+      <div class="glass source-card"><span class="source-status">Import</span><div class="source-icon">⌖</div><h4>Google Maps Timeline</h4><p>Designed for exported Timeline/history data while respecting Google's current device-centered Timeline model.</p><button class="btn" id="timelineImportInfo">Import file</button></div>
+      <div class="glass source-card"><span class="source-status">Planned</span><div class="source-icon">G</div><h4>Google ecosystem</h4><p>Calendar, Gmail, Drive and Photos can be added through user-authorized provider connections.</p><button class="btn" disabled>OAuth setup required</button></div>
+      <div class="glass source-card"><span class="source-status">Planned</span><div class="source-icon">M</div><h4>Microsoft 365</h4><p>Outlook, OneDrive, Calendar and SharePoint are designed as future connected memory sources.</p><button class="btn" disabled>OAuth setup required</button></div>
+      <div class="glass source-card"><span class="source-status">Works now</span><div class="source-icon">▣</div><h4>Files and documents</h4><p>Upload documents, receipts, screenshots and files with a note so you can remember why they matter.</p><button class="btn" id="documentsJump">Open Documents</button></div>
+      <div class="glass source-card"><span class="source-status">Works now</span><div class="source-icon">◉</div><h4>Camera and photos</h4><p>Take a photo while creating a memory or attach existing images and video from your device.</p><button class="btn" id="cameraJump">Create visual memory</button></div>
+    </div>
+    <div id="connectionMsg" class="muted" style="margin-top:14px"></div>
+  `,'Connections')
+  wire()
+  document.getElementById('documentsJump').onclick=()=>go('documents')
+  document.getElementById('cameraJump').onclick=()=>go('home',true)
+  document.getElementById('timelineImportInfo').onclick=()=>toast('Timeline import parser is the next connector module. The source card is ready without pretending a live API exists.')
+  document.getElementById('chatgptImportBtn').onclick=()=>document.getElementById('chatgptFile').click()
+  document.getElementById('chatgptFile').onchange=async event=>{
+    const file=event.target.files[0]
+    if(!file) return
+    const msg=document.getElementById('connectionMsg')
+    msg.textContent='Importing ChatGPT history...'
+    try{
+      const count=await importChatGPT(file)
+      msg.textContent=`Imported ${count} conversations into Memora.`
+      toast('ChatGPT memories imported')
+    }catch(error){msg.textContent=error.message}
+  }
+}
+
+async function settings(){
+  const {data:profile}=await supabase.from('profiles').select('*').maybeSingle()
+  app.innerHTML=shell(`
+    <div class="grid two">
+      <div class="glass" style="padding:22px">
+        <div class="eyebrow">Identity</div><h3>Profile</h3>
+        <div style="display:grid;gap:10px">
+          <input class="input" id="displayName" value="${esc(profile?.display_name||'')}" placeholder="Display name">
+          <input class="input" id="timezone" value="${esc(profile?.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}" placeholder="Timezone">
+          <button class="btn primary" id="saveProfile">Save profile</button>
+        </div>
+      </div>
+      <div class="glass" style="padding:22px">
+        <div class="eyebrow">Privacy</div><h3>Your data stays yours</h3>
+        <p class="muted">Memory rows and private files are restricted to your signed-in user through Supabase Row Level Security.</p>
+        <div class="actions"><button class="btn" id="exportData">Export memories</button><button class="btn danger" id="deleteAll">Delete all memories</button></div>
       </div>
     </div>
   `,'Settings')
   wire()
-  document.getElementById('saveProfile').onclick = async () => {
-    const display_name = document.getElementById('displayName').value.trim()
-    const timezone = document.getElementById('timezone').value.trim()
-    const { error } = await supabase.from('profiles').upsert({user_id:user.id,display_name,timezone})
-    toast(error ? error.message : 'Profile saved')
+  document.getElementById('saveProfile').onclick=async()=>{
+    const display_name=document.getElementById('displayName').value.trim()
+    const timezone=document.getElementById('timezone').value.trim()
+    const {error}=await supabase.from('profiles').upsert({user_id:user.id,display_name,timezone})
+    toast(error?error.message:'Profile saved')
   }
-  document.getElementById('exportData').onclick = async () => {
-    const { data } = await supabase.from('memories').select('*').order('created_at')
-    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'})
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = 'memora-memories.json'
+  document.getElementById('exportData').onclick=async()=>{
+    const [{data:memoryData},{data:thingData},{data:peopleData}]=await Promise.all([
+      supabase.from('memories').select('*').order('created_at'),
+      supabase.from('things').select('*'),
+      supabase.from('people').select('*')
+    ])
+    const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),memories:memoryData,things:thingData,people:peopleData},null,2)],{type:'application/json'})
+    const link=document.createElement('a')
+    link.href=URL.createObjectURL(blob)
+    link.download='memora-export.json'
     link.click()
     URL.revokeObjectURL(link.href)
   }
-  document.getElementById('deleteAll').onclick = async () => {
-    if (!confirm('Delete all of your memories? This cannot be undone.')) return
-    const { error } = await supabase.from('memories').delete().eq('user_id',user.id)
-    toast(error ? error.message : 'Memories deleted')
+  document.getElementById('deleteAll').onclick=async()=>{
+    if(!confirm('Delete all memories? This cannot be undone.')) return
+    const {error}=await supabase.from('memories').delete().eq('user_id',user.id)
+    toast(error?error.message:'Memories deleted')
   }
 }
 
-const session = await supabase.auth.getSession()
-user = session.data.session?.user || null
-supabase.auth.onAuthStateChange((_event,sessionNow) => { user = sessionNow?.user || null })
-if (user) render()
+const session=await supabase.auth.getSession()
+user=session.data.session?.user||null
+supabase.auth.onAuthStateChange((_event,sessionNow)=>{user=sessionNow?.user||null})
+if(user) render()
 else authScreen()
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(() => {})
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{})
