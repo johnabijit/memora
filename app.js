@@ -7,9 +7,12 @@ const app = document.getElementById('app')
 let user = null
 let view = 'home'
 let chat = []
+let chatThreads = []
+let currentThreadId = new URL(window.location.href).searchParams.get('thread') || null
+let legacySessionChat = []
 try{
   const savedChat=JSON.parse(sessionStorage.getItem('memora-chat')||'[]')
-  if(Array.isArray(savedChat)) chat=savedChat.slice(-40)
+  if(Array.isArray(savedChat)) legacySessionChat=savedChat.slice(-40)
 }catch{}
 let pendingMedia = []
 let pendingLocation = null
@@ -19,15 +22,32 @@ let recorderChunks = []
 let cameraStream = null
 let cameraFacing = 'environment'
 let conversationContext = { thing: null, subject: null, relation: null, lastMemoryId: null, lastImageMediaId: null }
-try{
-  const savedContext=JSON.parse(sessionStorage.getItem('memora-context')||'{}')
-  conversationContext={...conversationContext,...savedContext}
-}catch{}
+let navigationInitialized = false
+let ambientAudioContext = null
+let ambientMasterGain = null
+let ambientNodes = []
+let ambientTimers = []
+let ambientCurrentScene = null
+let ambientPreferences = {
+  enabled: true,
+  scene: 'auto',
+  volume: 0.24,
+  dynamicBackground: true
+}
+
+function loadConversationContext(threadId=currentThreadId){
+  conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+  if(!threadId) return
+  try{
+    const saved=JSON.parse(localStorage.getItem(`memora-context:${threadId}`)||'{}')
+    conversationContext={...conversationContext,...saved}
+  }catch{}
+}
 
 function persistConversationState(){
+  if(!currentThreadId) return
   try{
-    sessionStorage.setItem('memora-chat',JSON.stringify(chat.slice(-40)))
-    sessionStorage.setItem('memora-context',JSON.stringify(conversationContext))
+    localStorage.setItem(`memora-context:${currentThreadId}`,JSON.stringify(conversationContext))
   }catch{}
 }
 let ocrWorkerPromise = null
@@ -65,6 +85,28 @@ const themeCatalog=themeFamilies.flatMap((family)=>themeMoods.map((mood,index)=>
 const manualThemes=Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
 
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
+const secretPatterns=[
+  /sk-[A-Za-z0-9_-]{20,}/g,
+  /gh[pousr]_[A-Za-z0-9_]{20,}/g,
+  /AKIA[0-9A-Z]{16}/g,
+  /AIza[0-9A-Za-z_-]{20,}/g,
+  /xox[baprs]-[0-9A-Za-z-]{20,}/g
+]
+function redactSecrets(value){
+  let text=String(value??'')
+  for(const pattern of secretPatterns) text=text.replace(pattern,'[credential redacted]')
+  return text
+}
+function looksLikeSecret(value){
+  const text=String(value||'')
+  return secretPatterns.some(pattern=>{
+    pattern.lastIndex=0
+    const found=pattern.test(text)
+    pattern.lastIndex=0
+    return found
+  })
+}
+
 const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Unknown date'
 const shortDate = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)) : 'Unknown'
 
