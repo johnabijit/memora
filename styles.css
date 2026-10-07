@@ -99,3 +99,52 @@ button,input,textarea,select{font:inherit}.hidden{display:none!important}.muted{
   .chat-panel{max-height:none;min-height:52dvh;padding-bottom:34px}
   .app{padding-bottom:calc(var(--dock-h) + 110px)}
 }
+
+/* Production conversational motion */
+.ask-intelligence{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:20px;margin-bottom:12px;position:sticky;top:78px;z-index:15;backdrop-filter:blur(18px)}
+.ask-intelligence>div:nth-child(2){min-width:0;flex:1}.ask-intelligence strong{display:block;font-size:13px}.ask-intelligence small{display:block;color:var(--muted);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.intelligence-orb{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--c3),var(--c1) 48%,color-mix(in srgb,var(--c2) 70%,transparent));box-shadow:0 0 22px color-mix(in srgb,var(--c1) 36%,transparent);position:relative;flex:0 0 auto}
+.intelligence-orb:before,.intelligence-orb:after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid color-mix(in srgb,var(--c2) 50%,transparent);animation:intelPulse 2.6s ease-out infinite}
+.intelligence-orb:after{animation-delay:1.3s}.intelligence-orb span{width:8px;height:8px;border-radius:50%;background:white;box-shadow:0 0 12px white}
+@keyframes intelPulse{0%{transform:scale(.75);opacity:.85}100%{transform:scale(1.65);opacity:0}}
+
+.thinking-bubble{overflow:hidden;min-height:84px;background:linear-gradient(135deg,color-mix(in srgb,var(--glass2) 94%,transparent),color-mix(in srgb,var(--c1) 7%,var(--glass)))}
+.thinking-card{display:flex;align-items:center;gap:14px;position:relative}
+.thinking-card:after{content:"";position:absolute;inset:-18px -30%;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--c2) 12%,transparent),transparent 70%);animation:thinkingSweep 1.8s linear infinite;pointer-events:none}
+.thinking-card strong,.thinking-card small{position:relative;z-index:1}.thinking-card strong{display:block;font-size:13px}.thinking-card small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.thinking-status.swap{animation:thinkingText .32s ease}
+.thinking-orb{width:42px;height:42px;border-radius:50%;position:relative;display:grid;place-items:center;flex:0 0 auto;background:radial-gradient(circle at 30% 28%,color-mix(in srgb,var(--c3) 92%,white),var(--c1) 52%,color-mix(in srgb,var(--c2) 55%,#10131d));box-shadow:0 0 28px color-mix(in srgb,var(--c1) 28%,transparent)}
+.thinking-orb span{position:absolute;width:6px;height:6px;border-radius:50%;background:white;top:50%;left:50%;margin:-3px;transform-origin:3px 3px;box-shadow:0 0 9px white}
+.thinking-orb span:nth-child(1){animation:orbitOne 1.15s linear infinite}.thinking-orb span:nth-child(2){animation:orbitTwo 1.55s linear infinite}.thinking-orb span:nth-child(3){animation:orbitThree 1.95s linear infinite}
+@keyframes orbitOne{from{transform:rotate(0deg) translateX(13px)}to{transform:rotate(360deg) translateX(13px)}}
+@keyframes orbitTwo{from{transform:rotate(120deg) translateX(9px)}to{transform:rotate(480deg) translateX(9px)}}
+@keyframes orbitThree{from{transform:rotate(240deg) translateX(16px)}to{transform:rotate(600deg) translateX(16px)}}
+@keyframes thinkingSweep{from{transform:translateX(-45%)}to{transform:translateX(45%)}}
+@keyframes thinkingText{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes answerIn{0%{opacity:0;transform:translateY(9px) scale(.985)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+.bubble.assistant.fresh{animation:answerIn .38s cubic-bezier(.2,.8,.2,1)}
+.bubble-text{white-space:pre-wrap;line-height:1.58;overflow-wrap:anywhere}
+.answer-engine{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:9px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--c2);box-shadow:0 0 10px var(--c2);animation:liveDot 1.5s ease-in-out infinite}
+@keyframes liveDot{50%{opacity:.35;transform:scale(.75)}}
+
+.provider-disabled{opacity:.66;border-style:dashed!important;cursor:pointer}
+.provider-disabled:after{content:"Setup";font-size:8px;margin-left:6px;padding:3px 6px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.auth-loading{min-height:250px;display:grid;align-content:center;gap:20px}
+.auth-loader{display:flex;gap:8px;justify-content:center}.auth-loader span{width:9px;height:9px;border-radius:50%;background:var(--c1);animation:authBounce 1s ease-in-out infinite}.auth-loader span:nth-child(2){animation-delay:.15s;background:var(--c2)}.auth-loader span:nth-child(3){animation-delay:.3s;background:var(--c3)}
+@keyframes authBounce{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-9px);opacity:1}}
+
+.ask-box{box-shadow:0 18px 60px rgba(0,0,0,.22),0 0 40px color-mix(in srgb,var(--c1) 6%,transparent)}
+.ask-box .input:focus{box-shadow:0 0 0 1px color-mix(in srgb,var(--c1) 55%,transparent),0 0 30px color-mix(in srgb,var(--c1) 10%,transparent)}
+.ask-suggestions{scrollbar-width:none}.ask-suggestions::-webkit-scrollbar{display:none}
+
+@media(max-width:760px){
+  .ask-intelligence{top:70px;margin-inline:-2px}
+  .ask-intelligence .status{font-size:8px;padding:5px 8px}
+  .ask-suggestions{display:flex;overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}
+  .ask-suggestions .chip{flex:0 0 auto}
+  .thinking-bubble{min-height:78px}
+  .thinking-orb{width:38px;height:38px}
+  .bubble{font-size:16px;line-height:1.55}
+}
