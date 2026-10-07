@@ -89,3 +89,13 @@ button,input,textarea,select{font:inherit}.hidden{display:none!important}.muted{
   .theme-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
   .source-actions .btn{flex:1}
 }
+
+/* Ask mobile production layout */
+.ask-box{position:sticky;bottom:calc(var(--dock-h) + 28px);z-index:32}
+.chat-panel{scroll-padding-bottom:150px}
+@media(max-width:760px){
+  .ask-shell{min-height:calc(100dvh - 190px);padding-bottom:18px}
+  .ask-box{bottom:calc(var(--dock-h) + max(18px,env(safe-area-inset-bottom)));border-radius:22px}
+  .chat-panel{max-height:none;min-height:52dvh;padding-bottom:34px}
+  .app{padding-bottom:calc(var(--dock-h) + 110px)}
+}
