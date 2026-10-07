@@ -2336,7 +2336,9 @@ async function sources(){
   const connectedCount=Object.values(connections).filter(item=>item.status==='connected').length
   const socialEnabled=['google','azure','apple','github'].filter(provider=>authProviders?.[provider]).length
   const aiHealthy=lastAi?.status==='success'
-  const aiLabel=aiHealthy?'Last call passed':lastAi?.status==='error'?'Last call failed':health.aiGateway?'Ready for test':'Check setup'
+  const openAiConnected=connections.openai?.status==='connected'
+  const aiAvailable=Boolean(health.aiGateway||openAiConnected)
+  const aiLabel=aiHealthy?'Last call passed':openAiConnected?'OpenAI ready':lastAi?.status==='error'?'Last call failed':health.aiGateway?'Gateway ready':'Check setup'
 
   const providerButton=(provider,label)=>{
     const connection=connections[provider]
@@ -2351,9 +2353,9 @@ async function sources(){
       <div>
         <div class="eyebrow">Intelligence and data sources</div>
         <h3>Memora now has a built-in reasoning brain.</h3>
-        <p>Ask Memora uses a server-side AI Gateway grounded in your private memory vault. Extra provider keys and external data sources are optional extensions.</p>
+        <p>Ask Memora reasons over your private memory vault. It can use Vercel AI Gateway when configured, or your securely connected OpenAI API key.</p>
       </div>
-      <div class="source-summary"><b>${health.aiGateway?'LIVE':'CHECK'}</b><span>AI Gateway</span></div>
+      <div class="source-summary"><b>${aiAvailable?'LIVE':'CHECK'}</b><span>${openAiConnected?'OpenAI ready':'AI reasoning'}</span></div>
     </div>
 
     <div class="source-grid">
@@ -2361,7 +2363,7 @@ async function sources(){
         <span class="status ${aiHealthy||(!lastAi&&health.aiGateway)?'live':''}">${esc(aiLabel)}</span>
         <div class="source-icon">✦</div>
         <h3>Memora AI</h3>
-        <p>Primary server-side reasoning through Vercel AI Gateway, grounded in structured facts, memories and relevant image evidence.</p>
+        <p>Your reasoning layer. Memora uses Vercel AI Gateway when available and securely falls back to your connected OpenAI API key. Both paths stay grounded in your memories.</p>
         <div class="ai-diagnostic" id="aiDiagnostic">
           ${lastAi
             ?`<strong>${lastAi.status==='success'?'Reasoning healthy':'Needs attention'}</strong><span>${lastAi.status==='success'
@@ -2376,7 +2378,7 @@ async function sources(){
         <span class="status ${connections.openai?.status==='connected'?'live':''}">${connections.openai?.status==='connected'?'Connected':'Optional'}</span>
         <div class="source-icon">AI</div>
         <h3>OpenAI API</h3>
-        <p>Optional bring-your-own-key connection stored encrypted in Supabase Vault.</p>
+        <p>Your OpenAI API key is stored encrypted in Supabase Vault and now powers Ask Memora when Vercel AI Gateway is unavailable. OpenAI API charges are separate from ChatGPT Plus.</p>
         <div class="source-actions">${providerButton('openai','OpenAI')}</div>
       </div>
 
@@ -2424,8 +2426,8 @@ async function sources(){
         <span class="status">Business API</span>
         <div class="source-icon">W</div>
         <h3>WhatsApp</h3>
-        <p>Live access requires Meta WhatsApp Business Cloud API. Personal history can still be indexed from an exported chat.</p>
-        <div class="source-actions"><button class="btn" id="whatsappInfo">Connection details</button><button class="btn ghost" id="whatsappImportBtn">Import history</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,text/plain"></div>
+        <p>Personal WhatsApp does not provide a live chat-history connection to Memora. Export a chat and import the TXT or ZIP here. Live automation is a separate WhatsApp Business API setup.</p>
+        <div class="source-actions"><button class="btn primary" id="whatsappImportBtn">Import WhatsApp export</button><button class="btn ghost" id="whatsappInfo">Business API setup</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,.zip,text/plain,application/zip"></div>
       </div>
 
       <div class="glass source-card">
@@ -2437,11 +2439,11 @@ async function sources(){
       </div>
 
       <div class="glass source-card">
-        <span class="status">Migration</span>
+        <span class="status live">Import works now</span>
         <div class="source-icon">↥</div>
         <h3>ChatGPT history</h3>
-        <p>Optional archive migration for conversations you want included in your personal memory history.</p>
-        <div class="source-actions"><button class="btn" id="chatgptImportBtn">Import archive</button><input class="hidden" id="chatgptFile" type="file" accept=".json,application/json"></div>
+        <p>Your OpenAI API key does not include your ChatGPT chats. Import your official ChatGPT data export ZIP or conversations JSON here instead.</p>
+        <div class="source-actions"><button class="btn primary" id="chatgptImportBtn">Import ChatGPT export</button><input class="hidden" id="chatgptFile" type="file" accept=".zip,.json,application/zip,application/json"></div>
       </div>
     </div>
 
