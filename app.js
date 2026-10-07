@@ -1105,7 +1105,7 @@ async function ask(){
           <button class="chip" data-ask-suggestion="Where was my key before?">Where was it before?</button>
           <button class="chip" data-ask-suggestion="When did I last play basketball?">Last activity</button>
         </div>
-        <div class="chat" id="chat">${chat.length?chat.map(message=>`<div class="bubble ${message.role==='user'?'user':''}">${esc(message.text)}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`).join(''):'<div class="empty"><strong>Ask your own life</strong>Memora searches your stored memories before answering.</div>'}</div>
+        <div class="chat" id="chat">${chat.length?chat.map(message=>`<div class="bubble ${message.role==='user'?'user':''}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}${esc(message.text)}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`).join(''):'<div class="empty"><strong>Ask your own life</strong>Memora searches your stored memories before answering.</div>'}</div>
       </div>
       <div class="glass ask-box"><input class="input" id="askInput" placeholder="Ask Memora anything about your memories"><button class="btn primary" id="askButton">Ask</button></div>
     </div>
