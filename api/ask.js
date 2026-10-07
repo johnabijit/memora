@@ -12,8 +12,17 @@ function trimText(value,max=4000){
   return String(value||'').replace(/\u0000/g,'').slice(0,max)
 }
 
+function redactCredentials(value){
+  return String(value||'')
+    .replace(/sk-[A-Za-z0-9_-]{20,}/g,'[credential redacted]')
+    .replace(/gh[pousr]_[A-Za-z0-9_]{20,}/g,'[credential redacted]')
+    .replace(/AKIA[0-9A-Z]{16}/g,'[credential redacted]')
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g,'[credential redacted]')
+    .replace(/xox[baprs]-[0-9A-Za-z-]{20,}/g,'[credential redacted]')
+}
+
 function cleanEvidenceText(value,max=2400){
-  let text=trimText(value,max*2).replace(/\\n/g,' ').replace(/\s+/g,' ').trim()
+  let text=redactCredentials(trimText(value,max*2)).replace(/\\n/g,' ').replace(/\s+/g,' ').trim()
   const jsonStart=text.search(/\s\{["'][A-Za-z_]/)
   if(jsonStart>80) text=text.slice(0,jsonStart).trim()
   text=text.replace(/\{\s*\}$/g,'').replace(/\[object Object\]/g,'').trim()
