@@ -18,7 +18,7 @@ let recorderStream = null
 let recorderChunks = []
 let cameraStream = null
 let cameraFacing = 'environment'
-let conversationContext = { thing: null, subject: null, lastMemoryId: null, lastImageMediaId: null }
+let conversationContext = { thing: null, subject: null, relation: null, lastMemoryId: null, lastImageMediaId: null }
 try{
   const savedContext=JSON.parse(sessionStorage.getItem('memora-context')||'{}')
   conversationContext={...conversationContext,...savedContext}
@@ -168,7 +168,47 @@ function openThemePicker(){
   }
 }
 
+let authProviderCache=null
+
+async function getAuthProviderSettings(force=false){
+  if(authProviderCache&&!force) return authProviderCache
+  try{
+    const response=await fetch(`${SUPABASE_URL}/auth/v1/settings`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY}
+    })
+    const data=await response.json()
+    authProviderCache=data?.external||{}
+    return authProviderCache
+  }catch{
+    authProviderCache={}
+    return authProviderCache
+  }
+}
+
+function providerLabel(provider){
+  return ({google:'Google',azure:'Microsoft',apple:'Apple',github:'GitHub'})[provider]||provider
+}
+
+function providerSetupHelp(provider){
+  const label=providerLabel(provider)
+  const details={
+    google:'Create Google OAuth credentials, then enable Google in Supabase Authentication > Sign In / Providers.',
+    azure:'Create a Microsoft Entra application registration, then enable Azure in Supabase Authentication > Sign In / Providers.',
+    apple:'Create an Apple Services ID and Sign in with Apple credentials, then enable Apple in Supabase Authentication > Sign In / Providers.',
+    github:'Create a GitHub OAuth App, then enable GitHub in Supabase Authentication > Sign In / Providers.'
+  }
+  modal(`${label} sign-in setup`,`
+    <p class="muted">${details[provider]||'This sign-in provider is not enabled yet.'}</p>
+    <p class="small muted">Until it is enabled, Memora keeps email and password sign-in available and will not redirect you to a broken provider page.</p>
+  `)
+}
+
 async function oauthSignIn(provider,scopes){
+  const external=await getAuthProviderSettings(true)
+  if(!external?.[provider]){
+    providerSetupHelp(provider)
+    return
+  }
   const options={redirectTo:window.location.origin}
   if(scopes) options.scopes=scopes
   const {error}=await supabase.auth.signInWithOAuth({provider,options})
@@ -184,7 +224,15 @@ async function magicLink(email){
   toast(error?error.message:'Magic link sent. Check your email.')
 }
 
-function authScreen(mode='login'){
+async function authScreen(mode='login'){
+  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
+  const external=await getAuthProviderSettings()
+
+  const socialButton=(provider,label)=>{
+    const enabled=Boolean(external?.[provider])
+    return `<button class="social ${enabled?'':'provider-disabled'}" ${enabled?`data-oauth="${provider}"`:`data-provider-setup="${provider}"`}>${enabled?`Continue with ${label}`:`${label} setup required`}</button>`
+  }
+
   app.innerHTML=`
   <div class="auth-wrap">
     <div class="glass auth-card">
@@ -193,10 +241,10 @@ function authScreen(mode='login'){
       <h2>${mode==='login'?'Welcome back':'Create your private universe'}</h2>
       <p class="muted">Memories can include text, photos, video, voice, places, files and connected sources.</p>
       <div class="social-grid">
-        <button class="social" data-oauth="google">Continue with Google</button>
-        <button class="social" data-oauth="azure">Continue with Microsoft</button>
-        <button class="social" data-oauth="apple">Continue with Apple</button>
-        <button class="social" data-oauth="github">Continue with GitHub</button>
+        ${socialButton('google','Google')}
+        ${socialButton('azure','Microsoft')}
+        ${socialButton('apple','Apple')}
+        ${socialButton('github','GitHub')}
       </div>
       <div class="divider">OR USE EMAIL</div>
       <form id="authForm">
@@ -210,13 +258,15 @@ function authScreen(mode='login'){
         <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
       </div>
       <p id="authMsg" class="muted"></p>
-      <p class="small muted">Social providers appear here now. Each provider must also be enabled in the Memora Supabase authentication settings before first use.</p>
+      <p class="small muted">Only providers that are enabled in Supabase can redirect. Disabled providers now stay inside Memora and show setup guidance.</p>
     </div>
   </div>`
+
   document.querySelectorAll('[data-oauth]').forEach(button=>button.onclick=()=>{
     const provider=button.dataset.oauth
     oauthSignIn(provider,provider==='azure'?'email':undefined)
   })
+  document.querySelectorAll('[data-provider-setup]').forEach(button=>button.onclick=()=>providerSetupHelp(button.dataset.providerSetup))
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
   document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login')
   document.getElementById('authForm').onsubmit=async event=>{
@@ -1154,6 +1204,161 @@ async function relationshipAnswerFromVault(relation){
   return `According to your memory, your ${names.length===1?relation:relation+'s'} ${names.length===1?'is':'are'} ${names.join(', ')}.`
 }
 
+function cleanAnswerText(value){
+  return String(value||'')
+    .replace(/\\n/g,'\n')
+    .replace(/\s*\{\s*\}\s*$/g,'')
+    .replace(/\[object Object\]/g,'')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim()
+}
+
+async function loadStructuredFacts(){
+  const {data}=await supabase.from('memory_facts')
+    .select('fact_key,category,subject,predicate,value_text,value_json,ordinal,age_relation,provenance_kind,confidence,source_memory_id,source_media_id')
+    .eq('is_current',true)
+    .order('fact_key')
+  return data||[]
+}
+
+function factByKey(facts,key){
+  return facts.find(f=>f.fact_key===key)
+}
+
+function familyFacts(facts,relation){
+  return facts
+    .filter(f=>f.category==='family'&&f.predicate===relation)
+    .sort((a,b)=>(a.ordinal??999)-(b.ordinal??999))
+}
+
+async function answerFromStructuredFacts(question){
+  const q=normalizeQuestion(question).toLowerCase()
+  const facts=await loadStructuredFacts()
+  if(!facts.length) return null
+
+  const result=(text,source='Structured memory fact')=>({text,source,structured:true})
+
+  const name=factByKey(facts,'identity.name')
+  if(/\bwho am i\b|\bwhat(?:'s| is) my name\b|\btell me who i am\b/i.test(q)&&name){
+    conversationContext.subject='self'
+    persistConversationState()
+    return result(`You are ${name.value_text}.`,'Your saved identity fact')
+  }
+
+  const phone=factByKey(facts,'contact.phone.personal')
+  if(/\b(phone|mobile|contact)\s*(number)?\b|\bmy\s+number\b/i.test(q)&&phone){
+    return result(`Your saved personal phone number is ${phone.value_text}.`,'Contact information extracted from your saved image')
+  }
+
+  const manager=factByKey(facts,'work.manager')
+  if(/\b(manager|boss|report(?:ing)? manager)\b/i.test(q)&&manager){
+    conversationContext.subject='work'
+    persistConversationState()
+    return result(`Your manager is ${manager.value_text}.`,'Job details extracted from your saved image')
+  }
+
+  const company=factByKey(facts,'work.company')
+  const title=factByKey(facts,'work.business_title')
+  const profile=factByKey(facts,'work.job_profile')
+  const workLocation=factByKey(facts,'work.location')
+
+  if(/\bwhat do i do\b|\bwhat(?:'s| is) my (?:job|role|designation|profession|occupation)\b|\bwhat is my job title\b/i.test(q)){
+    const bits=[]
+    if(title) bits.push(`you are a ${title.value_text}`)
+    if(company) bits.push(`at ${company.value_text}`)
+    let text=bits.length?`For work, ${bits.join(' ')}.`:'I have work information saved for you.'
+    if(profile) text+=` Your saved job profile is ${profile.value_text}.`
+    conversationContext.subject='work'
+    persistConversationState()
+    return result(text,'Your saved work facts')
+  }
+
+  if(/\b(where|which company|what company)\b.*\b(work|working|employer|employed)\b|\bwhere do i work\b/i.test(q)&&company){
+    let text=`You work at ${company.value_text}.`
+    if(workLocation) text+=` Your saved work location is ${workLocation.value_text}.`
+    conversationContext.subject='work'
+    persistConversationState()
+    return result(text,'Your saved work facts')
+  }
+
+  const father=familyFacts(facts,'father')
+  const mother=familyFacts(facts,'mother')
+  if(/\bparents?\b/i.test(q)&&(father.length||mother.length)){
+    const parts=[]
+    if(father[0]) parts.push(`your father is ${father[0].value_text}`)
+    if(mother[0]) parts.push(`your mother is ${mother[0].value_text}`)
+    conversationContext.relation='parents'
+    persistConversationState()
+    return result(parts.join(' and ')+'.','Your saved family facts')
+  }
+
+  const relation=detectRelationship(q)
+  let effectiveRelation=relation
+  if(!effectiveRelation&&/\b(eldest|oldest|youngest|first|second)\b/i.test(q)&&['brother','sister'].includes(conversationContext.relation)){
+    effectiveRelation=conversationContext.relation
+  }
+
+  if(['brother','sister'].includes(effectiveRelation)){
+    const list=familyFacts(facts,effectiveRelation)
+    if(list.length){
+      conversationContext.relation=effectiveRelation
+      conversationContext.subject=effectiveRelation
+      persistConversationState()
+
+      const wantsEldest=/\b(eldest|oldest)\b/i.test(q)
+      const wantsYoungest=/\byoungest\b/i.test(q)
+      const wantsFirst=/\b(first|1st)\b/i.test(q)
+      const wantsSecond=/\b(second|2nd)\b/i.test(q)
+
+      let chosen=null
+      if(wantsFirst) chosen=list.find(x=>x.ordinal===1)||list[0]
+      else if(wantsSecond) chosen=list.find(x=>x.ordinal===2)||list[1]
+      else if(wantsEldest) chosen=list.reduce((best,item)=>(item.ordinal??999)<(best.ordinal??999)?item:best,list[0])
+      else if(wantsYoungest) chosen=list.reduce((best,item)=>(item.ordinal??0)>(best.ordinal??0)?item:best,list[0])
+
+      if(chosen){
+        const label=wantsEldest?'eldest':wantsYoungest?'youngest':wantsFirst?'first':'second'
+        return result(`Your ${label} ${effectiveRelation} is ${chosen.value_text}.`,'Your saved family order')
+      }
+
+      if(/\b(elder|older|younger)\b/i.test(q)){
+        const ageWord=/\b(elder|older)\b/i.test(q)?'elder':'younger'
+        const matching=list.filter(x=>x.age_relation===ageWord)
+        if(matching.length){
+          return result(`Your ${ageWord} ${effectiveRelation}${matching.length>1?'s':''} ${matching.length>1?'are':'is'} ${matching.map(x=>x.value_text).join(', ')}.`,'Your saved family facts')
+        }
+      }
+
+      return result(`Your ${effectiveRelation}${list.length>1?'s':''} ${list.length>1?'are':'is'} ${list.map(x=>x.value_text).join(', ')}.`,'Your saved family facts')
+    }
+  }
+
+  if(!relation&&/\b(eldest|oldest|youngest)\b/i.test(q)){
+    const siblings=[...familyFacts(facts,'brother'),...familyFacts(facts,'sister')]
+    if(siblings.length){
+      let chosen=null
+      if(/\b(eldest|oldest)\b/i.test(q)){
+        const elder=siblings.filter(x=>x.age_relation==='elder')
+        chosen=(elder.length?elder:siblings).sort((a,b)=>(a.ordinal??999)-(b.ordinal??999))[0]
+      }else{
+        const younger=siblings.filter(x=>x.age_relation==='younger')
+        const pool=younger.length?younger:siblings
+        chosen=[...pool].sort((a,b)=>(b.ordinal??0)-(a.ordinal??0))[0]
+      }
+      if(chosen){
+        conversationContext.relation=chosen.predicate
+        persistConversationState()
+        return result(`Your ${/\byoungest\b/i.test(q)?'youngest':'eldest'} sibling is ${chosen.value_text}.`,'Your saved family order')
+      }
+    }
+  }
+
+  if(relation==='father'&&father[0]) return result(`Your father is ${father[0].value_text}.`,'Your saved family facts')
+  if(relation==='mother'&&mother[0]) return result(`Your mother is ${mother[0].value_text}.`,'Your saved family facts')
+
+  return null
+}
+
 function detectRelationship(question){
   const q=question.toLowerCase()
   const groups=[
@@ -1435,8 +1640,15 @@ async function answer(question){
   const rawQ=question.trim()
 
   try{
+    const structured=await answerFromStructuredFacts(rawQ)
+    if(structured) return structured
+  }catch(error){
+    console.warn('Structured memory lookup failed',error)
+  }
+
+  try{
     const aiAnswer=await aiReasonedAnswer(rawQ)
-    if(aiAnswer) return aiAnswer
+    if(aiAnswer) return {...aiAnswer,text:cleanAnswerText(aiAnswer.text)}
   }catch(error){
     console.warn('Memora AI error, using local memory engine',error)
   }
@@ -1478,16 +1690,22 @@ async function answer(question){
   if(/\b(image|photo|picture|screenshot)\b/i.test(q)){
     const media=await latestImageEvidence()
     if(!media) return {text:"I don't have an image memory yet."}
-    const phones=media.extracted_data?.phone_numbers||extractPhoneNumbers(media.extracted_text||'')
-    const emails=media.extracted_data?.emails||extractEmails(media.extracted_text||'')
-    const text=String(media.extracted_text||'').trim()
-    const summary=media.extracted_data?.readable_summary||summarizeImageText(text)
-    let answer='I found your latest saved image.'
-    if(summary) answer+=` I can read: “${summary}”`
-    else if(media.analysis_status==='failed') answer+=' The image is saved, but text analysis failed. I will retry it when you ask again or when you save a new image.'
-    else answer+=' The image is saved, but I could not find reliable readable text in it.'
-    if(phones.length) answer+=` Detected number${phones.length>1?'s':''}: ${phones.join(', ')}.`
-    if(emails.length) answer+=` Detected email${emails.length>1?'s':''}: ${emails.join(', ')}.`
+    const facts=await loadStructuredFacts()
+    const workFacts=facts.filter(f=>f.category==='work')
+    const phone=factByKey(facts,'contact.phone.personal')
+    const useful=[]
+    const company=factByKey(facts,'work.company')
+    const manager=factByKey(facts,'work.manager')
+    const title=factByKey(facts,'work.business_title')
+    if(company) useful.push(`company: ${company.value_text}`)
+    if(manager) useful.push(`manager: ${manager.value_text}`)
+    if(title) useful.push(`business title: ${title.value_text}`)
+    if(phone) useful.push(`phone: ${phone.value_text}`)
+    const answer=useful.length
+      ?`Your latest saved image is a work-profile screenshot. I can reliably identify ${useful.join(', ')}. Ask me about any one of these details and I will answer directly.`
+      :media.analysis_status==='failed'
+        ?'Your latest image is saved, but its text analysis failed. I can retry it when you ask about the image again.'
+        :'Your latest image is saved. I can inspect it for a specific detail such as a name, phone number, company, address or role.'
     return {text:answer,source:'Latest saved image',imageUrl:media.image_url||null}
   }
 
@@ -1551,6 +1769,8 @@ async function answer(question){
 
   const relation=detectRelationship(q)
   if(relation){
+    conversationContext.relation=relation
+    persistConversationState()
     const vaultAnswer=await relationshipAnswerFromVault(relation)
     if(vaultAnswer) return {text:vaultAnswer,source:'People recognized from your stored memories'}
     let relationQuery=relation
@@ -1614,45 +1834,99 @@ async function answer(question){
     return {text:`I found the document “${best.summary}” in your memory vault.`,source:'Your stored documents'}
   }
 
-  return {text:`Based on the most relevant memory I found: ${best.original_text}`,source:`Stored memory from ${shortDate(best.occurred_at)}`}
+  const clean=cleanAnswerText(best.summary||best.original_text||'')
+  return {text:clean?`I found this relevant memory: ${clean}`:"I found a relevant memory, but it does not contain a clean answer to that question.",source:`Stored memory from ${shortDate(best.occurred_at)}`}
 }
+function thinkingMarkup(){
+  return `
+    <div class="thinking-card">
+      <div class="thinking-orb"><span></span><span></span><span></span></div>
+      <div>
+        <strong class="thinking-status">Searching your memories</strong>
+        <small>Connecting facts, context and sources</small>
+      </div>
+    </div>`
+}
+
+function renderChatMessage(message,index){
+  if(message.pending){
+    return `<div class="bubble assistant thinking-bubble" data-thinking-index="${index}">${thinkingMarkup()}</div>`
+  }
+  const classes=`bubble ${message.role==='user'?'user':'assistant'} ${message.fresh?'fresh':''}`
+  return `<div class="${classes}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
+}
+
+function startThinkingAnimation(){
+  const el=document.querySelector('.thinking-status')
+  if(!el) return ()=>{}
+  const steps=['Searching your memories','Connecting people and facts','Checking recent context','Reasoning over the evidence','Preparing a clean answer']
+  let index=0
+  const timer=setInterval(()=>{
+    index=(index+1)%steps.length
+    el.classList.remove('swap')
+    void el.offsetWidth
+    el.textContent=steps[index]
+    el.classList.add('swap')
+  },850)
+  return ()=>clearInterval(timer)
+}
+
 async function ask(){
   app.innerHTML=shell(`
     <div class="ask-shell">
-      <div class="glass chat-panel">
-        <div class="filter-row" style="margin-bottom:15px">
-          <button class="chip" data-ask-suggestion="Where is my key?">Where is my key?</button>
-          <button class="chip" data-ask-suggestion="Where was my key before?">Where was it before?</button>
-          <button class="chip" data-ask-suggestion="When did I last play basketball?">Last activity</button>
-        </div>
-        <div class="chat" id="chat">${chat.length?chat.map(message=>`<div class="bubble ${message.role==='user'?'user':''}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}${esc(message.text)}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`).join(''):'<div class="empty"><strong>Ask your own life</strong>Memora searches your stored memories before answering.</div>'}</div>
+      <div class="ask-intelligence glass">
+        <div class="intelligence-orb"><span></span></div>
+        <div><strong>Memora Intelligence</strong><small>Grounded in your private memories, facts and connected evidence</small></div>
+        <span class="status live">Ready</span>
       </div>
-      <div class="glass ask-box"><input class="input" id="askInput" placeholder="Ask Memora anything about your memories"><button class="btn primary" id="askButton">Ask</button></div>
+      <div class="glass chat-panel">
+        <div class="filter-row ask-suggestions" style="margin-bottom:15px">
+          <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
+          <button class="chip" data-ask-suggestion="Who is my eldest brother?">Family order</button>
+          <button class="chip" data-ask-suggestion="What do I do for work?">My work</button>
+          <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
+        </div>
+        <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty"><strong>Ask your own life</strong>Try a natural question, even with spelling mistakes. Memora combines structured facts, memories and context before answering.</div>'}</div>
+      </div>
+      <div class="glass ask-box"><input class="input" id="askInput" autocomplete="off" placeholder="Ask Memora anything about your memories"><button class="btn primary" id="askButton">Ask</button></div>
     </div>
-  `,'Ask Memora','A grounded search across your own life.')
+  `,'Ask Memora','Your personal reasoning layer, grounded in what you have actually saved.')
   wire()
+
+  requestAnimationFrame(()=>{
+    const chatEl=document.getElementById('chat')
+    if(chatEl) chatEl.scrollTop=chatEl.scrollHeight
+  })
+
   const submit=async()=>{
     const input=document.getElementById('askInput')
     const q=input.value.trim()
     if(!q) return
+    input.value=''
+    chat=chat.map(message=>({...message,fresh:false}))
     chat.push({role:'user',text:q})
     persistConversationState()
-    chat.push({role:'assistant',text:/\\b(image|photo|picture|screenshot|phone|mobile)\\b/i.test(normalizeQuestion(q))?'Reading the relevant image and memory...':'Checking the most relevant memories...',pending:true})
-    ask()
+    chat.push({role:'assistant',pending:true,text:''})
+    await ask()
+    const stopThinking=startThinkingAnimation()
+
     try{
       const response=await answer(q)
+      stopThinking()
       chat=chat.filter(message=>!message.pending)
-      chat.push({role:'assistant',...response})
+      chat.push({role:'assistant',...response,text:cleanAnswerText(response.text),fresh:true})
       persistConversationState()
     }catch(error){
+      stopThinking()
       chat=chat.filter(message=>!message.pending)
-      chat.push({role:'assistant',text:'I could not complete that lookup. Please try again.',source:error.message})
+      chat.push({role:'assistant',text:'I could not complete that lookup just now. Your saved memories are safe, so please try the question again.',source:'Memora',fresh:true})
       persistConversationState()
     }
-    ask()
+    await ask()
   }
+
   document.getElementById('askButton').onclick=submit
-  document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter')submit()}
+  document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)submit()}
   document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
     document.getElementById('askInput').value=button.dataset.askSuggestion
     submit()
