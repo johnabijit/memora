@@ -12,6 +12,9 @@ let pendingLocation = null
 let recorder = null
 let recorderStream = null
 let recorderChunks = []
+let cameraStream = null
+let cameraFacing = 'environment'
+let conversationContext = { thing: null }
 let lastThemeHour = null
 
 const manualThemes = {
@@ -422,8 +425,8 @@ function bindComposerInputs(){
   const camera=document.getElementById('cameraInput')
   const video=document.getElementById('videoInput')
   document.getElementById('photoBtn')?.addEventListener('click',()=>photo?.click())
-  document.getElementById('cameraBtn')?.addEventListener('click',()=>camera?.click())
-  document.getElementById('videoBtn')?.addEventListener('click',()=>video?.click())
+  document.getElementById('cameraBtn')?.addEventListener('click',()=>openLiveCamera('photo'))
+  document.getElementById('videoBtn')?.addEventListener('click',()=>openLiveCamera('video'))
   document.getElementById('voiceBtn')?.addEventListener('click',toggleRecording)
   document.getElementById('locationBtn')?.addEventListener('click',attachCurrentLocation)
   ;[photo,camera,video].forEach(input=>input?.addEventListener('change',event=>{
@@ -617,33 +620,278 @@ function bindDeletes(){
   })
 }
 
+
+function detectRelationship(question){
+  const q=question.toLowerCase()
+  const groups=[
+    ['parents',['parent','parents']],
+    ['siblings',['sibling','siblings']],
+    ['sister',['sister','sisters']],
+    ['brother',['brother','brothers']],
+    ['father',['father','dad','daddy']],
+    ['mother',['mother','mom','mum','mommy','mummy']],
+    ['wife',['wife','spouse']],
+    ['husband',['husband','spouse']],
+    ['daughter',['daughter','daughters']],
+    ['son',['son','sons']]
+  ]
+  for(const [relation,terms] of groups){
+    if(terms.some(term=>new RegExp('\\b'+term+'\\b','i').test(q))) return relation
+  }
+  return null
+}
+
+function cleanPersonPart(value){
+  return value
+    .replace(/^[“"'\s]+|[”"'\s]+$/g,'')
+    .replace(/^(?:the\s+)?(?:first|second|third|1st|2nd|3rd)\s+/i,'')
+    .trim()
+}
+
+function relationNamesFromText(relation,text){
+  const source=String(text||'').replace(/[\n\r]+/g,' ')
+  const variants={
+    father:'(?:father|dad|daddy)',
+    mother:'(?:mother|mom|mum|mommy|mummy)',
+    sister:'(?:(?:first|second|third|1st|2nd|3rd)\\s+)?(?:(?:younger|elder|older)\\s+)?sister',
+    brother:'(?:(?:first|second|third|1st|2nd|3rd)\\s+)?(?:(?:younger|elder|older)\\s+)?brother',
+    wife:'(?:wife|spouse)',
+    husband:'(?:husband|spouse)',
+    daughter:'(?:(?:first|second|third|1st|2nd|3rd)\\s+)?daughter',
+    son:'(?:(?:first|second|third|1st|2nd|3rd)\\s+)?son'
+  }
+  const relationPattern=variants[relation]
+  if(!relationPattern) return []
+  const re=new RegExp('(?:my\\s+)?'+relationPattern+"(?:'s)?(?:\\s+name)?\\s+(?:is|are)\\s+([^.;”\"\\n]+)",'ig')
+  const names=[]
+  let match
+  while((match=re.exec(source))){
+    let segment=match[1]
+    segment=segment.split(/\s+and\s+(?:my|the)\s+(?:(?:first|second|third|1st|2nd|3rd)\s+)?(?:(?:younger|elder|older)\s+)?(?:father|mother|sister|brother|wife|husband|daughter|son)\b/i)[0]
+    segment=segment.split(/,?\s+(?:and\s+)?(?:my|the)\s+(?:(?:first|second|third|1st|2nd|3rd)\s+)?(?:(?:younger|elder|older)\s+)?(?:father|mother|sister|brother|wife|husband|daughter|son)\b/i)[0]
+    const parts=segment.split(/\s+and\s+then\s+|,\s*then\s+|\s+then\s+|\s*,\s*/i)
+    for(const raw of parts){
+      const name=cleanPersonPart(raw)
+      if(name && name.length<=80 && !names.some(existing=>existing.toLowerCase()===name.toLowerCase())) names.push(name)
+    }
+  }
+  return names
+}
+
+function relationshipAnswer(relation,memories){
+  const texts=(memories||[]).flatMap(m=>[m.original_text,m.summary]).filter(Boolean)
+  const collect=rel=>[...new Set(texts.flatMap(text=>relationNamesFromText(rel,text)))]
+
+  if(relation==='parents'){
+    const fathers=collect('father')
+    const mothers=collect('mother')
+    if(fathers.length||mothers.length){
+      const bits=[]
+      if(fathers.length) bits.push(`father: ${fathers.join(', ')}`)
+      if(mothers.length) bits.push(`mother: ${mothers.join(', ')}`)
+      return `According to your stored memory, your ${bits.join(' and your ')}.`
+    }
+  }
+
+  if(relation==='siblings'){
+    const brothers=collect('brother')
+    const sisters=collect('sister')
+    if(brothers.length||sisters.length){
+      const bits=[]
+      if(brothers.length) bits.push(`${brothers.length===1?'brother':'brothers'}: ${brothers.join(', ')}`)
+      if(sisters.length) bits.push(`${sisters.length===1?'sister':'sisters'}: ${sisters.join(', ')}`)
+      return `According to your stored memory, your ${bits.join(' and your ')}.`
+    }
+  }
+
+  const names=collect(relation)
+  if(names.length){
+    const label=names.length===1?relation:`${relation}s`
+    return `According to your stored memory, your ${label} ${names.length===1?'is':'are'} ${names.join(', ')}.`
+  }
+  return null
+}
+
+async function smartMemorySearch(query,limit=8){
+  const result=await supabase.rpc('search_memories_smart',{search_query:query,result_limit:limit})
+  if(!result.error && result.data?.length) return result.data
+  const fallback=await supabase.rpc('search_memories',{search_query:query,result_limit:limit})
+  return fallback.data||[]
+}
+
+function cameraModalMarkup(mode){
+  return `
+    <div class="camera-stage">
+      <video id="liveCamera" autoplay playsinline muted></video>
+      <div class="camera-status" id="cameraStatus">Starting camera...</div>
+    </div>
+    <div class="camera-actions">
+      <button class="btn" id="switchCamera">Switch camera</button>
+      ${mode==='photo'
+        ? '<button class="btn primary" id="takePhoto">Capture photo</button>'
+        : '<button class="btn primary" id="recordVideo">Start recording</button>'}
+      <button class="btn" id="cameraFallback">Choose existing file</button>
+    </div>
+  `
+}
+
+function stopCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(track=>track.stop())
+    cameraStream=null
+  }
+}
+
+async function openLiveCamera(mode='photo'){
+  if(!navigator.mediaDevices?.getUserMedia){
+    toast('Live camera is not supported here. Opening file picker instead.')
+    document.getElementById(mode==='photo'?'cameraInput':'videoInput')?.click()
+    return
+  }
+
+  const box=modal(mode==='photo'?'Take a photo':'Record a video',cameraModalMarkup(mode))
+  const close=box.querySelector('.close')
+  const originalClose=close.onclick
+  close.onclick=()=>{stopCamera();originalClose()}
+  box.onclick=e=>{if(e.target===box){stopCamera();box.remove()}}
+
+  const start=async()=>{
+    stopCamera()
+    const status=box.querySelector('#cameraStatus')
+    try{
+      let constraints={video:{facingMode:{ideal:cameraFacing}},audio:mode==='video'}
+      try{
+        cameraStream=await navigator.mediaDevices.getUserMedia(constraints)
+      }catch(error){
+        if(mode==='video'){
+          constraints={video:{facingMode:{ideal:cameraFacing}},audio:false}
+          cameraStream=await navigator.mediaDevices.getUserMedia(constraints)
+        }else throw error
+      }
+      const video=box.querySelector('#liveCamera')
+      video.srcObject=cameraStream
+      await video.play()
+      status.textContent=mode==='photo'?'Camera ready':'Camera ready for video'
+    }catch(error){
+      status.textContent=`Camera unavailable: ${error.message}`
+    }
+  }
+
+  box.querySelector('#switchCamera').onclick=async()=>{
+    cameraFacing=cameraFacing==='environment'?'user':'environment'
+    await start()
+  }
+  box.querySelector('#cameraFallback').onclick=()=>{
+    stopCamera()
+    box.remove()
+    document.getElementById(mode==='photo'?'cameraInput':'videoInput')?.click()
+  }
+
+  if(mode==='photo'){
+    box.querySelector('#takePhoto').onclick=()=>{
+      const video=box.querySelector('#liveCamera')
+      if(!cameraStream||!video.videoWidth) return toast('Camera is not ready yet')
+      const canvas=document.createElement('canvas')
+      canvas.width=video.videoWidth
+      canvas.height=video.videoHeight
+      canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height)
+      canvas.toBlob(blob=>{
+        if(!blob) return toast('Could not capture photo')
+        pendingMedia.push(new File([blob],`camera-${Date.now()}.jpg`,{type:'image/jpeg'}))
+        stopCamera()
+        box.remove()
+        renderPending()
+        toast('Photo attached')
+      },'image/jpeg',0.92)
+    }
+  }else{
+    let videoRecorder=null
+    let chunks=[]
+    const button=box.querySelector('#recordVideo')
+    button.onclick=()=>{
+      if(!cameraStream) return toast('Camera is not ready yet')
+      if(videoRecorder?.state==='recording'){
+        videoRecorder.stop()
+        button.textContent='Start recording'
+        return
+      }
+      chunks=[]
+      try{
+        videoRecorder=new MediaRecorder(cameraStream)
+      }catch(error){
+        return toast(error.message)
+      }
+      videoRecorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}
+      videoRecorder.onstop=()=>{
+        const type=videoRecorder.mimeType||'video/webm'
+        const blob=new Blob(chunks,{type})
+        pendingMedia.push(new File([blob],`video-${Date.now()}.webm`,{type}))
+        stopCamera()
+        box.remove()
+        renderPending()
+        toast('Video attached')
+      }
+      videoRecorder.start()
+      button.textContent='Stop and attach'
+      box.querySelector('#cameraStatus').textContent='Recording...'
+    }
+  }
+  await start()
+}
+
 async function answer(question){
   const q=question.trim()
+  const lower=q.toLowerCase()
+
+  const relation=detectRelationship(q)
+  if(relation){
+    let relationQuery=relation
+    if(relation==='parents') relationQuery='father mother parents'
+    if(relation==='siblings') relationQuery='brother sister siblings'
+    const memories=await smartMemorySearch(relationQuery,10)
+    const response=relationshipAnswer(relation,memories)
+    if(response) return {text:response,source:'Your stored personal memory'}
+    if(memories.length) return {text:`I found a related memory: “${memories[0].original_text}”`,source:'Your stored personal memory'}
+  }
+
   let match=q.match(/where (?:is|did i (?:keep|put|leave)) (?:my )?(.+?)(?:\?|$)/i)
   if(match){
-    const thing=await findThing(match[1].trim())
-    if(!thing) return {text:"I don't have a memory about that yet."}
+    let thingName=match[1].trim()
+    if(/^(?:it|that|this)$/i.test(thingName) && conversationContext.thing) thingName=conversationContext.thing
+    const thing=await findThing(thingName)
+    if(!thing) {
+      const memories=await smartMemorySearch(thingName,5)
+      if(memories.length) return {text:`I found this related memory: “${memories[0].original_text}”`,source:'Your stored memories'}
+      return {text:"I don't have a memory about that yet."}
+    }
+    conversationContext.thing=thing.name
     return {text:`Your ${thing.name} is currently recorded as being at ${thing.current_location}.`,source:'Latest personal memory'}
   }
-  match=q.match(/where was (?:my )?(.+?) before/i)
-  if(match){
-    const thing=await findThing(match[1].trim())
-    if(!thing) return {text:"I don't have a memory about that yet."}
+
+  match=q.match(/where was (?:(?:my )?(.+?)|it|that|this) before(?:\?|$)/i)
+  if(match || /where was (?:it|that|this) before/i.test(lower)){
+    let thingName=match?.[1]?.trim()||conversationContext.thing
+    if(thingName && /^(?:it|that|this)$/i.test(thingName)) thingName=conversationContext.thing
+    if(!thingName) return {text:'Tell me which item you mean, for example “Where was my key before?”'}
+    const thing=await findThing(thingName)
+    if(!thing) return {text:"I don't have a location history for that item yet."}
+    conversationContext.thing=thing.name
     const {data}=await supabase.from('thing_locations').select('*').eq('thing_id',thing.id).order('recorded_at',{ascending:false}).limit(2)
     if(!data||data.length<2) return {text:`I know the current location of your ${thing.name}, but I do not have an earlier location yet.`}
     return {text:`Before ${data[0].location}, your ${thing.name} was recorded at ${data[1].location}.`,source:`Personal memory from ${when(data[1].recorded_at)}`}
   }
+
   match=q.match(/when did i last (.+?)(?:\?|$)/i)
   if(match){
-    const {data}=await supabase.rpc('search_memories',{search_query:match[1].trim(),result_limit:5})
-    if(!data?.length) return {text:"I don't have a memory about that yet."}
+    const data=await smartMemorySearch(match[1].trim(),8)
+    if(!data.length) return {text:"I don't have a memory about that yet."}
     return {text:`The most recent matching memory I found is “${data[0].original_text}” from ${when(data[0].occurred_at)}.`,source:'Your stored memories'}
   }
-  const {data,error}=await supabase.rpc('search_memories',{search_query:q,result_limit:5})
-  if(error||!data?.length) return {text:"I don't have a memory about that yet."}
+
+  const data=await smartMemorySearch(q,8)
+  if(!data.length) return {text:"I don't have a memory about that yet."}
   return {text:`I found this in your memory vault: “${data[0].original_text}”`,source:`Stored memory from ${when(data[0].occurred_at)}`}
 }
-
 async function ask(){
   app.innerHTML=shell(`
     <div class="ask-shell">
@@ -659,10 +907,6 @@ async function ask(){
     </div>
   `,'Ask Memora','A grounded search across your own life.')
   wire()
-  document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
-    document.getElementById('askInput').value=button.dataset.askSuggestion
-    submit()
-  })
   const submit=async()=>{
     const input=document.getElementById('askInput')
     const q=input.value.trim()
@@ -673,6 +917,10 @@ async function ask(){
   }
   document.getElementById('askButton').onclick=submit
   document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter')submit()}
+  document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
+    document.getElementById('askInput').value=button.dataset.askSuggestion
+    submit()
+  })
 }
 
 async function timeline(){
