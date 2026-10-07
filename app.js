@@ -17,14 +17,38 @@ let cameraFacing = 'environment'
 let conversationContext = { thing: null }
 let lastThemeHour = null
 
-const manualThemes = {
-  aurora:{c1:'#8b7cff',c2:'#50d8d0',c3:'#ff7cac',bg0:'#060810',bg1:'#0b1020',bg2:'#10192c',label:'Aurora'},
-  ocean:{c1:'#4f8cff',c2:'#3de1d2',c3:'#73b7ff',bg0:'#04101a',bg1:'#071925',bg2:'#0b2531',label:'Ocean'},
-  rose:{c1:'#f06ca9',c2:'#b589ff',c3:'#ffad70',bg0:'#120813',bg1:'#1b0d20',bg2:'#231328',label:'Rose'},
-  forest:{c1:'#65d99c',c2:'#57c9c1',c3:'#b1d86f',bg0:'#06100c',bg1:'#0a1912',bg2:'#12251b',label:'Forest'},
-  solar:{c1:'#ff9d58',c2:'#ffc861',c3:'#ff6f91',bg0:'#130a07',bg1:'#201009',bg2:'#291711',label:'Solar'},
-  mono:{c1:'#d5d9e2',c2:'#8ea0b8',c3:'#ffffff',bg0:'#08090c',bg1:'#101216',bg2:'#171a20',label:'Mono'}
-}
+const themeFamilies = [
+  {id:'aurora',name:'Aurora',h:252},{id:'ocean',name:'Ocean',h:210},{id:'rose',name:'Rose',h:330},
+  {id:'forest',name:'Forest',h:145},{id:'solar',name:'Solar',h:28},{id:'lavender',name:'Lavender',h:275},
+  {id:'arctic',name:'Arctic',h:190},{id:'ember',name:'Ember',h:8},{id:'neon',name:'Neon',h:300},
+  {id:'sakura',name:'Sakura',h:345},{id:'copper',name:'Copper',h:22},{id:'galaxy',name:'Galaxy',h:235}
+]
+const themeMoods = [
+  {id:'dawn',name:'Dawn',s:82,l:66,b:8},{id:'mist',name:'Mist',s:58,l:70,b:10},
+  {id:'silk',name:'Silk',s:70,l:64,b:7},{id:'glow',name:'Glow',s:90,l:62,b:8},
+  {id:'night',name:'Night',s:74,l:58,b:4},{id:'pearl',name:'Pearl',s:46,l:74,b:11},
+  {id:'deep',name:'Deep',s:80,l:54,b:3},{id:'dream',name:'Dream',s:76,l:67,b:7},
+  {id:'pulse',name:'Pulse',s:96,l:60,b:5},{id:'velvet',name:'Velvet',s:64,l:61,b:4}
+]
+const themeCatalog = themeFamilies.flatMap((family,fi)=>themeMoods.map((mood,mi)=>{
+  const h1=(family.h+mi*3)%360
+  const h2=(family.h+48+mi*4)%360
+  const h3=(family.h+112+mi*2)%360
+  const bgHue=(family.h+mi*2)%360
+  return {
+    id:`${family.id}-${mood.id}`,
+    label:`${family.name} ${mood.name}`,
+    family:family.name,
+    c1:`hsl(${h1} ${mood.s}% ${mood.l}%)`,
+    c2:`hsl(${h2} ${Math.max(48,mood.s-8)}% ${Math.min(74,mood.l+2)}%)`,
+    c3:`hsl(${h3} ${Math.min(96,mood.s+4)}% ${Math.min(76,mood.l+4)}%)`,
+    bg0:`hsl(${bgHue} 36% ${mood.b}%)`,
+    bg1:`hsl(${(bgHue+12)%360} 42% ${mood.b+4}%)`,
+    bg2:`hsl(${(bgHue+24)%360} 40% ${mood.b+7}%)`
+  }
+}))
+const manualThemes = Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
+
 
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
 const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Unknown date'
@@ -68,30 +92,52 @@ function applyTheme(values,label){
 function adaptiveTheme(){
   const now=new Date()
   const hour=now.getHours()
-  const hue=(238+hour*17)%360
-  const hue2=(hue+58)%360
-  const hue3=(hue+122)%360
-  let light=62
-  let base0='#060810',base1='#0b1020',base2='#10192c',label='Midnight Bloom'
-  if(hour>=5&&hour<8){light=66;base0='#100b16';base1='#21152a';base2='#2d1b2b';label='Dawn Bloom'}
-  else if(hour>=8&&hour<12){light=58;base0='#07101d';base1='#0c1b2c';base2='#11283b';label='Morning Sky'}
-  else if(hour>=12&&hour<16){light=60;base0='#071018';base1='#0a1b27';base2='#142738';label='Daylight'}
-  else if(hour>=16&&hour<19){light=64;base0='#140b0b';base1='#241014';base2='#31171c';label='Golden Hour'}
-  else if(hour>=19&&hour<22){light=63;base0='#090918';base1='#121128';base2='#1a1737';label='Twilight'}
-  else if(hour>=22){light=63;base0='#060812';base1='#0b1021';base2='#10172d';label='Night Aurora'}
-  applyTheme({
-    c1:`hsl(${hue} 88% ${light}%)`,
-    c2:`hsl(${hue2} 80% ${Math.min(light+3,70)}%)`,
-    c3:`hsl(${hue3} 86% ${Math.min(light+4,72)}%)`,
-    bg0:base0,bg1:base1,bg2:base2
-  },`${label} · ${hour.toString().padStart(2,'0')}:00`)
+  const day=Math.floor(Date.now()/86400000)
+  const theme=themeCatalog[(day*24+hour)%themeCatalog.length]
+  const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
+  applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
   lastThemeHour=hour
 }
 
 function updateTheme(){
   const mode=localStorage.getItem('memora-theme')||'auto'
   if(mode==='auto') adaptiveTheme()
-  else applyTheme(manualThemes[mode]||manualThemes.aurora,(manualThemes[mode]||manualThemes.aurora).label)
+  else {
+    const theme=manualThemes[mode]||themeCatalog[0]
+    applyTheme(theme,theme.label)
+  }
+}
+
+function openThemePicker(){
+  const current=localStorage.getItem('memora-theme')||'auto'
+  const body=`
+    <p class="muted">Adaptive mode changes the visual atmosphere every hour. You can also choose from ${themeCatalog.length} handcrafted color combinations.</p>
+    <div class="theme-picker-tools">
+      <input class="input" id="themeSearch" placeholder="Search 120 themes, for example Ocean, Velvet or Sakura">
+      <button class="btn" id="randomTheme">Surprise me</button>
+      <button class="btn ${current==='auto'?'primary':''}" data-theme="auto">Adaptive hourly</button>
+    </div>
+    <div class="theme-gallery" id="themeGallery">
+      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
+    </div>`
+  const box=modal('Theme Universe',body)
+  const applyChoice=id=>{
+    localStorage.setItem('memora-theme',id)
+    updateTheme()
+    box.remove()
+    toast(id==='auto'?'Adaptive hourly theme enabled':'Theme updated')
+  }
+  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>applyChoice(button.dataset.theme))
+  box.querySelector('#randomTheme').onclick=()=>{
+    const theme=themeCatalog[Math.floor(Math.random()*themeCatalog.length)]
+    applyChoice(theme.id)
+  }
+  box.querySelector('#themeSearch').oninput=event=>{
+    const term=event.target.value.trim().toLowerCase()
+    box.querySelectorAll('.theme-card').forEach(card=>{
+      card.classList.toggle('hidden',term&&!card.dataset.themeName.includes(term))
+    })
+  }
 }
 
 function setupAtmosphere(){
@@ -329,6 +375,7 @@ async function saveMemory(text,files=[],location=null){
   }
   const {data:memory,error}=await supabase.from('memories').insert(payload).select().single()
   if(error) throw error
+  await syncEntitiesFromMemory(memory,text)
   if(parsed.interpreted_data.thing&&parsed.interpreted_data.location) await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
   if(parsed.interpreted_data.person){
     const existing=await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
@@ -485,6 +532,54 @@ function memoryCard(m){
   </article>`
 }
 
+
+function weatherLabel(code){
+  if(code===0) return 'Clear'
+  if([1,2].includes(code)) return 'Mostly clear'
+  if(code===3) return 'Cloudy'
+  if([45,48].includes(code)) return 'Fog'
+  if(code>=51&&code<=67) return 'Rain'
+  if(code>=71&&code<=77) return 'Snow'
+  if(code>=80&&code<=82) return 'Showers'
+  if(code>=95) return 'Thunderstorm'
+  return 'Weather'
+}
+
+async function getLivePulse(){
+  const now=new Date()
+  const network=navigator.onLine?'Online':'Offline'
+  const connection=navigator.connection?.effectiveType?String(navigator.connection.effectiveType).toUpperCase():'Connected'
+  const base={time:now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),network,connection}
+  if(!navigator.geolocation) return {...base,error:'Location is unavailable in this browser'}
+  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:10000,maximumAge:300000}))
+  const {latitude,longitude,accuracy}=position.coords
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`
+  const response=await fetch(url)
+  if(!response.ok) throw new Error('Live weather is temporarily unavailable')
+  const weather=await response.json()
+  return {...base,latitude,longitude,accuracy,current:weather.current,current_units:weather.current_units,timezone:weather.timezone}
+}
+
+async function refreshLivePulse(){
+  const target=document.getElementById('livePulse')
+  if(!target) return
+  target.innerHTML='<div class="glass live-card loading">Loading live context...</div>'
+  try{
+    const pulse=await getLivePulse()
+    localStorage.setItem('memora-live-context','1')
+    const c=pulse.current||{}
+    target.innerHTML=`
+      <div class="glass live-card"><span class="live-orb"></span><div class="eyebrow">Local time</div><b>${esc(pulse.time)}</b><small>${esc(pulse.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}</small></div>
+      <div class="glass live-card"><span class="live-orb"></span><div class="eyebrow">Weather now</div><b>${c.temperature_2m!=null?`${Math.round(c.temperature_2m)}°`:'--'}</b><small>${esc(weatherLabel(c.weather_code))} · feels ${c.apparent_temperature!=null?Math.round(c.apparent_temperature)+'°':'--'}</small></div>
+      <div class="glass live-card"><span class="live-orb"></span><div class="eyebrow">Network</div><b>${esc(pulse.network)}</b><small>${esc(pulse.connection)}</small></div>
+      <div class="glass live-card"><span class="live-orb"></span><div class="eyebrow">Location context</div><b>Ready</b><small>Approx. accuracy ±${Math.round(pulse.accuracy||0)} m</small></div>
+    `
+  }catch(error){
+    target.innerHTML=`<div class="glass live-card wide"><div><b>Live context is off</b><small>${esc(error.message||'Allow location to enable live weather and location context.')}</small></div><button class="btn" id="retryLive">Enable</button></div>`
+    document.getElementById('retryLive')?.addEventListener('click',refreshLivePulse)
+  }
+}
+
 async function home(){
   const [{count:memoryCount},{count:thingCount},{count:docCount},{data:recent},{data:profile}]=await Promise.all([
     supabase.from('memories').select('*',{count:'exact',head:true}),
@@ -530,6 +625,10 @@ async function home(){
       </div>
     </section>
     <section class="section">
+      <div class="section-head"><div><h3>Live Pulse</h3><p>Optional live context from this device. Nothing is stored unless you save a memory.</p></div><button class="btn" id="enableLivePulse">Refresh live</button></div>
+      <div class="live-grid" id="livePulse"><div class="glass live-card wide"><div><b>Live context is optional</b><small>Enable current weather, local time, network and approximate location context.</small></div><button class="btn primary" id="livePulseStart">Enable</button></div></div>
+    </section>
+    <section class="section">
       <div class="section-head"><div><h3>Recent memories</h3><p>Your newest moments, objects and details.</p></div><button class="btn" data-nav="memories">See gallery</button></div>
       <div class="memory-grid">${recent?.length?recent.map(memoryCard).join(''):'<div class="glass empty"><strong>Your universe is waiting</strong>Add a sentence, image, video, voice note or location.</div>'}</div>
     </section>
@@ -559,6 +658,9 @@ async function home(){
       button.textContent='Remember this'
     }
   }
+  document.getElementById('enableLivePulse')?.addEventListener('click',refreshLivePulse)
+  document.getElementById('livePulseStart')?.addEventListener('click',refreshLivePulse)
+  if(localStorage.getItem('memora-live-context')==='1') refreshLivePulse()
   bindDeletes()
   await hydrateMemoryExtras(recent||[])
 }
@@ -710,6 +812,121 @@ function relationshipAnswer(relation,memories){
     return `According to your stored memory, your ${label} ${names.length===1?'is':'are'} ${names.join(', ')}.`
   }
   return null
+}
+
+
+function cleanEntityName(value){
+  return String(value||'')
+    .replace(/^[“"'\s]+|[”"'.,;!?\s]+$/g,'')
+    .replace(/\s+/g,' ')
+    .trim()
+}
+
+function extractEntitiesFromText(text){
+  const source=String(text||'').replace(/[\r\n]+/g,' ')
+  const people=new Map()
+  const places=new Map()
+
+  const addPerson=(name,relationship='known person')=>{
+    name=cleanEntityName(name)
+    if(!name||name.length<2||name.length>80||/^the\b/i.test(name)) return
+    const key=name.toLowerCase()
+    if(!people.has(key)||people.get(key).relationship==='known person') people.set(key,{name,relationship})
+  }
+  const addPlace=(name,category='place')=>{
+    name=cleanEntityName(name)
+    if(!name||name.length<2||name.length>90) return
+    places.set(name.toLowerCase(),{name,category})
+  }
+
+  ;['father','mother','sister','brother','wife','husband','daughter','son'].forEach(relation=>{
+    relationNamesFromText(relation,source).forEach(name=>addPerson(name,relation))
+  })
+
+  const relationPatterns=[
+    ['friend',/(?:my\s+)?friend(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,70})/ig],
+    ['colleague',/(?:my\s+)?(?:colleague|coworker|co-worker)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,70})/ig],
+    ['manager',/(?:my\s+)?(?:manager|boss)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,70})/ig],
+    ['partner',/(?:my\s+)?partner(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,70})/ig],
+    ['cousin',/(?:my\s+)?cousin(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,70})/ig]
+  ]
+  relationPatterns.forEach(([relationship,re])=>{
+    let m
+    while((m=re.exec(source))) addPerson(m[1].split(/\s+(?:at|in|on|near|and|with|from|about|for)\s+/i)[0],relationship)
+  })
+
+  const encounterPatterns=[
+    /(?:i\s+)?met\s+([A-Z][A-Za-z .'-]{1,70})/ig,
+    /(?:played|went|worked|spoke|talked|travelled|traveled)\s+.*?\s+with\s+([A-Z][A-Za-z .'-]{1,70})/ig,
+    /(?:spoke|talked)\s+(?:with|to)\s+([A-Z][A-Za-z .'-]{1,70})/ig
+  ]
+  encounterPatterns.forEach(re=>{
+    let m
+    while((m=re.exec(source))) addPerson(m[1].split(/\s+(?:at|in|on|near|and|from|about|for|yesterday|today)\s+/i)[0])
+  })
+
+  const whatsappSpeaker=/\]\s*([^:\n]{2,60}):/g
+  let ws
+  while((ws=whatsappSpeaker.exec(source))){
+    const candidate=cleanEntityName(ws[1])
+    if(candidate&&candidate.split(' ').length<=6) addPerson(candidate,'conversation participant')
+  }
+
+  const placePatterns=[
+    ['hometown',/(?:born|grew up|live|lived)\s+(?:at|in)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/ig],
+    ['visited',/(?:visited|went to|travelled to|traveled to)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/ig],
+    ['place',/(?:at|near)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/g]
+  ]
+  placePatterns.forEach(([category,re])=>{
+    let m
+    while((m=re.exec(source))){
+      const name=m[1].split(/\s+(?:and|with|on|at|in|around|from|where|which|who)\s+/i)[0]
+      addPlace(name,category)
+    }
+  })
+
+  return {people:[...people.values()],places:[...places.values()]}
+}
+
+async function syncEntitiesFromMemory(memory,text){
+  const entities=extractEntitiesFromText(text)
+  const stamp=memory?.occurred_at||memory?.created_at||new Date().toISOString()
+  if(entities.people.length){
+    const rows=entities.people.map(person=>({
+      user_id:user.id,name:person.name,relationship:person.relationship,
+      notes:'Recognized automatically from a memory',first_seen_at:stamp,last_seen_at:stamp
+    }))
+    await supabase.from('people').upsert(rows,{onConflict:'user_id,name',ignoreDuplicates:false})
+  }
+  if(entities.places.length){
+    const rows=entities.places.map(place=>({
+      user_id:user.id,name:place.name,category:place.category,
+      notes:'Recognized automatically from a memory',first_visited_at:stamp,last_visited_at:stamp
+    }))
+    await supabase.from('places').upsert(rows,{onConflict:'user_id,name',ignoreDuplicates:false})
+  }
+}
+
+async function syncEntitiesFromAllMemories(){
+  const {data:memories}=await supabase.from('memories').select('id,original_text,summary,occurred_at,created_at').order('created_at',{ascending:false}).limit(300)
+  if(!memories?.length) return
+  const people=new Map(),places=new Map()
+  for(const memory of memories){
+    const entities=extractEntitiesFromText(`${memory.original_text||''} ${memory.summary||''}`)
+    const stamp=memory.occurred_at||memory.created_at
+    for(const person of entities.people){
+      const key=person.name.toLowerCase()
+      const existing=people.get(key)
+      people.set(key,{user_id:user.id,name:person.name,relationship:existing?.relationship&&existing.relationship!=='known person'?existing.relationship:person.relationship,notes:'Recognized automatically from stored memories',first_seen_at:existing?.first_seen_at||stamp,last_seen_at:stamp})
+    }
+    for(const place of entities.places){
+      const key=place.name.toLowerCase()
+      const existing=places.get(key)
+      places.set(key,{user_id:user.id,name:place.name,category:existing?.category||place.category,notes:'Recognized automatically from stored memories',first_visited_at:existing?.first_visited_at||stamp,last_visited_at:stamp})
+    }
+  }
+  if(people.size) await supabase.from('people').upsert([...people.values()],{onConflict:'user_id,name',ignoreDuplicates:false})
+  if(places.size) await supabase.from('places').upsert([...places.values()],{onConflict:'user_id,name',ignoreDuplicates:false})
 }
 
 async function smartMemorySearch(query,limit=8){
@@ -941,6 +1158,7 @@ async function timeline(){
 }
 
 async function vault(){
+  await syncEntitiesFromAllMemories()
   const [{count:peopleCount},{count:placeCount},{count:thingCount},{count:docCount}]=await Promise.all([
     supabase.from('people').select('*',{count:'exact',head:true}),
     supabase.from('places').select('*',{count:'exact',head:true}),
@@ -960,12 +1178,14 @@ async function vault(){
 }
 
 async function people(){
+  await syncEntitiesFromAllMemories()
   const {data}=await supabase.from('people').select('*').order('name')
   app.innerHTML=shell(`<div class="vault-grid">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="vault-icon">◎</div><h3>${esc(p.name)}</h3><p>${esc(p.relationship||'Person from your memories')}</p><div class="memory-meta">Last seen ${when(p.last_seen_at||p.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No people yet</strong>Mention someone in a memory and they can appear here.</div>'}</div>`,'People')
   wire()
 }
 
 async function places(){
+  await syncEntitiesFromAllMemories()
   const {data}=await supabase.from('places').select('*').order('name')
   app.innerHTML=shell(`<div class="vault-grid">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="vault-icon">⌖</div><h3>${esc(p.name)}</h3><p>${esc(p.address||p.category||'Saved place')}</p></div>`).join(''):'<div class="glass empty"><strong>No places yet</strong>Places and imported location history will collect here.</div>'}</div>`,'Places')
   wire()
@@ -1096,27 +1316,104 @@ async function importWhatsApp(file){
   return imported
 }
 
+
+async function getConnectionMap(){
+  const {data}=await supabase.from('connections').select('*').order('provider')
+  return Object.fromEntries((data||[]).map(item=>[item.provider,item]))
+}
+
+function connectionStatus(connection,setupLabel='Connect'){
+  if(connection?.status==='connected') return {label:'Connected',className:'live'}
+  if(connection?.status==='error') return {label:'Needs attention',className:''}
+  return {label:setupLabel,className:''}
+}
+
+async function connectAiApi(provider,label){
+  const body=`
+    <p class="muted">Enter your ${esc(label)} API key. It is sent directly to an authenticated Supabase Edge Function, verified with the provider and stored encrypted in Supabase Vault. It is never written into Memora's frontend code.</p>
+    <input class="input" id="providerApiKey" type="password" autocomplete="off" placeholder="${esc(label)} API key">
+    <div class="filter-row" style="margin-top:12px"><button class="btn primary" id="providerConnect">Connect securely</button><span class="muted" id="providerConnectMsg"></span></div>`
+  const box=modal(`Connect ${label}`,body)
+  box.querySelector('#providerConnect').onclick=async()=>{
+    const key=box.querySelector('#providerApiKey').value.trim()
+    const msg=box.querySelector('#providerConnectMsg')
+    if(!key) return msg.textContent='Enter an API key.'
+    msg.textContent='Verifying...'
+    const {data,error}=await supabase.functions.invoke('connect-ai-provider',{body:{action:'connect',provider,api_key:key}})
+    box.querySelector('#providerApiKey').value=''
+    if(error||data?.error) return msg.textContent=data?.error||error.message
+    msg.textContent='Connected.'
+    setTimeout(()=>{box.remove();sources()},500)
+  }
+}
+
+async function disconnectSource(provider){
+  const {data,error}=await supabase.functions.invoke('connect-ai-provider',{body:{action:'disconnect',provider}})
+  if(error||data?.error) return toast(data?.error||error.message)
+  toast('Disconnected')
+  sources()
+}
+
+async function startOAuthSource(provider){
+  const isGoogle=provider==='google_workspace'
+  const authProvider=isGoogle?'google':'azure'
+  const scopes=isGoogle
+    ? 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly'
+    : 'openid email profile offline_access User.Read Mail.Read Calendars.Read Files.Read Sites.Read.All'
+  localStorage.setItem('memora-pending-source',provider)
+  localStorage.setItem('memora-pending-scopes',scopes)
+  const queryParams=isGoogle?{access_type:'offline',prompt:'consent'}:{prompt:'consent'}
+  const {error}=await supabase.auth.signInWithOAuth({
+    provider:authProvider,
+    options:{redirectTo:window.location.origin,scopes,queryParams}
+  })
+  if(error){
+    localStorage.removeItem('memora-pending-source')
+    localStorage.removeItem('memora-pending-scopes')
+    toast(error.message)
+  }
+}
+
+async function finalizePendingOAuth(session){
+  const provider=localStorage.getItem('memora-pending-source')
+  if(!provider||!session) return
+  const accessToken=session.provider_token
+  const refreshToken=session.provider_refresh_token
+  if(!accessToken) return
+  const scopes=(localStorage.getItem('memora-pending-scopes')||'').split(' ').filter(Boolean)
+  const {data,error}=await supabase.functions.invoke('store-oauth-source',{
+    body:{provider,access_token:accessToken,refresh_token:refreshToken||null,scopes}
+  })
+  if(error||data?.error){
+    console.warn('Source connection could not be finalized')
+    return
+  }
+  localStorage.removeItem('memora-pending-source')
+  localStorage.removeItem('memora-pending-scopes')
+  toast('Source connected')
+}
+
 function sourceInfo(kind){
   const info={
     openai:{
       title:'OpenAI and GPT agents',
-      body:'Memora is designed to connect through the current OpenAI Responses and agent stack. A real live connection needs a secure server-side API key or OAuth style integration. The key must never be stored in browser JavaScript.'
+      body:'OpenAI connects through a secure API-key flow backed by Supabase Vault. New reasoning integrations should use the current Responses architecture rather than the retired Assistants API.'
     },
     google:{
       title:'Google Workspace',
-      body:'Gmail, Calendar, Drive and Photos can be connected with Google OAuth. Reading personal Gmail or Drive data requires additional scopes and secure refresh-token storage on the server.'
+      body:'Google Workspace uses OAuth with explicit read-only scopes. Memora stores provider credentials server-side after authorization, not in frontend JavaScript. Gmail scopes may require Google verification before public release.'
     },
     microsoft:{
       title:'Microsoft 365',
-      body:'Outlook, Calendar, OneDrive and SharePoint can be connected through Microsoft Graph. This requires an Entra application registration, delegated permissions and secure token handling.'
+      body:'Microsoft 365 uses Microsoft Graph OAuth with delegated permissions for Outlook, Calendar, OneDrive and SharePoint. An Entra application registration must be configured once before public use.'
     },
     claude:{
       title:'Claude',
-      body:'Claude can be supported through export import and a server-side API integration. A future secure AI gateway can let users choose Claude as a reasoning provider without changing Memora storage.'
+      body:'Claude now has a secure API-key connection path. The credential is verified server-side and encrypted in Supabase Vault before the source is marked connected.'
     },
     gemini:{
       title:'Gemini',
-      body:'Gemini can be supported through a server-side Google AI integration. This connector is separated from Google Workspace access so AI permissions and personal-data permissions remain clear.'
+      body:'Gemini now has a separate secure API connection so Google AI access stays independent from Gmail, Calendar and Drive permissions.'
     },
     maps:{
       title:'Maps and live location',
@@ -1132,43 +1429,58 @@ function openSourceInfo(kind){
 }
 
 async function sources(){
+  const connections=await getConnectionMap()
+  const google=connectionStatus(connections.google_workspace,'OAuth')
+  const microsoft=connectionStatus(connections.microsoft365,'OAuth')
+  const openai=connectionStatus(connections.openai,'API')
+  const anthropic=connectionStatus(connections.anthropic,'API')
+  const gemini=connectionStatus(connections.gemini,'API')
+
   app.innerHTML=shell(`
+    <div class="source-hero glass">
+      <div><div class="eyebrow">Connection Hub</div><h3>Connect your life, not just import it.</h3><p>OAuth sources and AI APIs are separated by permission type. Connected credentials are kept server-side, while Memora only shows status and account labels.</p></div>
+      <div class="source-summary"><b>${Object.values(connections).filter(c=>c.status==='connected').length}</b><span>connected sources</span></div>
+    </div>
     <div class="source-grid">
-      <div class="glass source-card" id="chatgptCard"><span class="status live">Import works</span><div class="source-icon">AI</div><h3>ChatGPT</h3><p>Import your exported ChatGPT conversations into searchable historical memories.</p><button class="btn primary" id="chatgptImportBtn" style="margin-top:15px">Import export</button><input class="hidden" id="chatgptFile" type="file" accept=".json,application/json"></div>
-      <div class="glass source-card" data-source-info="openai"><span class="status">Secure setup</span><div class="source-icon">✦</div><h3>OpenAI agents</h3><p>Future live reasoning through the current Responses and agent architecture.</p></div>
-      <div class="glass source-card" data-source-info="google"><span class="status">OAuth setup</span><div class="source-icon">G</div><h3>Google Workspace</h3><p>Gmail, Calendar, Drive and Photos through explicit user-authorized scopes.</p></div>
-      <div class="glass source-card" data-source-info="microsoft"><span class="status">OAuth setup</span><div class="source-icon">M</div><h3>Microsoft 365</h3><p>Outlook, Calendar, OneDrive and SharePoint through Microsoft Graph.</p></div>
-      <div class="glass source-card" id="whatsappCard"><span class="status live">Import works</span><div class="source-icon">W</div><h3>WhatsApp</h3><p>Import an exported text chat so important conversations can become searchable memories.</p><button class="btn" id="whatsappImportBtn" style="margin-top:15px">Import chat</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,text/plain"></div>
-      <div class="glass source-card" data-source-info="maps"><span class="status live">Location works</span><div class="source-icon">⌖</div><h3>Maps and location</h3><p>Attach your current location now. Timeline imports and continuous history are designed as separate privacy-aware modules.</p></div>
-      <div class="glass source-card" data-source-info="claude"><span class="status">AI setup</span><div class="source-icon">C</div><h3>Claude</h3><p>Prepared for API or export based memory import without changing your core database.</p></div>
-      <div class="glass source-card" data-source-info="gemini"><span class="status">AI setup</span><div class="source-icon">Gm</div><h3>Gemini</h3><p>Prepared as another optional AI reasoning provider.</p></div>
-      <div class="glass source-card" id="filesCard"><span class="status live">Works now</span><div class="source-icon">▣</div><h3>Files and documents</h3><p>Upload policies, receipts, screenshots, PDFs and other files with a note explaining why they matter.</p><button class="btn" id="filesJump" style="margin-top:15px">Open Documents</button></div>
+      <div class="glass source-card"><span class="status ${google.className}">${google.label}</span><div class="source-icon">G</div><h3>Google Workspace</h3><p>Gmail, Calendar and Drive through explicit read-only OAuth scopes.</p><div class="source-actions">${connections.google_workspace?.status==='connected'?'<button class="btn" data-source-detail="google_workspace">Connected account</button>':'<button class="btn primary" id="connectGoogle">Connect Google</button>'}<button class="btn ghost" data-source-info="google">Details</button></div></div>
+      <div class="glass source-card"><span class="status ${microsoft.className}">${microsoft.label}</span><div class="source-icon">M</div><h3>Microsoft 365</h3><p>Outlook, Calendar, OneDrive and SharePoint through Microsoft Graph OAuth.</p><div class="source-actions">${connections.microsoft365?.status==='connected'?'<button class="btn" data-source-detail="microsoft365">Connected account</button>':'<button class="btn primary" id="connectMicrosoft">Connect Microsoft</button>'}<button class="btn ghost" data-source-info="microsoft">Details</button></div></div>
+      <div class="glass source-card"><span class="status ${openai.className}">${openai.label}</span><div class="source-icon">AI</div><h3>OpenAI API</h3><p>Secure API connection for future Responses-based reasoning, tools and live AI features.</p><div class="source-actions">${connections.openai?.status==='connected'?'<button class="btn" data-disconnect-ai="openai">Disconnect</button>':'<button class="btn primary" id="connectOpenAI">Connect API</button>'}<button class="btn ghost" data-source-info="openai">Details</button></div></div>
+      <div class="glass source-card"><span class="status ${anthropic.className}">${anthropic.label}</span><div class="source-icon">C</div><h3>Claude API</h3><p>Optional Anthropic reasoning provider with encrypted API-key storage.</p><div class="source-actions">${connections.anthropic?.status==='connected'?'<button class="btn" data-disconnect-ai="anthropic">Disconnect</button>':'<button class="btn primary" id="connectClaude">Connect API</button>'}<button class="btn ghost" data-source-info="claude">Details</button></div></div>
+      <div class="glass source-card"><span class="status ${gemini.className}">${gemini.label}</span><div class="source-icon">Gm</div><h3>Gemini API</h3><p>Optional Google AI reasoning provider, separate from Workspace permissions.</p><div class="source-actions">${connections.gemini?.status==='connected'?'<button class="btn" data-disconnect-ai="gemini">Disconnect</button>':'<button class="btn primary" id="connectGemini">Connect API</button>'}<button class="btn ghost" data-source-info="gemini">Details</button></div></div>
+      <div class="glass source-card"><span class="status">Business API</span><div class="source-icon">W</div><h3>WhatsApp</h3><p>Live connection requires the Meta WhatsApp Business Cloud API. Personal chats do not expose a general live-history API.</p><div class="source-actions"><button class="btn primary" id="whatsappConnect">Set up API</button><button class="btn ghost" id="whatsappImport">Import existing chat</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,text/plain"></div></div>
+      <div class="glass source-card"><span class="status live">Live now</span><div class="source-icon">⌖</div><h3>Live Context</h3><p>Current location, local time, network and live weather from this device.</p><div class="source-actions"><button class="btn primary" id="enableLiveSource">Enable live</button><button class="btn ghost" data-source-info="maps">Details</button></div></div>
+      <div class="glass source-card"><span class="status live">Works now</span><div class="source-icon">▣</div><h3>Files and Documents</h3><p>PDFs, screenshots, receipts and documents can be stored as source-backed memories.</p><div class="source-actions"><button class="btn primary" id="filesJump">Open Documents</button></div></div>
+      <div class="glass source-card"><span class="status">Optional</span><div class="source-icon">＋</div><h3>More connectors</h3><p>Slack, Notion, Dropbox, GitHub, calendars, health and other sources can follow the same connector model.</p><div class="source-actions"><button class="btn" id="moreConnectors">Explore roadmap</button></div></div>
     </div>
     <div id="sourceMsg" class="muted" style="margin-top:14px"></div>
-  `,'Source Universe','Connect the pieces of your digital life without mixing permissions or pretending a source is connected when it is not.')
+  `,'Source Universe','Real OAuth, API and live-device connections with clear permission boundaries.')
   wire()
-  document.querySelectorAll('[data-source-info]').forEach(card=>card.onclick=()=>openSourceInfo(card.dataset.sourceInfo))
-  document.getElementById('filesJump').onclick=e=>{e.stopPropagation();go('documents')}
-  document.getElementById('chatgptImportBtn').onclick=e=>{e.stopPropagation();document.getElementById('chatgptFile').click()}
-  document.getElementById('whatsappImportBtn').onclick=e=>{e.stopPropagation();document.getElementById('whatsappFile').click()}
-  document.getElementById('chatgptFile').onchange=async event=>{
-    const file=event.target.files[0]
-    if(!file) return
-    const msg=document.getElementById('sourceMsg')
-    msg.textContent='Importing ChatGPT history...'
-    try{const count=await importChatGPT(file);msg.textContent=`Imported ${count} ChatGPT conversations.`;toast('ChatGPT history imported')}
-    catch(error){msg.textContent=error.message}
-  }
+
+  document.getElementById('connectGoogle')?.addEventListener('click',()=>startOAuthSource('google_workspace'))
+  document.getElementById('connectMicrosoft')?.addEventListener('click',()=>startOAuthSource('microsoft365'))
+  document.getElementById('connectOpenAI')?.addEventListener('click',()=>connectAiApi('openai','OpenAI'))
+  document.getElementById('connectClaude')?.addEventListener('click',()=>connectAiApi('anthropic','Claude'))
+  document.getElementById('connectGemini')?.addEventListener('click',()=>connectAiApi('gemini','Gemini'))
+  document.querySelectorAll('[data-disconnect-ai]').forEach(button=>button.onclick=()=>disconnectSource(button.dataset.disconnectAi))
+  document.querySelectorAll('[data-source-info]').forEach(button=>button.onclick=event=>{event.stopPropagation();openSourceInfo(button.dataset.sourceInfo)})
+  document.querySelectorAll('[data-source-detail]').forEach(button=>button.onclick=()=>{
+    const connection=connections[button.dataset.sourceDetail]
+    modal('Connected source',`<p><b>${esc(connection?.external_account_label||button.dataset.sourceDetail)}</b></p><p class="muted">Status: ${esc(connection?.status||'connected')}</p><p class="muted">Connected credentials are stored server-side. Memora does not render access tokens in the browser.</p>`)
+  })
+  document.getElementById('filesJump').onclick=()=>go('documents')
+  document.getElementById('enableLiveSource').onclick=()=>{localStorage.setItem('memora-live-context','1');go('home').then(refreshLivePulse)}
+  document.getElementById('moreConnectors').onclick=()=>modal('Connector roadmap','<p class="muted">The same secure connector pattern can be extended to Slack, Notion, Dropbox, GitHub, Apple services, wearables and health sources. Each connector will request only the permissions it needs.</p>')
+  document.getElementById('whatsappConnect').onclick=()=>modal('WhatsApp Business Cloud API','<p class="muted">A live WhatsApp connection requires a Meta developer app, WhatsApp Business account, Phone Number ID and access token/webhook configuration. Memora will support that flow separately from personal chat imports.</p><p class="muted">For personal WhatsApp history, use the existing chat export path because WhatsApp does not provide a general consumer-history OAuth API.</p>')
+  document.getElementById('whatsappImport').onclick=()=>document.getElementById('whatsappFile').click()
   document.getElementById('whatsappFile').onchange=async event=>{
     const file=event.target.files[0]
     if(!file) return
     const msg=document.getElementById('sourceMsg')
-    msg.textContent='Importing WhatsApp chat...'
-    try{const count=await importWhatsApp(file);msg.textContent=`Imported ${count} searchable WhatsApp memory chunks.`;toast('WhatsApp chat imported')}
+    msg.textContent='Indexing WhatsApp chat...'
+    try{const count=await importWhatsApp(file);msg.textContent=`Indexed ${count} WhatsApp memory chunks.`;await syncEntitiesFromAllMemories();toast('WhatsApp chat indexed')}
     catch(error){msg.textContent=error.message}
   }
 }
-
 async function settings(){
   const [{data:profile},{data:settingsData}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
@@ -1237,6 +1549,7 @@ setupAtmosphere()
 
 const session=await supabase.auth.getSession()
 user=session.data.session?.user||null
+if(user) await finalizePendingOAuth(session.data.session)
 supabase.auth.onAuthStateChange((_event,sessionNow)=>{user=sessionNow?.user||null})
 if(user) render()
 else authScreen()
