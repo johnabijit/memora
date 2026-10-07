@@ -33,14 +33,36 @@ function persistConversationState(){
 let ocrWorkerPromise = null
 let lastThemeHour = null
 
-const manualThemes = {
-  aurora:{c1:'#8b7cff',c2:'#50d8d0',c3:'#ff7cac',bg0:'#060810',bg1:'#0b1020',bg2:'#10192c',label:'Aurora'},
-  ocean:{c1:'#4f8cff',c2:'#3de1d2',c3:'#73b7ff',bg0:'#04101a',bg1:'#071925',bg2:'#0b2531',label:'Ocean'},
-  rose:{c1:'#f06ca9',c2:'#b589ff',c3:'#ffad70',bg0:'#120813',bg1:'#1b0d20',bg2:'#231328',label:'Rose'},
-  forest:{c1:'#65d99c',c2:'#57c9c1',c3:'#b1d86f',bg0:'#06100c',bg1:'#0a1912',bg2:'#12251b',label:'Forest'},
-  solar:{c1:'#ff9d58',c2:'#ffc861',c3:'#ff6f91',bg0:'#130a07',bg1:'#201009',bg2:'#291711',label:'Solar'},
-  mono:{c1:'#d5d9e2',c2:'#8ea0b8',c3:'#ffffff',bg0:'#08090c',bg1:'#101216',bg2:'#171a20',label:'Mono'}
-}
+const themeFamilies=[
+  {id:'aurora',name:'Aurora',h:252},{id:'ocean',name:'Ocean',h:210},{id:'rose',name:'Rose',h:330},
+  {id:'forest',name:'Forest',h:145},{id:'solar',name:'Solar',h:28},{id:'lavender',name:'Lavender',h:275},
+  {id:'arctic',name:'Arctic',h:190},{id:'ember',name:'Ember',h:8},{id:'neon',name:'Neon',h:300},
+  {id:'sakura',name:'Sakura',h:345},{id:'copper',name:'Copper',h:22},{id:'galaxy',name:'Galaxy',h:235}
+]
+const themeMoods=[
+  {id:'dawn',name:'Dawn',s:82,l:66,b:8},{id:'mist',name:'Mist',s:58,l:70,b:10},
+  {id:'silk',name:'Silk',s:70,l:64,b:7},{id:'glow',name:'Glow',s:90,l:62,b:8},
+  {id:'night',name:'Night',s:74,l:58,b:4},{id:'pearl',name:'Pearl',s:46,l:74,b:11},
+  {id:'deep',name:'Deep',s:80,l:54,b:3},{id:'dream',name:'Dream',s:76,l:67,b:7},
+  {id:'pulse',name:'Pulse',s:96,l:60,b:5},{id:'velvet',name:'Velvet',s:64,l:61,b:4}
+]
+const themeCatalog=themeFamilies.flatMap((family)=>themeMoods.map((mood,index)=>{
+  const h1=(family.h+index*3)%360
+  const h2=(family.h+48+index*4)%360
+  const h3=(family.h+112+index*2)%360
+  const bgHue=(family.h+index*2)%360
+  return {
+    id:`${family.id}-${mood.id}`,
+    label:`${family.name} ${mood.name}`,
+    c1:`hsl(${h1} ${mood.s}% ${mood.l}%)`,
+    c2:`hsl(${h2} ${Math.max(48,mood.s-8)}% ${Math.min(74,mood.l+2)}%)`,
+    c3:`hsl(${h3} ${Math.min(96,mood.s+4)}% ${Math.min(76,mood.l+4)}%)`,
+    bg0:`hsl(${bgHue} 36% ${mood.b}%)`,
+    bg1:`hsl(${(bgHue+12)%360} 42% ${mood.b+4}%)`,
+    bg2:`hsl(${(bgHue+24)%360} 40% ${mood.b+7}%)`
+  }
+}))
+const manualThemes=Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
 
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
 const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Unknown date'
@@ -84,30 +106,20 @@ function applyTheme(values,label){
 function adaptiveTheme(){
   const now=new Date()
   const hour=now.getHours()
-  const hue=(238+hour*17)%360
-  const hue2=(hue+58)%360
-  const hue3=(hue+122)%360
-  let light=62
-  let base0='#060810',base1='#0b1020',base2='#10192c',label='Midnight Bloom'
-  if(hour>=5&&hour<8){light=66;base0='#100b16';base1='#21152a';base2='#2d1b2b';label='Dawn Bloom'}
-  else if(hour>=8&&hour<12){light=58;base0='#07101d';base1='#0c1b2c';base2='#11283b';label='Morning Sky'}
-  else if(hour>=12&&hour<16){light=60;base0='#071018';base1='#0a1b27';base2='#142738';label='Daylight'}
-  else if(hour>=16&&hour<19){light=64;base0='#140b0b';base1='#241014';base2='#31171c';label='Golden Hour'}
-  else if(hour>=19&&hour<22){light=63;base0='#090918';base1='#121128';base2='#1a1737';label='Twilight'}
-  else if(hour>=22){light=63;base0='#060812';base1='#0b1021';base2='#10172d';label='Night Aurora'}
-  applyTheme({
-    c1:`hsl(${hue} 88% ${light}%)`,
-    c2:`hsl(${hue2} 80% ${Math.min(light+3,70)}%)`,
-    c3:`hsl(${hue3} 86% ${Math.min(light+4,72)}%)`,
-    bg0:base0,bg1:base1,bg2:base2
-  },`${label} · ${hour.toString().padStart(2,'0')}:00`)
+  const day=Math.floor(Date.now()/86400000)
+  const theme=themeCatalog[(day*24+hour)%themeCatalog.length]
+  const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
+  applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
   lastThemeHour=hour
 }
 
 function updateTheme(){
   const mode=localStorage.getItem('memora-theme')||'auto'
   if(mode==='auto') adaptiveTheme()
-  else applyTheme(manualThemes[mode]||manualThemes.aurora,(manualThemes[mode]||manualThemes.aurora).label)
+  else {
+    const theme=manualThemes[mode]||themeCatalog[0]
+    applyTheme(theme,theme.label)
+  }
 }
 
 function setupAtmosphere(){
@@ -125,24 +137,35 @@ function setupAtmosphere(){
 }
 
 function openThemePicker(){
+  const current=localStorage.getItem('memora-theme')||'auto'
   const body=`
-    <p class="muted">Auto changes the atmosphere every hour using your device time. Manual themes stay fixed on this device.</p>
-    <div class="theme-menu">
-      <button class="theme-swatch auto" data-theme="auto">AUTO</button>
-      <button class="theme-swatch" data-theme="aurora" style="background:linear-gradient(135deg,#8b7cff,#50d8d0,#ff7cac)"></button>
-      <button class="theme-swatch" data-theme="ocean" style="background:linear-gradient(135deg,#4f8cff,#3de1d2,#73b7ff)"></button>
-      <button class="theme-swatch" data-theme="rose" style="background:linear-gradient(135deg,#f06ca9,#b589ff,#ffad70)"></button>
-      <button class="theme-swatch" data-theme="forest" style="background:linear-gradient(135deg,#65d99c,#57c9c1,#b1d86f)"></button>
-      <button class="theme-swatch" data-theme="solar" style="background:linear-gradient(135deg,#ff9d58,#ffc861,#ff6f91)"></button>
-      <button class="theme-swatch" data-theme="mono" style="background:linear-gradient(135deg,#d5d9e2,#8ea0b8,#ffffff)"></button>
+    <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
+    <div class="theme-picker-tools">
+      <input class="input" id="themeSearch" placeholder="Search Ocean, Velvet, Sakura, Galaxy...">
+      <button class="btn" id="randomTheme">Surprise me</button>
+      <button class="btn ${current==='auto'?'primary':''}" data-theme="auto">Adaptive hourly</button>
+    </div>
+    <div class="theme-gallery" id="themeGallery">
+      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
     </div>`
-  const box=modal('Choose your atmosphere',body)
-  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
-    localStorage.setItem('memora-theme',button.dataset.theme)
+  const box=modal('Theme Universe',body)
+
+  const choose=id=>{
+    localStorage.setItem('memora-theme',id)
     updateTheme()
     box.remove()
-    toast('Theme updated')
-  })
+    toast(id==='auto'?'Adaptive hourly theme enabled':'Theme updated')
+  }
+
+  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>choose(button.dataset.theme))
+  box.querySelector('#randomTheme').onclick=()=>{
+    const theme=themeCatalog[Math.floor(Math.random()*themeCatalog.length)]
+    choose(theme.id)
+  }
+  box.querySelector('#themeSearch').oninput=event=>{
+    const term=event.target.value.trim().toLowerCase()
+    box.querySelectorAll('.theme-card').forEach(card=>card.classList.toggle('hidden',term&&!card.dataset.themeName.includes(term)))
+  }
 }
 
 async function oauthSignIn(provider,scopes){
