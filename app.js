@@ -3205,62 +3205,115 @@ async function settings(){
     supabase.from('user_settings').select('*').maybeSingle()
   ])
   const currentTheme=localStorage.getItem('memora-theme')||'auto'
+  const currentScene=ambientScenes.find(scene=>scene.id===ambientPreferences.scene)?.name||'Adaptive mix'
+
   app.innerHTML=shell(`
-    <div class="grid two">
-      <div class="glass" style="padding:22px;border-radius:24px">
+    <div class="settings-grid">
+      <section class="glass settings-card">
         <div class="eyebrow">Identity</div><h3>Profile</h3>
-        <div style="display:grid;gap:10px">
+        <div class="settings-stack">
           <input class="input" id="displayName" value="${esc(profile?.display_name||'')}" placeholder="Display name">
           <input class="input" id="timezone" value="${esc(profile?.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}" placeholder="Timezone">
           <button class="btn primary" id="saveProfile">Save profile</button>
         </div>
-      </div>
-      <div class="glass" style="padding:22px;border-radius:24px">
-        <div class="eyebrow">Atmosphere</div><h3>Dynamic appearance</h3>
-        <p class="muted">Adaptive mode changes the color atmosphere every hour. Current mode: <b>${esc(currentTheme)}</b>.</p>
-        <button class="btn" id="settingsTheme">Choose theme</button>
-      </div>
-      <div class="glass" style="padding:22px;border-radius:24px">
+      </section>
+
+      <section class="glass settings-card">
+        <div class="eyebrow">Atmosphere</div><h3>Visual world</h3>
+        <p class="muted">Adaptive mode changes the color theme every hour. Live background motion responds to daypart and the calendar season.</p>
+        <div class="setting-row"><span>Theme</span><b>${esc(currentTheme==='auto'?'Adaptive hourly':document.documentElement.dataset.themeLabel||currentTheme)}</b></div>
+        <div class="setting-row"><span>Live background</span><b>${ambientPreferences.dynamicBackground?'On':'Off'}</b></div>
+        <div class="filter-row"><button class="btn" id="settingsTheme">Choose theme</button><button class="btn" id="toggleDynamicBackground">${ambientPreferences.dynamicBackground?'Disable motion':'Enable motion'}</button></div>
+      </section>
+
+      <section class="glass settings-card">
+        <div class="eyebrow">Sound</div><h3>Ambient soundscapes</h3>
+        <p class="muted">Rain, ocean, forest, fireplace, night and focus soundscapes are generated locally. Sound is enabled by default, but mobile browsers start audio after your first interaction.</p>
+        <div class="setting-row"><span>Sound</span><b>${ambientPreferences.enabled?'On':'Silent'}</b></div>
+        <div class="setting-row"><span>Scene</span><b>${esc(currentScene)}</b></div>
+        <div class="setting-row"><span>Volume</span><b>${Math.round(ambientPreferences.volume*100)}%</b></div>
+        <div class="filter-row"><button class="btn primary" id="settingsSound">Soundscapes</button><button class="btn" id="quickMute">${ambientPreferences.enabled?'Mute':'Enable sound'}</button></div>
+      </section>
+
+      <section class="glass settings-card">
+        <div class="eyebrow">Conversations</div><h3>Chat history</h3>
+        <p class="muted">Ask conversations are saved separately. All chats share the same Memora memory vault while recent conversational context stays inside its thread.</p>
+        <div class="filter-row"><button class="btn" data-nav="ask">Open chats</button><button class="btn danger" id="deleteChats">Delete all chats</button></div>
+      </section>
+
+      <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
-        <p class="muted">Memories, media, context and files are scoped to your signed-in user through Row Level Security.</p>
+        <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
         <button class="btn" id="logoutButton">Sign out</button>
-      </div>
-      <div class="glass" style="padding:22px;border-radius:24px">
+      </section>
+
+      <section class="glass settings-card">
         <div class="eyebrow">Data control</div><h3>Export or erase</h3>
-        <p class="muted">Take a copy of your memory data or remove all memories from your account.</p>
-        <div class="filter-row"><button class="btn" id="exportData">Export memories</button><button class="btn danger" id="deleteAll">Delete all memories</button></div>
-      </div>
+        <p class="muted">Take a portable JSON copy of your memories and chats, or remove the personal memory vault from this account.</p>
+        <div class="filter-row"><button class="btn" id="exportData">Export data</button><button class="btn danger" id="deleteAll">Delete memory vault</button></div>
+      </section>
     </div>
-  `,'Profile and Settings')
+  `,'Profile and Settings','Control identity, appearance, sound, chats, security and your data.')
   wire()
+
   document.getElementById('settingsTheme').onclick=openThemePicker
-  document.getElementById('logoutButton').onclick=async()=>{await supabase.auth.signOut();user=null;authScreen()}
+  document.getElementById('settingsSound').onclick=openSoundscapePicker
+  document.getElementById('quickMute').onclick=async()=>{await setAmbientEnabled(!ambientPreferences.enabled);await settings()}
+  document.getElementById('toggleDynamicBackground').onclick=async()=>{
+    await saveExperiencePreferences({dynamicBackground:!ambientPreferences.dynamicBackground})
+    await settings()
+  }
+  document.getElementById('logoutButton').onclick=async()=>{
+    stopAmbient()
+    await supabase.auth.signOut()
+    user=null
+    navigationInitialized=false
+    currentThreadId=null
+    chat=[]
+    authScreen()
+  }
+
   document.getElementById('saveProfile').onclick=async()=>{
     const display_name=document.getElementById('displayName').value.trim()
     const timezone=document.getElementById('timezone').value.trim()
     const {error}=await supabase.from('profiles').upsert({user_id:user.id,display_name,timezone})
-    if(!error&&settingsData) await supabase.from('user_settings').update({adaptive_theme:(localStorage.getItem('memora-theme')||'auto')==='auto',theme_profile:localStorage.getItem('memora-theme')||'auto'}).eq('user_id',user.id)
+    await supabase.from('user_settings').upsert({
+      user_id:user.id,
+      adaptive_theme:(localStorage.getItem('memora-theme')||'auto')==='auto',
+      theme_profile:localStorage.getItem('memora-theme')||'auto',
+      ambient_enabled:ambientPreferences.enabled,
+      ambient_scene:ambientPreferences.scene,
+      ambient_volume:ambientPreferences.volume,
+      dynamic_background:ambientPreferences.dynamicBackground,
+      reduce_motion:settingsData?.reduce_motion||false
+    })
     toast(error?error.message:'Profile saved')
   }
+
   document.getElementById('exportData').onclick=async()=>{
-    const [{data:memoryData},{data:factData},{data:thingData},{data:peopleData},{data:placeData},{data:docData},{data:contexts}]=await Promise.all([
+    const results=await Promise.all([
       supabase.from('memories').select('*').order('created_at'),
       supabase.from('memory_facts').select('*').order('fact_key'),
       supabase.from('things').select('*'),
       supabase.from('people').select('*'),
       supabase.from('places').select('*'),
       supabase.from('documents').select('*'),
-      supabase.from('memory_contexts').select('*')
+      supabase.from('memory_contexts').select('*'),
+      supabase.from('chat_threads').select('*').order('created_at'),
+      supabase.from('chat_messages').select('*').order('created_at')
     ])
+    const [memoryData,factData,thingData,peopleData,placeData,docData,contexts,threads,messages]=results.map(result=>result.data||[])
     const blob=new Blob([JSON.stringify({
       exported_at:new Date().toISOString(),
-      memories:memoryData,
+      memories:memoryData.map(memory=>({...memory,original_text:redactSecrets(memory.original_text),summary:redactSecrets(memory.summary)})),
       structured_facts:factData,
       things:thingData,
       people:peopleData,
       places:placeData,
       documents:docData,
-      contexts
+      contexts,
+      chat_threads:threads,
+      chat_messages:messages.map(message=>({...message,content:redactSecrets(message.content)}))
     },null,2)],{type:'application/json'})
     const link=document.createElement('a')
     link.href=URL.createObjectURL(blob)
@@ -3268,14 +3321,27 @@ async function settings(){
     link.click()
     URL.revokeObjectURL(link.href)
   }
+
+  document.getElementById('deleteChats').onclick=async()=>{
+    if(!confirm('Delete all Ask conversations? Your saved memories will remain.')) return
+    const {error}=await supabase.from('chat_threads').delete().eq('user_id',user.id)
+    if(error) return toast(error.message)
+    currentThreadId=null
+    chat=[]
+    chatThreads=[]
+    conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+    await ensureChatThread()
+    toast('Chat history deleted')
+    await settings()
+  }
+
   document.getElementById('deleteAll').onclick=async()=>{
-    if(!confirm('Delete all memories? This cannot be undone.')) return
+    if(!confirm('Delete your entire memory vault? Chat history is kept separately. This cannot be undone.')) return
     const {error}=await supabase.rpc('delete_all_my_memory_data')
     if(error) return toast(error.message)
-    chat=[]
     conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
     persistConversationState()
-    toast('Memory data deleted')
+    toast('Memory vault deleted')
   }
 }
 
