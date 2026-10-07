@@ -44,6 +44,27 @@ async function verifyUser(token){
   return await response.json()
 }
 
+async function callConnectedProvider(token,instructions,prompt,imageDataUrl){
+  const response=await fetch(`${SUPABASE_URL}/functions/v1/ai-provider-proxy`,{
+    method:'POST',
+    headers:{
+      apikey:SUPABASE_KEY,
+      Authorization:`Bearer ${token}`,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({instructions,prompt,imageDataUrl:imageDataUrl||null})
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok){
+    const error=new Error(data?.error||`Connected provider request failed (${response.status})`)
+    error.status=response.status
+    error.provider=data?.provider||null
+    error.model=data?.model||null
+    throw error
+  }
+  return data
+}
+
 async function logAi(token,userId,payload){
   try{
     await supabaseFetch('/rest/v1/ai_request_logs',token,{
@@ -250,61 +271,72 @@ module.exports=async function handler(req,res){
     ].filter(Boolean).join('\n\n')
 
     const gatewayToken=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN
-    if(!gatewayToken){
-      await logAi(token,user.id,{
-        status:'unavailable',
-        error_code:'missing_gateway_token',
-        error_message:'No AI Gateway credential in deployment',
-        question_preview:question.slice(0,160),
-        latency_ms:Date.now()-started,
-        used_image:imageUsed
-      })
-      return json(res,503,{error:'Memora AI is not available in this deployment'})
-    }
-
     const userContent=[{type:'input_text',text:userPrompt}]
     if(image.dataUrl) userContent.push({type:'input_image',image_url:image.dataUrl,detail:'high'})
 
-    const aiResponse=await fetch('https://ai-gateway.vercel.sh/v1/responses',{
-      method:'POST',
-      headers:{
-        Authorization:`Bearer ${gatewayToken}`,
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify({
-        model:'openai/gpt-5.6-luna',
-        instructions:system,
-        input:[{type:'message',role:'user',content:userContent}],
-        max_output_tokens:450,
-        reasoning:{effort:'medium'},
-        providerOptions:{
-          gateway:{
-            models:[
-              'openai/gpt-5.6-luna',
-              'google/gemini-3.6-flash',
-              'anthropic/claude-sonnet-4.6'
-            ]
-          }
-        }
-      })
-    })
+    let answer=''
+    let model=''
+    let provider=''
 
-    const result=await aiResponse.json().catch(()=>({}))
-    if(!aiResponse.ok){
-      const message=trimText(result?.error?.message||result?.message||`AI Gateway request failed (${aiResponse.status})`,500)
-      await logAi(token,user.id,{
-        status:'error',
-        model:'openai/gpt-5.6-luna',
-        latency_ms:Date.now()-started,
-        error_code:String(result?.error?.code||aiResponse.status),
-        error_message:message,
-        question_preview:question.slice(0,160),
-        used_image:imageUsed
-      })
-      return json(res,502,{error:message})
+    if(gatewayToken){
+      try{
+        const aiResponse=await fetch('https://ai-gateway.vercel.sh/v1/responses',{
+          method:'POST',
+          headers:{
+            Authorization:`Bearer ${gatewayToken}`,
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({
+            model:'openai/gpt-6-luna',
+            instructions:system,
+            input:[{type:'message',role:'user',content:userContent}],
+            max_output_tokens:450,
+            reasoning:{effort:'medium'},
+            providerOptions:{
+              gateway:{
+                models:[
+                  'openai/gpt-6-luna',
+                  'openai/gpt-5.6-luna',
+                  'google/gemini-3.6-flash',
+                  'anthropic/claude-sonnet-4.6'
+                ]
+              }
+            }
+          })
+        })
+        const result=await aiResponse.json().catch(()=>({}))
+        if(aiResponse.ok){
+          answer=extractGatewayText(result)
+          model=String(result?.model||'AI Gateway')
+          provider='vercel-ai-gateway'
+        }
+      }catch(error){
+        console.warn('Vercel AI Gateway failed, trying connected provider',error)
+      }
     }
 
-    let answer=extractGatewayText(result)
+    if(!answer){
+      try{
+        const direct=await callConnectedProvider(token,system,userPrompt,image.dataUrl)
+        answer=String(direct?.answer||'').trim()
+        model=String(direct?.model||'Connected provider')
+        provider=String(direct?.provider||'connected-provider')
+      }catch(providerError){
+        const message=trimText(providerError?.message||'No working AI provider is available',500)
+        await logAi(token,user.id,{
+          status:'error',
+          model:providerError?.model||null,
+          latency_ms:Date.now()-started,
+          error_code:String(providerError?.status||'provider_unavailable'),
+          error_message:message,
+          question_preview:question.slice(0,160),
+          used_image:imageUsed
+        })
+        return json(res,503,{error:message,hint:'Connect and fund an AI provider, or configure Vercel AI Gateway.'})
+      }
+    }
+
+    answer=String(answer||'')
       .replace(/\\n/g,'\n')
       .replace(/\{\s*\}$/g,'')
       .trim()
@@ -312,10 +344,10 @@ module.exports=async function handler(req,res){
     if(!answer){
       await logAi(token,user.id,{
         status:'error',
-        model:String(result?.model||'openai/gpt-5.6-luna'),
+        model:model||null,
         latency_ms:Date.now()-started,
         error_code:'empty_answer',
-        error_message:'Gateway returned no output text',
+        error_message:'The reasoning provider returned no output text',
         question_preview:question.slice(0,160),
         used_image:imageUsed
       })
@@ -324,7 +356,7 @@ module.exports=async function handler(req,res){
 
     await logAi(token,user.id,{
       status:'success',
-      model:String(result?.model||'openai/gpt-5.6-luna'),
+      model:model||provider||'Memora AI',
       latency_ms:Date.now()-started,
       question_preview:question.slice(0,160),
       used_image:imageUsed
@@ -332,8 +364,12 @@ module.exports=async function handler(req,res){
 
     return json(res,200,{
       answer,
-      source:imageUsed?'Memora AI, grounded in your memories and saved image':'Memora AI, grounded in your memories',
+      source:imageUsed
+        ?`Memora AI via ${provider}, grounded in your memories and saved image`
+        :`Memora AI via ${provider}, grounded in your memories`,
       ai:true,
+      provider,
+      model,
       imageUsed,
       imageName:image.media?.file_name||null
     })
