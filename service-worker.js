@@ -1,4 +1,4 @@
-const CACHE = 'memora-v16'
+const CACHE = 'memora-v17'
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.webmanifest']
 
 self.addEventListener('install', event => {
@@ -23,6 +23,11 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE).then(cache => cache.put(event.request, copy))
         return response
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request)
+        if (cached) return cached
+        if (event.request.mode === 'navigate') return caches.match('./index.html')
+        return Response.error()
+      })
   )
 })
