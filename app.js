@@ -1707,7 +1707,9 @@ const commonTypos={
   'siter':'sister','sisiter':'sister','broter':'brother','brther':'brother',
   'moter':'mother','fater':'father','wher':'where','wht':'what','wat':'what',
   'yhe':'the','teh':'the','ye':'the','uploaed':'uploaded','uploded':'uploaded',
-  'remembr':'remember','memroy':'memory','wrk':'work','adress':'address'
+  'remembr':'remember','memroy':'memory','wrk':'work','wrking':'working','adress':'address',
+  'fo':'do','manger':'manager','mangers':'manager','managr':'manager','nme':'name','wrkng':'working',
+  'eldst':'eldest','youngst':'youngest','brthr':'brother','sistr':'sister'
 }
 
 function normalizeQuestion(question){
@@ -1787,7 +1789,7 @@ async function relationshipAnswerFromVault(relation){
 }
 
 function cleanAnswerText(value){
-  return String(value||'')
+  return redactSecrets(String(value||''))
     .replace(/\\n/g,'\n')
     .replace(/\s*\{\s*\}\s*$/g,'')
     .replace(/\[object Object\]/g,'')
@@ -1843,6 +1845,15 @@ async function answerFromStructuredFacts(question){
   const title=factByKey(facts,'work.business_title')
   const profile=factByKey(facts,'work.job_profile')
   const workLocation=factByKey(facts,'work.location')
+
+  if(/\bwhat am i\b/i.test(q)&&(name||title||company)){
+    const identity=name?`You are ${name.value_text}`:''
+    const occupation=title?`a ${title.value_text}${company?` at ${company.value_text}`:''}`:(company?`working at ${company.value_text}`:'')
+    const text=[identity,occupation?`For work, you are ${occupation}`:null].filter(Boolean).join('. ')+'.'
+    conversationContext.subject='self'
+    persistConversationState()
+    return result(text,'Your saved identity and work facts')
+  }
 
   if(/\bwhat do i do\b|\bwhat(?:'s| is) my (?:job|role|designation|profession|occupation)\b|\bwhat is my job title\b/i.test(q)){
     const bits=[]
@@ -2187,10 +2198,14 @@ async function aiReasonedAnswer(question){
   const {data:{session}}=await supabase.auth.getSession()
   if(!session?.access_token) return null
 
-  const history=chat
-    .filter(message=>!message.pending)
+  let historySource=chat.filter(message=>!message.pending)
+  const last=historySource[historySource.length-1]
+  if(last?.role==='user'&&String(last.text||'').trim().toLowerCase()===String(question||'').trim().toLowerCase()){
+    historySource=historySource.slice(0,-1)
+  }
+  const history=historySource
     .slice(-12)
-    .map(message=>({role:message.role,text:String(message.text||'').slice(0,1800)}))
+    .map(message=>({role:message.role,text:redactSecrets(String(message.text||'')).slice(0,1800)}))
 
   const response=await fetch('/api/ask',{
     method:'POST',
@@ -2220,6 +2235,17 @@ async function aiReasonedAnswer(question){
 
 async function answer(question){
   const rawQ=question.trim()
+  const casual=normalizeQuestion(rawQ).toLowerCase().replace(/[!?.,]+$/,'').trim()
+
+  if(/^(hi|hello|hey|hey there|hello there|good morning|good afternoon|good evening)$/.test(casual)){
+    return {text:'Hello. I am here and ready to help you remember, search, organize or reason over anything you have saved in Memora.'}
+  }
+  if(/^(how are you|how r you|how are u|how do you feel)$/.test(casual)){
+    return {text:'I am ready and connected to your Memora memory vault. Ask me naturally, including follow-up questions or imperfect spelling.'}
+  }
+  if(/^(thanks|thank you|thank u|thx)$/.test(casual)){
+    return {text:'You are welcome. Your current conversation will stay here, and your saved memories remain available across your other chats too.'}
+  }
 
   try{
     const structured=await answerFromStructuredFacts(rawQ)
@@ -2328,7 +2354,7 @@ async function answer(question){
     })
     if(exact.length){
       conversationContext.subject=subject
-      const facts=[...new Set(exact.map(x=>String(x.original_text||x.summary||'').trim()).filter(Boolean))].slice(0,5)
+      const facts=[...new Set(exact.map(x=>cleanAnswerText(x.summary||x.original_text||'')).filter(Boolean))].slice(0,5)
       if(facts.length===1){
         return {text:`For ${subject}, I currently have one specific memory: ${facts[0]}`,source:'Only matching stored memory'}
       }
@@ -2344,7 +2370,7 @@ async function answer(question){
       const next=relevant[0]
       conversationContext.lastMemoryId=next.id
       persistConversationState()
-      return {text:`Another relevant memory about ${conversationContext.subject} is: ${next.original_text}`,source:'Related stored memory'}
+      return {text:`Another relevant memory about ${conversationContext.subject} is: ${cleanAnswerText(next.summary||next.original_text)}`,source:'Related stored memory'}
     }
     return {text:`I don't have another relevant stored memory about ${conversationContext.subject} yet.`}
   }
@@ -2391,7 +2417,7 @@ async function answer(question){
     const data=await smartMemorySearch(match[1].trim(),8)
     const relevant=data.filter(result=>resultRelevant(match[1],result))
     if(!relevant.length) return {text:"I don't have a relevant memory about that yet."}
-    return {text:`The most recent relevant memory is: “${relevant[0].original_text}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
+    return {text:`The most recent relevant memory is: “${cleanAnswerText(relevant[0].summary||relevant[0].original_text)}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
   }
 
   const data=await smartMemorySearch(q,8)
