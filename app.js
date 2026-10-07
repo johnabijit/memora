@@ -307,11 +307,27 @@ async function trackThing(name,location,memoryId){
 
 
 function extractPhoneNumbers(text){
-  const matches=String(text||'').match(/\+?\d[\d\s().-]{6,}\d/g)||[]
-  return [...new Set(matches.map(raw=>raw.trim()).filter(raw=>{
+  const source=String(text||'')
+  const normalizeNumber=raw=>raw.trim().replace(/\s+/g,' ')
+  const valid=(raw,labeled=false)=>{
     const digits=raw.replace(/\D/g,'')
-    return digits.length>=8&&digits.length<=15
-  }))]
+    if(labeled) return digits.length>=7&&digits.length<=15
+    if(raw.trim().startsWith('+')) return digits.length>=8&&digits.length<=15
+    return digits.length>=10&&digits.length<=15
+  }
+
+  const labeled=[]
+  for(const line of source.split(/\r?\n/)){
+    if(!/\b(phone|mobile|contact|telephone|tel|cell)\b/i.test(line)) continue
+    const matches=line.match(/\+?\d[\d\s().-]{5,}\d/g)||[]
+    for(const raw of matches){
+      if(valid(raw,true)) labeled.push(normalizeNumber(raw))
+    }
+  }
+  if(labeled.length) return [...new Set(labeled)]
+
+  const generic=source.match(/\+?\d[\d\s().-]{7,}\d/g)||[]
+  return [...new Set(generic.map(normalizeNumber).filter(raw=>valid(raw,false)))]
 }
 
 function extractEmails(text){
