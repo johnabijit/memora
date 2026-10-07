@@ -1,4 +1,4 @@
-const CACHE = 'memora-v17'
+const CACHE = 'memora-v18'
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.webmanifest']
 
 self.addEventListener('install', event => {
