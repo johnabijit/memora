@@ -144,3 +144,13 @@ drop trigger if exists prevent_manual_secret_memory_trigger on public.memories;
 create trigger prevent_manual_secret_memory_trigger
 before insert or update of original_text on public.memories
 for each row execute function public.prevent_manual_secret_memory();
+
+
+create index if not exists chat_messages_user_idx
+on public.chat_messages(user_id);
+
+create index if not exists memory_facts_source_memory_idx
+on public.memory_facts(source_memory_id);
+
+create index if not exists memory_facts_source_media_idx
+on public.memory_facts(source_media_id);
