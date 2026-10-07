@@ -154,27 +154,6 @@ function setupAtmosphere(){
   },60000)
 }
 
-function openThemePicker(){
-  const body=`
-    <p class="muted">Auto changes the atmosphere every hour using your device time. Manual themes stay fixed on this device.</p>
-    <div class="theme-menu">
-      <button class="theme-swatch auto" data-theme="auto">AUTO</button>
-      <button class="theme-swatch" data-theme="aurora" style="background:linear-gradient(135deg,#8b7cff,#50d8d0,#ff7cac)"></button>
-      <button class="theme-swatch" data-theme="ocean" style="background:linear-gradient(135deg,#4f8cff,#3de1d2,#73b7ff)"></button>
-      <button class="theme-swatch" data-theme="rose" style="background:linear-gradient(135deg,#f06ca9,#b589ff,#ffad70)"></button>
-      <button class="theme-swatch" data-theme="forest" style="background:linear-gradient(135deg,#65d99c,#57c9c1,#b1d86f)"></button>
-      <button class="theme-swatch" data-theme="solar" style="background:linear-gradient(135deg,#ff9d58,#ffc861,#ff6f91)"></button>
-      <button class="theme-swatch" data-theme="mono" style="background:linear-gradient(135deg,#d5d9e2,#8ea0b8,#ffffff)"></button>
-    </div>`
-  const box=modal('Choose your atmosphere',body)
-  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
-    localStorage.setItem('memora-theme',button.dataset.theme)
-    updateTheme()
-    box.remove()
-    toast('Theme updated')
-  })
-}
-
 async function oauthSignIn(provider,scopes){
   const options={redirectTo:window.location.origin}
   if(scopes) options.scopes=scopes
@@ -1545,13 +1524,87 @@ async function settings(){
   }
 }
 
-setupAtmosphere()
 
-const session=await supabase.auth.getSession()
-user=session.data.session?.user||null
-if(user) await finalizePendingOAuth(session.data.session)
-supabase.auth.onAuthStateChange((_event,sessionNow)=>{user=sessionNow?.user||null})
-if(user) render()
-else authScreen()
+function renderStartupError(error){
+  console.error('Memora startup error',error)
+  if(!app) return
+  app.innerHTML=`
+    <div class="auth-wrap">
+      <div class="glass auth-card">
+        <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Recovery mode</small></div></div>
+        <div class="eyebrow">Startup recovery</div>
+        <h2>Memora could not finish loading.</h2>
+        <p class="muted">Your memories remain in Supabase. An optional startup component failed before the interface could render.</p>
+        <div class="glass" style="padding:14px;border-radius:16px;margin:16px 0">
+          <div class="small muted">Technical detail</div>
+          <div style="margin-top:6px;word-break:break-word">${esc(error?.message||String(error||'Unknown startup error'))}</div>
+        </div>
+        <div class="grid two">
+          <button class="btn primary" id="recoveryReload">Reload Memora</button>
+          <button class="btn" id="recoveryReset">Reset local UI cache</button>
+        </div>
+      </div>
+    </div>`
+  document.getElementById('recoveryReload')?.addEventListener('click',()=>location.reload())
+  document.getElementById('recoveryReset')?.addEventListener('click',async()=>{
+    try{
+      localStorage.removeItem('memora-pending-source')
+      localStorage.removeItem('memora-pending-scopes')
+      localStorage.removeItem('memora-theme')
+      localStorage.removeItem('memora-live-context')
+      if('caches' in window){
+        const keys=await caches.keys()
+        await Promise.all(keys.filter(key=>key.startsWith('memora-')).map(key=>caches.delete(key)))
+      }
+      if('serviceWorker' in navigator){
+        const regs=await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map(reg=>reg.unregister()))
+      }
+    }finally{
+      location.reload()
+    }
+  })
+}
 
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{})
+async function bootMemora(){
+  try{
+    try{
+      setupAtmosphere()
+    }catch(error){
+      console.warn('Theme startup failed, continuing with defaults',error)
+    }
+
+    const {data,error}=await supabase.auth.getSession()
+    if(error) throw error
+    user=data.session?.user||null
+
+    supabase.auth.onAuthStateChange((_event,sessionNow)=>{
+      user=sessionNow?.user||null
+    })
+
+    if(user) await render()
+    else authScreen()
+
+    if(user && data.session){
+      finalizePendingOAuth(data.session).catch(error=>console.warn('OAuth finalization skipped',error))
+    }
+
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./service-worker.js').catch(error=>console.warn('Service worker registration skipped',error))
+    }
+  }catch(error){
+    renderStartupError(error)
+  }
+}
+
+window.addEventListener('unhandledrejection',event=>{
+  console.error('Unhandled Memora promise rejection',event.reason)
+  if(!app?.innerHTML?.trim()) renderStartupError(event.reason)
+})
+
+window.addEventListener('error',event=>{
+  console.error('Memora runtime error',event.error||event.message)
+  if(!app?.innerHTML?.trim()) renderStartupError(event.error||new Error(event.message))
+})
+
+bootMemora()
