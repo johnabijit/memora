@@ -1696,6 +1696,7 @@ async function memories(){
   `,'Memories','Everything you chose to remember, in one place.')
   wire()
   bindDeletes()
+  bindMemoryViews(all)
   await hydrateMemoryExtras(all)
   document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=async()=>{
     document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'))
@@ -1704,6 +1705,7 @@ async function memories(){
     const filtered=filter==='all'?all:all.filter(m=>m.memory_type===filter)
     document.getElementById('memoryList').innerHTML=filtered.length?filtered.map(memoryCard).join(''):'<div class="glass empty"><strong>No matches</strong>Nothing in this category yet.</div>'
     bindDeletes()
+    bindMemoryViews(filtered)
     await hydrateMemoryExtras(filtered)
   })
   document.getElementById('searchMemory').onclick=async()=>{
@@ -1713,6 +1715,7 @@ async function memories(){
     const found=result.data||[]
     document.getElementById('memoryList').innerHTML=result.error?esc(result.error.message):found.length?found.map(m=>memoryCard({...m,created_at:m.occurred_at})).join(''):'<div class="glass empty"><strong>Nothing matched</strong>Try another word or phrase.</div>'
     bindDeletes()
+    bindMemoryViews(found)
     await hydrateMemoryExtras(found)
   }
 }
