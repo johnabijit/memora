@@ -694,6 +694,71 @@ function resultRelevant(question,result){
   return terms.some(term=>hay.includes(term))&&Number(result.rank||0)>=0.12
 }
 
+async function upsertStructuredFact(memory,key,category,predicate,valueText,extra={}){
+  const value=String(valueText||'').trim()
+  if(!value) return
+  const payload={
+    user_id:user.id,
+    fact_key:key,
+    category,
+    subject:extra.subject||'self',
+    predicate,
+    value_text:value,
+    value_json:extra.value_json||{},
+    ordinal:extra.ordinal??null,
+    age_relation:extra.age_relation||null,
+    source_memory_id:memory?.id||extra.source_memory_id||null,
+    source_media_id:extra.source_media_id||null,
+    provenance_kind:extra.provenance_kind||'user_stated',
+    confidence:extra.confidence??1,
+    is_current:true,
+    updated_at:new Date().toISOString()
+  }
+  const existing=await supabase.from('memory_facts').select('id').eq('fact_key',key).eq('is_current',true).maybeSingle()
+  if(existing.data?.id) await supabase.from('memory_facts').update(payload).eq('id',existing.data.id)
+  else await supabase.from('memory_facts').insert(payload)
+}
+
+async function syncStructuredFactsFromMemory(memory,text){
+  const source=String(text||'').trim()
+  if(!source) return
+
+  const identity=source.match(/\b(?:my name is|i am|i'm)\s+([A-Z][A-Za-z .'-]{2,70}?)(?=\s+(?:and|but|from|born|working|work|at|in|,|\.|$))/i)
+  if(identity) await upsertStructuredFact(memory,'identity.name','identity','name',identity[1].trim())
+
+  const relations=['father','mother','brother','sister','wife','husband','daughter','son']
+  for(const relation of relations){
+    const names=relationNamesFromText(relation,source)
+    let ageRelation=null
+    const ageMatch=source.match(new RegExp('\\b(elder|older|younger)\\s+'+relation+'s?\\b','i'))
+    if(ageMatch) ageRelation=/younger/i.test(ageMatch[1])?'younger':'elder'
+
+    for(let i=0;i<names.length;i++){
+      const key=(relation==='father'||relation==='mother'||relation==='wife'||relation==='husband')
+        ?`family.${relation}`
+        :`family.${relation}.${i+1}`
+      await upsertStructuredFact(memory,key,'family',relation,names[i],{
+        ordinal:(relation==='father'||relation==='mother'||relation==='wife'||relation==='husband')?null:i+1,
+        age_relation:ageRelation
+      })
+    }
+  }
+
+  const workplace=extractWorkplace(source)
+  if(workplace) await upsertStructuredFact(memory,'work.company','work','employer',workplace)
+
+  const manager=source.match(/\b(?:my\s+)?(?:manager|boss|supervisor)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{2,70})/i)
+  if(manager) await upsertStructuredFact(memory,'work.manager','work','manager',manager[1].trim())
+
+  const title=source.match(/\b(?:job title|business title|designation|role)\s+(?:is|was|as)\s+([A-Za-z][A-Za-z0-9 ,.&/'()-]{2,90})/i)
+  if(title) await upsertStructuredFact(memory,'work.business_title','work','business_title',title[1].trim().replace(/[.]+$/,''))
+
+  if(/\b(?:my\s+)?(?:phone|mobile|contact)\s*(?:number)?\b/i.test(source)){
+    const numbers=extractPhoneNumbers(source)
+    if(numbers[0]) await upsertStructuredFact(memory,'contact.phone.personal','contact','phone',numbers[0])
+  }
+}
+
 async function syncPeopleFromMemory(memory,text){
   const rows=[]
   const seen=new Set()
@@ -799,6 +864,7 @@ async function saveMemory(text,files=[],location=null){
   if(error) throw error
   await syncPeopleFromMemory(memory,text)
   await syncPlacesFromMemory(memory,text)
+  await syncStructuredFactsFromMemory(memory,text)
   if(parsed.interpreted_data.thing&&parsed.interpreted_data.location) await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
   if(parsed.interpreted_data.person){
     const existing=await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
