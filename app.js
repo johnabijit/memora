@@ -135,6 +135,406 @@ function modal(title,body){
   return wrap
 }
 
+
+const ambientScenes=[
+  {id:'auto',name:'Adaptive mix',description:'Changes with the hour'},
+  {id:'rain',name:'Rain',description:'Soft rain and airy noise'},
+  {id:'ocean',name:'Ocean',description:'Slow waves and deep wash'},
+  {id:'forest',name:'Forest',description:'Quiet air with distant tones'},
+  {id:'fire',name:'Fireplace',description:'Warm low crackle'},
+  {id:'night',name:'Night',description:'Dark air and soft crickets'},
+  {id:'brown',name:'Brown noise',description:'Deep focus noise'},
+  {id:'focus',name:'Deep focus',description:'Balanced low ambient noise'}
+]
+
+async function loadChatThreads(){
+  if(!user) return []
+  const {data,error}=await supabase.from('chat_threads')
+    .select('*')
+    .eq('archived',false)
+    .order('last_message_at',{ascending:false})
+  if(error){console.warn('Chat thread load failed',error);return []}
+  chatThreads=data||[]
+  return chatThreads
+}
+
+async function createChatThread(title='New chat',{navigate=false}={}){
+  const {data,error}=await supabase.from('chat_threads').insert({
+    user_id:user.id,
+    title:compactText(redactSecrets(title||'New chat'),70)||'New chat'
+  }).select().single()
+  if(error) throw error
+  currentThreadId=data.id
+  chat=[]
+  conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+  persistConversationState()
+  await loadChatThreads()
+  if(navigate) await go('ask',false,{push:true})
+  return data
+}
+
+async function loadChatThread(threadId){
+  if(!threadId) return null
+  const thread=await supabase.from('chat_threads').select('*').eq('id',threadId).maybeSingle()
+  if(thread.error||!thread.data) return null
+  const {data,error}=await supabase.from('chat_messages')
+    .select('*')
+    .eq('thread_id',threadId)
+    .order('created_at',{ascending:true})
+  if(error) throw error
+  currentThreadId=threadId
+  loadConversationContext(threadId)
+  chat=(data||[]).map(row=>({
+    id:row.id,
+    role:row.role,
+    text:redactSecrets(row.content),
+    source:row.source||null,
+    ai:Boolean(row.metadata?.ai),
+    created_at:row.created_at
+  }))
+  return thread.data
+}
+
+async function ensureChatThread(){
+  if(currentThreadId){
+    const loaded=await loadChatThread(currentThreadId)
+    if(loaded) return loaded
+  }
+  const threads=await loadChatThreads()
+  if(threads.length){
+    await loadChatThread(threads[0].id)
+    return threads[0]
+  }
+  return await createChatThread('New chat')
+}
+
+async function saveChatMessage(role,text,extra={}){
+  if(!currentThreadId) await ensureChatThread()
+  const safeText=redactSecrets(String(text||'')).trim()
+  if(!safeText) return null
+  const {data,error}=await supabase.from('chat_messages').insert({
+    thread_id:currentThreadId,
+    user_id:user.id,
+    role,
+    content:safeText,
+    source:extra.source||null,
+    metadata:{
+      ai:Boolean(extra.ai),
+      imageUsed:Boolean(extra.imageUrl||extra.imageUsed),
+      structured:Boolean(extra.structured)
+    }
+  }).select().single()
+  if(error) throw error
+
+  const current=chatThreads.find(item=>item.id===currentThreadId)
+  const update={last_message_at:new Date().toISOString(),updated_at:new Date().toISOString()}
+  if(role==='user'&&(!current||current.title==='New chat')){
+    update.title=compactText(safeText.replace(/\s+/g,' '),58)||'New chat'
+  }
+  await supabase.from('chat_threads').update(update).eq('id',currentThreadId)
+  await loadChatThreads()
+  return data
+}
+
+async function deleteChatThread(threadId){
+  if(!threadId) return
+  const {error}=await supabase.from('chat_threads').delete().eq('id',threadId)
+  if(error) throw error
+  try{localStorage.removeItem(`memora-context:${threadId}`)}catch{}
+  if(currentThreadId===threadId){
+    currentThreadId=null
+    chat=[]
+    conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+    await ensureChatThread()
+  }
+  await loadChatThreads()
+}
+
+async function renameChatThread(threadId,title){
+  const safe=compactText(redactSecrets(title||'').trim(),70)
+  if(!safe) return
+  const {error}=await supabase.from('chat_threads').update({title:safe,updated_at:new Date().toISOString()}).eq('id',threadId)
+  if(error) throw error
+  await loadChatThreads()
+}
+
+async function migrateLegacyChat(){
+  if(!legacySessionChat.length||!user) return
+  const existing=await loadChatThreads()
+  if(existing.length){
+    sessionStorage.removeItem('memora-chat')
+    sessionStorage.removeItem('memora-context')
+    legacySessionChat=[]
+    return
+  }
+  const thread=await createChatThread('Previous conversation')
+  const rows=legacySessionChat
+    .filter(item=>item&&['user','assistant'].includes(item.role)&&item.text)
+    .map(item=>({
+      thread_id:thread.id,
+      user_id:user.id,
+      role:item.role,
+      content:redactSecrets(String(item.text)),
+      source:item.source||null,
+      metadata:{ai:Boolean(item.ai),migrated:true}
+    }))
+  if(rows.length) await supabase.from('chat_messages').insert(rows)
+  sessionStorage.removeItem('memora-chat')
+  sessionStorage.removeItem('memora-context')
+  legacySessionChat=[]
+  await loadChatThread(thread.id)
+}
+
+function resolveAmbientScene(){
+  if(ambientPreferences.scene&&ambientPreferences.scene!=='auto') return ambientPreferences.scene
+  const hour=new Date().getHours()
+  if(hour>=5&&hour<8) return 'forest'
+  if(hour>=8&&hour<12) return 'focus'
+  if(hour>=12&&hour<17) return 'ocean'
+  if(hour>=17&&hour<20) return 'rain'
+  if(hour>=20&&hour<23) return 'fire'
+  return 'night'
+}
+
+function updateVisualScene(){
+  const now=new Date()
+  const hour=now.getHours()
+  const month=now.getMonth()+1
+  const daypart=hour>=5&&hour<8?'dawn':hour>=8&&hour<12?'morning':hour>=12&&hour<17?'day':hour>=17&&hour<20?'sunset':'night'
+  const season=month>=3&&month<=5?'spring':month>=6&&month<=8?'summer':month>=9&&month<=11?'autumn':'winter'
+  document.documentElement.dataset.daypart=daypart
+  document.documentElement.dataset.season=season
+  document.documentElement.dataset.dynamicBackground=ambientPreferences.dynamicBackground?'on':'off'
+}
+
+async function loadExperiencePreferences(){
+  if(!user) return ambientPreferences
+  const {data}=await supabase.from('user_settings').select('ambient_enabled,ambient_scene,ambient_volume,dynamic_background').maybeSingle()
+  if(data){
+    ambientPreferences={
+      enabled:data.ambient_enabled!==false,
+      scene:data.ambient_scene||'auto',
+      volume:Number(data.ambient_volume??0.24),
+      dynamicBackground:data.dynamic_background!==false
+    }
+  }else{
+    await supabase.from('user_settings').upsert({
+      user_id:user.id,
+      ambient_enabled:true,
+      ambient_scene:'auto',
+      ambient_volume:0.24,
+      dynamic_background:true
+    })
+  }
+  updateVisualScene()
+  updateSoundButton()
+  return ambientPreferences
+}
+
+async function saveExperiencePreferences(patch){
+  ambientPreferences={...ambientPreferences,...patch}
+  updateVisualScene()
+  updateSoundButton()
+  if(user){
+    await supabase.from('user_settings').upsert({
+      user_id:user.id,
+      ambient_enabled:ambientPreferences.enabled,
+      ambient_scene:ambientPreferences.scene,
+      ambient_volume:ambientPreferences.volume,
+      dynamic_background:ambientPreferences.dynamicBackground,
+      updated_at:new Date().toISOString()
+    })
+  }
+}
+
+function stopAmbientNodes(){
+  for(const timer of ambientTimers) clearInterval(timer)
+  ambientTimers=[]
+  for(const node of ambientNodes){
+    try{node.stop?.()}catch{}
+    try{node.disconnect?.()}catch{}
+  }
+  ambientNodes=[]
+  ambientCurrentScene=null
+}
+
+function noiseBuffer(ctx,kind='white'){
+  const seconds=4
+  const buffer=ctx.createBuffer(1,ctx.sampleRate*seconds,ctx.sampleRate)
+  const data=buffer.getChannelData(0)
+  let last=0
+  for(let i=0;i<data.length;i++){
+    const white=Math.random()*2-1
+    if(kind==='brown'){
+      last=(last+0.02*white)/1.02
+      data[i]=last*3.2
+    }else if(kind==='pink'){
+      last=0.96*last+0.04*white
+      data[i]=last*2.2
+    }else data[i]=white
+  }
+  return buffer
+}
+
+function addAmbientNoise(kind,{gain=0.1,lowpass=12000,highpass=20,lfo=0}={}){
+  const ctx=ambientAudioContext
+  const source=ctx.createBufferSource()
+  source.buffer=noiseBuffer(ctx,kind)
+  source.loop=true
+  const hp=ctx.createBiquadFilter()
+  hp.type='highpass'
+  hp.frequency.value=highpass
+  const lp=ctx.createBiquadFilter()
+  lp.type='lowpass'
+  lp.frequency.value=lowpass
+  const g=ctx.createGain()
+  g.gain.value=gain
+  source.connect(hp).connect(lp).connect(g).connect(ambientMasterGain)
+  if(lfo>0){
+    const osc=ctx.createOscillator()
+    const depth=ctx.createGain()
+    osc.frequency.value=lfo
+    depth.gain.value=gain*0.45
+    osc.connect(depth).connect(g.gain)
+    osc.start()
+    ambientNodes.push(osc,depth)
+  }
+  source.start()
+  ambientNodes.push(source,hp,lp,g)
+}
+
+function addAmbientTone(freq,{gain=0.008,mod=0.12,type='sine'}={}){
+  const ctx=ambientAudioContext
+  const osc=ctx.createOscillator()
+  const g=ctx.createGain()
+  osc.type=type
+  osc.frequency.value=freq
+  g.gain.value=gain
+  osc.connect(g).connect(ambientMasterGain)
+  if(mod){
+    const lfo=ctx.createOscillator()
+    const depth=ctx.createGain()
+    lfo.frequency.value=mod
+    depth.gain.value=gain*0.75
+    lfo.connect(depth).connect(g.gain)
+    lfo.start()
+    ambientNodes.push(lfo,depth)
+  }
+  osc.start()
+  ambientNodes.push(osc,g)
+}
+
+async function startAmbient(sceneId=resolveAmbientScene()){
+  if(!ambientPreferences.enabled) return
+  if(!window.AudioContext&&!window.webkitAudioContext) return
+  if(!ambientAudioContext){
+    const Ctx=window.AudioContext||window.webkitAudioContext
+    ambientAudioContext=new Ctx()
+    ambientMasterGain=ambientAudioContext.createGain()
+    ambientMasterGain.connect(ambientAudioContext.destination)
+  }
+  if(ambientAudioContext.state==='suspended'){
+    try{await ambientAudioContext.resume()}catch{return}
+  }
+  stopAmbientNodes()
+  ambientMasterGain.gain.setTargetAtTime(Math.max(0,Math.min(1,ambientPreferences.volume)),ambientAudioContext.currentTime,0.08)
+  ambientCurrentScene=sceneId
+
+  if(sceneId==='rain'){
+    addAmbientNoise('white',{gain:.10,highpass:900,lowpass:9000,lfo:.18})
+    addAmbientNoise('pink',{gain:.035,highpass:180,lowpass:2400})
+  }else if(sceneId==='ocean'){
+    addAmbientNoise('brown',{gain:.18,highpass:30,lowpass:1100,lfo:.075})
+    addAmbientNoise('pink',{gain:.04,highpass:500,lowpass:3600,lfo:.11})
+  }else if(sceneId==='forest'){
+    addAmbientNoise('pink',{gain:.055,highpass:120,lowpass:5200,lfo:.05})
+    addAmbientTone(430,{gain:.005,mod:.09})
+    addAmbientTone(620,{gain:.0035,mod:.13})
+  }else if(sceneId==='fire'){
+    addAmbientNoise('brown',{gain:.11,highpass:160,lowpass:1800,lfo:.16})
+    addAmbientNoise('white',{gain:.018,highpass:1600,lowpass:7000,lfo:.7})
+  }else if(sceneId==='night'){
+    addAmbientNoise('brown',{gain:.055,highpass:30,lowpass:900,lfo:.04})
+    addAmbientTone(3300,{gain:.0018,mod:5.8})
+    addAmbientTone(4100,{gain:.0012,mod:6.7})
+  }else if(sceneId==='brown'){
+    addAmbientNoise('brown',{gain:.20,highpass:30,lowpass:2400})
+  }else{
+    addAmbientNoise('brown',{gain:.11,highpass:30,lowpass:1800,lfo:.035})
+    addAmbientNoise('pink',{gain:.025,highpass:800,lowpass:5000})
+  }
+  updateSoundButton()
+}
+
+function stopAmbient(){
+  stopAmbientNodes()
+  if(ambientMasterGain&&ambientAudioContext){
+    ambientMasterGain.gain.setTargetAtTime(0,ambientAudioContext.currentTime,0.05)
+  }
+  updateSoundButton()
+}
+
+function updateSoundButton(){
+  const button=document.getElementById('soundButton')
+  if(!button) return
+  const scene=ambientPreferences.scene==='auto'?resolveAmbientScene():ambientPreferences.scene
+  button.dataset.enabled=ambientPreferences.enabled?'true':'false'
+  button.title=ambientPreferences.enabled?`Soundscape: ${scene}`:'Sound is muted'
+  const label=button.querySelector('.sound-label')
+  if(label) label.textContent=ambientPreferences.enabled?'Sound':'Silent'
+}
+
+async function setAmbientEnabled(enabled){
+  await saveExperiencePreferences({enabled})
+  if(enabled) await startAmbient()
+  else stopAmbient()
+}
+
+function openSoundscapePicker(){
+  const selected=ambientPreferences.scene||'auto'
+  const box=modal('Ambient Soundscapes',`
+    <div class="soundscape-head">
+      <div><div class="eyebrow">Calm audio</div><h3>${ambientPreferences.enabled?'Sound is on':'Sound is muted'}</h3><p class="muted">Generated locally in your browser. No ads, radio account or external music service required.</p></div>
+      <button class="btn ${ambientPreferences.enabled?'primary':''}" id="soundToggle">${ambientPreferences.enabled?'Mute':'Enable sound'}</button>
+    </div>
+    <div class="soundscape-grid">
+      ${ambientScenes.map(scene=>`<button class="soundscape-card ${selected===scene.id?'selected':''}" data-sound-scene="${scene.id}"><b>${esc(scene.name)}</b><small>${esc(scene.description)}</small></button>`).join('')}
+    </div>
+    <label class="volume-row"><span>Volume</span><input id="ambientVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="ambientVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
+    <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly and seasonal background motion</span></label>
+  `)
+
+  box.querySelector('#soundToggle').onclick=async()=>{
+    await setAmbientEnabled(!ambientPreferences.enabled)
+    box.remove()
+    openSoundscapePicker()
+  }
+  box.querySelectorAll('[data-sound-scene]').forEach(button=>button.onclick=async()=>{
+    await saveExperiencePreferences({scene:button.dataset.soundScene})
+    if(ambientPreferences.enabled) await startAmbient()
+    box.remove()
+    openSoundscapePicker()
+  })
+  box.querySelector('#ambientVolume').oninput=event=>{
+    const value=Number(event.target.value)
+    ambientPreferences.volume=value
+    box.querySelector('#ambientVolumeLabel').textContent=`${Math.round(value*100)}%`
+    if(ambientMasterGain&&ambientAudioContext) ambientMasterGain.gain.setTargetAtTime(value,ambientAudioContext.currentTime,.05)
+  }
+  box.querySelector('#ambientVolume').onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
+  box.querySelector('#dynamicBackgroundToggle').onchange=event=>saveExperiencePreferences({dynamicBackground:event.target.checked})
+}
+
+function setupAmbientUnlock(){
+  const unlock=async()=>{
+    if(ambientPreferences.enabled) await startAmbient()
+    document.removeEventListener('pointerdown',unlock)
+    document.removeEventListener('keydown',unlock)
+  }
+  document.addEventListener('pointerdown',unlock,{passive:true})
+  document.addEventListener('keydown',unlock)
+}
+
 function applyTheme(values,label){
   const root=document.documentElement
   Object.entries(values).forEach(([key,value])=>root.style.setProperty(`--${key}`,value))
