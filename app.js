@@ -2454,41 +2454,135 @@ function startThinkingAnimation(){
 }
 
 async function ask(){
-  app.innerHTML=shell(`
-    <div class="ask-shell">
-      <div class="ask-intelligence glass">
-        <div class="intelligence-orb"><span></span></div>
-        <div><strong>Memora Intelligence</strong><small>Grounded in your private memories, facts and connected evidence</small></div>
-        <span class="status live">Ready</span>
-      </div>
-      <div class="glass chat-panel">
-        <div class="filter-row ask-suggestions" style="margin-bottom:15px">
-          <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
-          <button class="chip" data-ask-suggestion="Who is my eldest brother?">Family order</button>
-          <button class="chip" data-ask-suggestion="What do I do for work?">My work</button>
-          <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
-          <button class="chip subtle" id="clearAskChat">Clear conversation</button>
-        </div>
-        <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty"><strong>Ask your own life</strong>Try a natural question, even with spelling mistakes. Memora combines structured facts, memories and context before answering.</div>'}</div>
-      </div>
-      <div class="glass ask-box"><input class="input" id="askInput" autocomplete="off" placeholder="Ask Memora anything about your memories"><button class="btn primary" id="askButton">Ask</button></div>
+  await ensureChatThread()
+  await loadChatThreads()
+  const currentThread=chatThreads.find(item=>item.id===currentThreadId)||{title:'New chat'}
+
+  const threadList=chatThreads.slice(0,30).map(thread=>`
+    <div class="chat-thread ${thread.id===currentThreadId?'active':''}" data-thread-id="${thread.id}">
+      <button class="thread-open" data-open-thread="${thread.id}">
+        <strong>${esc(thread.title||'New chat')}</strong>
+        <small>${shortDate(thread.last_message_at||thread.updated_at||thread.created_at)}</small>
+      </button>
+      <button class="thread-menu" data-thread-menu="${thread.id}" aria-label="Chat options">•••</button>
     </div>
-  `,'Ask Memora','Your personal reasoning layer, grounded in what you have actually saved.')
+  `).join('')
+
+  app.innerHTML=shell(`
+    <div class="ask-layout">
+      <button class="chat-drawer-scrim" id="chatDrawerScrim" aria-label="Close chats"></button>
+      <aside class="glass chat-sidebar" id="chatSidebar">
+        <div class="chat-sidebar-head">
+          <div><div class="eyebrow">Conversations</div><h3>Your chats</h3></div>
+          <button class="btn primary compact" id="newChatButton">＋ New</button>
+        </div>
+        <div class="thread-list">${threadList||'<div class="empty compact-empty">No chats yet.</div>'}</div>
+      </aside>
+
+      <div class="ask-main">
+        <div class="ask-intelligence glass">
+          <button class="thread-toggle" id="threadToggle" aria-label="Open chats">☰</button>
+          <div class="intelligence-orb"><span></span></div>
+          <div class="ask-title-block">
+            <strong>${esc(currentThread.title||'New chat')}</strong>
+            <small>Shared memory vault, separate conversation context</small>
+          </div>
+          <span class="status live">Ready</span>
+        </div>
+
+        <div class="glass chat-panel">
+          <div class="filter-row ask-suggestions">
+            <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
+            <button class="chip" data-ask-suggestion="Who is my eldest brother?">Family order</button>
+            <button class="chip" data-ask-suggestion="What do I do for work?">My work</button>
+            <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
+          </div>
+          <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty"><strong>Start a new conversation</strong>This chat has its own context, while Memora can still search your complete private memory vault.</div>'}</div>
+        </div>
+
+        <div class="glass ask-box">
+          <input class="input" id="askInput" autocomplete="off" placeholder="Ask Memora anything about your memories">
+          <button class="btn primary" id="askButton">Ask</button>
+        </div>
+      </div>
+    </div>
+  `,'Ask Memora','Separate conversations, one shared personal memory.')
   wire()
+
+  const sidebar=document.getElementById('chatSidebar')
+  const scrim=document.getElementById('chatDrawerScrim')
+  const toggleDrawer=force=>{
+    const open=typeof force==='boolean'?force:!sidebar.classList.contains('open')
+    sidebar.classList.toggle('open',open)
+    scrim.classList.toggle('open',open)
+  }
+  document.getElementById('threadToggle').onclick=()=>toggleDrawer()
+  scrim.onclick=()=>toggleDrawer(false)
 
   requestAnimationFrame(()=>{
     const chatEl=document.getElementById('chat')
     if(chatEl) chatEl.scrollTop=chatEl.scrollHeight
   })
 
+  document.getElementById('newChatButton').onclick=async()=>{
+    await createChatThread('New chat')
+    await go('ask',false,{push:true})
+  }
+
+  document.querySelectorAll('[data-open-thread]').forEach(button=>button.onclick=async event=>{
+    event.stopPropagation()
+    const threadId=button.dataset.openThread
+    if(threadId===currentThreadId){toggleDrawer(false);return}
+    await loadChatThread(threadId)
+    await go('ask',false,{push:true})
+  })
+
+  document.querySelectorAll('[data-thread-menu]').forEach(button=>button.onclick=event=>{
+    event.stopPropagation()
+    const threadId=button.dataset.threadMenu
+    const thread=chatThreads.find(item=>item.id===threadId)
+    const box=modal('Conversation options',`
+      <p class="muted">${esc(thread?.title||'Conversation')}</p>
+      <div class="grid two">
+        <button class="btn" id="renameThread">Rename</button>
+        <button class="btn danger" id="deleteThread">Delete chat</button>
+      </div>
+    `)
+    box.querySelector('#renameThread').onclick=async()=>{
+      const next=prompt('Rename conversation',thread?.title||'New chat')
+      if(!next) return
+      await renameChatThread(threadId,next)
+      box.remove()
+      await ask()
+    }
+    box.querySelector('#deleteThread').onclick=async()=>{
+      if(!confirm('Delete this conversation? Your saved memories will not be deleted.')) return
+      await deleteChatThread(threadId)
+      box.remove()
+      await go('ask',false,{replace:true,push:false})
+    }
+  })
+
   const submit=async()=>{
     const input=document.getElementById('askInput')
     const q=input.value.trim()
     if(!q) return
+
+    if(looksLikeSecret(q)){
+      input.value=''
+      const safe='I detected what looks like an API key or credential. For safety I will not save it in chat or memory. Add credentials through Sources instead.'
+      chat.push({role:'assistant',text:safe,source:'Memora security',fresh:true})
+      await saveChatMessage('assistant',safe,{source:'Memora security'})
+      await ask()
+      return
+    }
+
     input.value=''
     chat=chat.map(message=>({...message,fresh:false}))
-    chat.push({role:'user',text:q})
-    persistConversationState()
+    const userMessage={role:'user',text:q,created_at:new Date().toISOString()}
+    chat.push(userMessage)
+    await saveChatMessage('user',q)
+
     chat.push({role:'assistant',pending:true,text:''})
     await ask()
     const stopThinking=startThinkingAnimation()
@@ -2497,25 +2591,21 @@ async function ask(){
       const response=await answer(q)
       stopThinking()
       chat=chat.filter(message=>!message.pending)
-      chat.push({role:'assistant',...response,text:cleanAnswerText(response.text),fresh:true})
-      persistConversationState()
+      const finalMessage={role:'assistant',...response,text:cleanAnswerText(response.text),fresh:true,created_at:new Date().toISOString()}
+      chat.push(finalMessage)
+      await saveChatMessage('assistant',finalMessage.text,finalMessage)
     }catch(error){
       stopThinking()
       chat=chat.filter(message=>!message.pending)
-      chat.push({role:'assistant',text:'I could not complete that lookup just now. Your saved memories are safe, so please try the question again.',source:'Memora',fresh:true})
-      persistConversationState()
+      const failure={role:'assistant',text:'I could not complete that lookup just now. Your saved memories are safe, so please try the question again.',source:'Memora',fresh:true}
+      chat.push(failure)
+      await saveChatMessage('assistant',failure.text,failure)
     }
     await ask()
   }
 
-  document.getElementById('clearAskChat').onclick=()=>{
-    chat=[]
-    conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
-    persistConversationState()
-    ask()
-  }
   document.getElementById('askButton').onclick=submit
-  document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)submit()}
+  document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}}
   document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
     document.getElementById('askInput').value=button.dataset.askSuggestion
     submit()
