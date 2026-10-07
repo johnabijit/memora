@@ -564,14 +564,74 @@ function resultRelevant(question,result){
 
 async function syncPeopleFromMemory(memory,text){
   const rows=[]
+  const seen=new Set()
+  const add=(name,relationship='known person')=>{
+    name=String(name||'').replace(/^[“"'\s]+|[”"'.,;!?\s]+$/g,'').replace(/\s+/g,' ').trim()
+    if(!name||name.length<2||name.length>80) return
+    const key=name.toLowerCase()
+    if(seen.has(key)) return
+    seen.add(key)
+    rows.push({user_id:user.id,name,relationship,notes:'Recognized from a saved memory',first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+  }
+
   for(const relation of ['father','mother','sister','brother','wife','husband','daughter','son']){
-    for(const name of relationNamesFromText(relation,text)){
-      rows.push({user_id:user.id,name,relationship:relation,notes:'Recognized from a saved memory',first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+    for(const name of relationNamesFromText(relation,text)) add(name,relation)
+  }
+
+  const patterns=[
+    ['known person',/(?:met|spoke with|talked with|worked with|played .*? with|went .*? with)\s+([A-Z][A-Za-z .'-]{1,60})/ig],
+    ['friend',/(?:my\s+)?friend(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,60})/ig],
+    ['colleague',/(?:my\s+)?(?:colleague|coworker|co-worker)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,60})/ig],
+    ['manager',/(?:my\s+)?(?:manager|boss)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,60})/ig],
+    ['partner',/(?:my\s+)?partner(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{1,60})/ig]
+  ]
+  for(const [relationship,re] of patterns){
+    let match
+    while((match=re.exec(String(text||'')))){
+      const raw=match[1].split(/\s+(?:at|in|on|near|and|from|about|for|today|yesterday)\b/i)[0]
+      add(raw,relationship)
     }
   }
-  const meet=String(text||'').match(/(?:met|spoke with|talked with|worked with|played .*? with)\s+([A-Z][A-Za-z .'-]{1,60})/i)
-  if(meet) rows.push({user_id:user.id,name:meet[1].trim(),relationship:'known person',notes:'Recognized from a saved memory',first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+
   if(rows.length) await supabase.from('people').upsert(rows,{onConflict:'user_id,name',ignoreDuplicates:false})
+}
+
+async function syncPlacesFromMemory(memory,text){
+  const rows=[]
+  const seen=new Set()
+  const add=(name,category='place')=>{
+    name=String(name||'').replace(/^[“"'\s]+|[”"'.,;!?\s]+$/g,'').replace(/\s+/g,' ').trim()
+    if(!name||name.length<2||name.length>90) return
+    const key=name.toLowerCase()
+    if(seen.has(key)) return
+    seen.add(key)
+    rows.push({user_id:user.id,name,category,notes:'Recognized from a saved memory',first_visited_at:memory.occurred_at,last_visited_at:memory.occurred_at})
+  }
+
+  const source=String(text||'')
+  const patterns=[
+    ['birth place',/(?:born|birth)\s+(?:at|in)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/ig],
+    ['visited',/(?:visited|went to|travelled to|traveled to)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/ig],
+    ['place',/(?:at|near)\s+([A-Z][A-Za-z0-9 .&'’-]{2,80})/g]
+  ]
+  for(const [category,re] of patterns){
+    let match
+    while((match=re.exec(source))){
+      const raw=match[1].split(/\s+(?:and|with|where|which|who|around|from)\b/i)[0]
+      add(raw,category)
+    }
+  }
+
+  if(rows.length) await supabase.from('places').upsert(rows,{onConflict:'user_id,name',ignoreDuplicates:false})
+}
+
+async function reindexVaultFromMemories(){
+  const {data:memories}=await supabase.from('memories').select('id,original_text,summary,occurred_at,created_at').order('created_at',{ascending:false}).limit(250)
+  for(const memory of memories||[]){
+    const text=[memory.original_text,memory.summary].filter(Boolean).join(' ')
+    await syncPeopleFromMemory(memory,text)
+    await syncPlacesFromMemory(memory,text)
+  }
 }
 
 async function uploadMedia(memoryId,files){
@@ -606,6 +666,7 @@ async function saveMemory(text,files=[],location=null){
   const {data:memory,error}=await supabase.from('memories').insert(payload).select().single()
   if(error) throw error
   await syncPeopleFromMemory(memory,text)
+  await syncPlacesFromMemory(memory,text)
   if(parsed.interpreted_data.thing&&parsed.interpreted_data.location) await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
   if(parsed.interpreted_data.person){
     const existing=await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
@@ -1288,6 +1349,7 @@ async function timeline(){
 }
 
 async function vault(){
+  await reindexVaultFromMemories()
   const [{count:peopleCount},{count:placeCount},{count:thingCount},{count:docCount}]=await Promise.all([
     supabase.from('people').select('*',{count:'exact',head:true}),
     supabase.from('places').select('*',{count:'exact',head:true}),
@@ -1307,12 +1369,14 @@ async function vault(){
 }
 
 async function people(){
+  await reindexVaultFromMemories()
   const {data}=await supabase.from('people').select('*').order('name')
   app.innerHTML=shell(`<div class="vault-grid">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="vault-icon">◎</div><h3>${esc(p.name)}</h3><p>${esc(p.relationship||'Person from your memories')}</p><div class="memory-meta">Last seen ${when(p.last_seen_at||p.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No people yet</strong>Mention someone in a memory and they can appear here.</div>'}</div>`,'People')
   wire()
 }
 
 async function places(){
+  await reindexVaultFromMemories()
   const {data}=await supabase.from('places').select('*').order('name')
   app.innerHTML=shell(`<div class="vault-grid">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="vault-icon">⌖</div><h3>${esc(p.name)}</h3><p>${esc(p.address||p.category||'Saved place')}</p></div>`).join(''):'<div class="glass empty"><strong>No places yet</strong>Places and imported location history will collect here.</div>'}</div>`,'Places')
   wire()
