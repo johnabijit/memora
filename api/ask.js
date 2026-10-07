@@ -21,6 +21,15 @@ function redactCredentials(value){
     .replace(/xox[baprs]-[0-9A-Za-z-]{20,}/g,'[credential redacted]')
 }
 
+function containsCredential(value){
+  const text=String(value||'')
+  return /sk-[A-Za-z0-9_-]{20,}/.test(text)
+    || /gh[pousr]_[A-Za-z0-9_]{20,}/.test(text)
+    || /AKIA[0-9A-Z]{16}/.test(text)
+    || /AIza[0-9A-Za-z_-]{20,}/.test(text)
+    || /xox[baprs]-[0-9A-Za-z-]{20,}/.test(text)
+}
+
 function cleanEvidenceText(value,max=2400){
   let text=redactCredentials(trimText(value,max*2)).replace(/\\n/g,' ').replace(/\s+/g,' ').trim()
   const jsonStart=text.search(/\s\{["'][A-Za-z_]/)
@@ -139,6 +148,17 @@ module.exports=async function handler(req,res){
 
     question=trimText(req.body?.question,2400).trim()
     if(!question) return json(res,400,{error:'Question is required'})
+    if(containsCredential(question)){
+      await logAi(token,user.id,{
+        status:'blocked',
+        error_code:'credential_detected',
+        error_message:'Credential-like content was blocked before AI processing',
+        question_preview:'[credential redacted]',
+        latency_ms:Date.now()-started,
+        used_image:false
+      })
+      return json(res,400,{error:'Sensitive credential detected. Add API keys through Sources, not Ask Memora.'})
+    }
 
     const usage=await supabaseFetch('/rest/v1/rpc/check_and_record_ai_usage',token,{
       method:'POST',
