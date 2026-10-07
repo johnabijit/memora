@@ -1812,6 +1812,64 @@ async function importWhatsApp(file){
   return imported
 }
 
+async function getConnectionMap(){
+  const {data}=await supabase.from('connections').select('*').order('updated_at',{ascending:false})
+  return Object.fromEntries((data||[]).map(item=>[item.provider,item]))
+}
+
+async function connectAiProvider(provider,label){
+  const body=`
+    <p class="muted">Optional BYOK connection for ${esc(label)}. The key is sent only to an authenticated server function, verified with the provider, and stored encrypted in Supabase Vault.</p>
+    <input class="input" id="providerKey" type="password" autocomplete="off" placeholder="${esc(label)} API key">
+    <div class="filter-row" style="margin-top:12px">
+      <button class="btn primary" id="connectProvider">Connect securely</button>
+      <span class="muted" id="providerStatus"></span>
+    </div>`
+  const box=modal(`Connect ${label}`,body)
+  box.querySelector('#connectProvider').onclick=async()=>{
+    const api_key=box.querySelector('#providerKey').value.trim()
+    const status=box.querySelector('#providerStatus')
+    if(!api_key) return status.textContent='Enter the API key first.'
+    status.textContent='Verifying...'
+    const {data,error}=await supabase.functions.invoke('connect-ai-provider',{body:{action:'connect',provider,api_key}})
+    box.querySelector('#providerKey').value=''
+    if(error||data?.error) return status.textContent=data?.error||error.message
+    status.textContent='Connected.'
+    setTimeout(()=>{box.remove();sources()},500)
+  }
+}
+
+async function disconnectAiProvider(provider){
+  const {data,error}=await supabase.functions.invoke('connect-ai-provider',{body:{action:'disconnect',provider}})
+  if(error||data?.error) return toast(data?.error||error.message)
+  toast('Provider disconnected')
+  sources()
+}
+
+async function checkMemoraBackend(){
+  try{
+    const response=await fetch('/api/health',{cache:'no-store'})
+    if(!response.ok) return {ok:false,aiGateway:false}
+    return await response.json()
+  }catch{
+    return {ok:false,aiGateway:false}
+  }
+}
+
+function oauthSetupModal(provider){
+  const isGoogle=provider==='google'
+  modal(isGoogle?'Google Workspace connection':'Microsoft 365 connection',`
+    <p class="muted">The Memora connector flow is ready for this source, but the provider requires a one-time OAuth application registration owned by you before a live account can be authorized.</p>
+    <div class="filter-row">
+      <span class="chip active">${isGoogle?'Gmail':'Outlook'}</span>
+      <span class="chip">${isGoogle?'Calendar':'Calendar'}</span>
+      <span class="chip">${isGoogle?'Drive':'OneDrive'}</span>
+      <span class="chip">${isGoogle?'Photos':'SharePoint'}</span>
+    </div>
+    <p class="small muted" style="margin-top:14px">Memora will request read-only permissions first. Provider tokens must stay server-side and will never be written into the browser code.</p>
+  `)
+}
+
 function sourceInfo(kind){
   const info={
     openai:{
@@ -1848,43 +1906,153 @@ function openSourceInfo(kind){
 }
 
 async function sources(){
+  const [connections,health]=await Promise.all([getConnectionMap(),checkMemoraBackend()])
+  const connectedCount=Object.values(connections).filter(item=>item.status==='connected').length
+
+  const providerButton=(provider,label)=>{
+    const connection=connections[provider]
+    if(connection?.status==='connected'){
+      return `<button class="btn" data-disconnect-provider="${provider}">Disconnect ${esc(label)}</button>`
+    }
+    return `<button class="btn primary" data-connect-provider="${provider}" data-provider-label="${esc(label)}">Connect API</button>`
+  }
+
   app.innerHTML=shell(`
-    <div class="source-grid">
-      <div class="glass source-card" id="chatgptCard"><span class="status live">Import works</span><div class="source-icon">AI</div><h3>ChatGPT</h3><p>Import your exported ChatGPT conversations into searchable historical memories.</p><button class="btn primary" id="chatgptImportBtn" style="margin-top:15px">Import export</button><input class="hidden" id="chatgptFile" type="file" accept=".json,application/json"></div>
-      <div class="glass source-card" data-source-info="openai"><span class="status">Secure setup</span><div class="source-icon">✦</div><h3>OpenAI agents</h3><p>Future live reasoning through the current Responses and agent architecture.</p></div>
-      <div class="glass source-card" data-source-info="google"><span class="status">OAuth setup</span><div class="source-icon">G</div><h3>Google Workspace</h3><p>Gmail, Calendar, Drive and Photos through explicit user-authorized scopes.</p></div>
-      <div class="glass source-card" data-source-info="microsoft"><span class="status">OAuth setup</span><div class="source-icon">M</div><h3>Microsoft 365</h3><p>Outlook, Calendar, OneDrive and SharePoint through Microsoft Graph.</p></div>
-      <div class="glass source-card" id="whatsappCard"><span class="status live">Import works</span><div class="source-icon">W</div><h3>WhatsApp</h3><p>Import an exported text chat so important conversations can become searchable memories.</p><button class="btn" id="whatsappImportBtn" style="margin-top:15px">Import chat</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,text/plain"></div>
-      <div class="glass source-card" data-source-info="maps"><span class="status live">Location works</span><div class="source-icon">⌖</div><h3>Maps and location</h3><p>Attach your current location now. Timeline imports and continuous history are designed as separate privacy-aware modules.</p></div>
-      <div class="glass source-card" data-source-info="claude"><span class="status">AI setup</span><div class="source-icon">C</div><h3>Claude</h3><p>Prepared for API or export based memory import without changing your core database.</p></div>
-      <div class="glass source-card" data-source-info="gemini"><span class="status">AI setup</span><div class="source-icon">Gm</div><h3>Gemini</h3><p>Prepared as another optional AI reasoning provider.</p></div>
-      <div class="glass source-card" id="filesCard"><span class="status live">Works now</span><div class="source-icon">▣</div><h3>Files and documents</h3><p>Upload policies, receipts, screenshots, PDFs and other files with a note explaining why they matter.</p><button class="btn" id="filesJump" style="margin-top:15px">Open Documents</button></div>
+    <div class="glass source-hero">
+      <div>
+        <div class="eyebrow">Intelligence and data sources</div>
+        <h3>Memora now has a built-in reasoning brain.</h3>
+        <p>Ask Memora uses a server-side AI Gateway grounded in your private memory vault. Extra provider keys and external data sources are optional extensions.</p>
+      </div>
+      <div class="source-summary"><b>${health.aiGateway?'LIVE':'CHECK'}</b><span>AI Gateway</span></div>
     </div>
-    <div id="sourceMsg" class="muted" style="margin-top:14px"></div>
-  `,'Source Universe','Connect the pieces of your digital life without mixing permissions or pretending a source is connected when it is not.')
+
+    <div class="source-grid">
+      <div class="glass source-card">
+        <span class="status ${health.aiGateway?'live':''}">${health.aiGateway?'Active':'Checking'}</span>
+        <div class="source-icon">✦</div>
+        <h3>Memora AI</h3>
+        <p>Primary reasoning through Vercel AI Gateway, using GPT 5.6 Luna with configured model fallbacks and your retrieved memories as evidence.</p>
+        <div class="source-actions"><button class="btn primary" data-nav="ask">Ask Memora</button></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status ${connections.openai?.status==='connected'?'live':''}">${connections.openai?.status==='connected'?'Connected':'Optional'}</span>
+        <div class="source-icon">AI</div>
+        <h3>OpenAI API</h3>
+        <p>Optional bring-your-own-key connection stored encrypted in Supabase Vault.</p>
+        <div class="source-actions">${providerButton('openai','OpenAI')}</div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status ${connections.gemini?.status==='connected'?'live':''}">${connections.gemini?.status==='connected'?'Connected':'Optional'}</span>
+        <div class="source-icon">Gm</div>
+        <h3>Gemini API</h3>
+        <p>Optional Google AI reasoning provider, separate from your Google Workspace data permissions.</p>
+        <div class="source-actions">${providerButton('gemini','Gemini')}</div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status ${connections.anthropic?.status==='connected'?'live':''}">${connections.anthropic?.status==='connected'?'Connected':'Optional'}</span>
+        <div class="source-icon">C</div>
+        <h3>Claude API</h3>
+        <p>Optional Anthropic reasoning provider with secure server-side credential storage.</p>
+        <div class="source-actions">${providerButton('anthropic','Claude')}</div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status">OAuth app required</span>
+        <div class="source-icon">G</div>
+        <h3>Google Workspace</h3>
+        <p>Gmail, Calendar, Drive and Photos. The connector is designed for read-only consent first.</p>
+        <div class="source-actions"><button class="btn primary" id="googleSetup">Connect Google</button></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status">OAuth app required</span>
+        <div class="source-icon">M</div>
+        <h3>Microsoft 365</h3>
+        <p>Outlook, Calendar, OneDrive and SharePoint through Microsoft Graph delegated permissions.</p>
+        <div class="source-actions"><button class="btn primary" id="microsoftSetup">Connect Microsoft</button></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status live">Device live</span>
+        <div class="source-icon">⌖</div>
+        <h3>Maps and location</h3>
+        <p>Attach your current location to a memory from the capture bar. Continuous history remains opt-in.</p>
+        <div class="source-actions"><button class="btn" data-nav="home">Capture with location</button></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status">Business API</span>
+        <div class="source-icon">W</div>
+        <h3>WhatsApp</h3>
+        <p>Live access requires Meta WhatsApp Business Cloud API. Personal history can still be indexed from an exported chat.</p>
+        <div class="source-actions"><button class="btn" id="whatsappInfo">Connection details</button><button class="btn ghost" id="whatsappImportBtn">Import history</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,text/plain"></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status live">Works now</span>
+        <div class="source-icon">▣</div>
+        <h3>Files and documents</h3>
+        <p>PDFs, screenshots, receipts and other files can become source-backed memories.</p>
+        <div class="source-actions"><button class="btn primary" id="filesJump">Open Documents</button></div>
+      </div>
+
+      <div class="glass source-card">
+        <span class="status">Migration</span>
+        <div class="source-icon">↥</div>
+        <h3>ChatGPT history</h3>
+        <p>Optional archive migration for conversations you want included in your personal memory history.</p>
+        <div class="source-actions"><button class="btn" id="chatgptImportBtn">Import archive</button><input class="hidden" id="chatgptFile" type="file" accept=".json,application/json"></div>
+      </div>
+    </div>
+
+    <div class="glass" style="padding:16px;border-radius:20px;margin-top:16px">
+      <b>${connectedCount} optional provider connection${connectedCount===1?'':'s'} active</b>
+      <div class="muted small" style="margin-top:5px">Memora AI does not require one of these optional provider keys to run on Vercel.</div>
+      <div id="sourceMsg" class="muted" style="margin-top:8px"></div>
+    </div>
+  `,'Source Universe','Live AI, optional provider APIs, device context and external data connectors.')
   wire()
-  document.querySelectorAll('[data-source-info]').forEach(card=>card.onclick=()=>openSourceInfo(card.dataset.sourceInfo))
-  document.getElementById('filesJump').onclick=e=>{e.stopPropagation();go('documents')}
-  document.getElementById('chatgptImportBtn').onclick=e=>{e.stopPropagation();document.getElementById('chatgptFile').click()}
-  document.getElementById('whatsappImportBtn').onclick=e=>{e.stopPropagation();document.getElementById('whatsappFile').click()}
+
+  document.querySelectorAll('[data-connect-provider]').forEach(button=>button.onclick=()=>connectAiProvider(button.dataset.connectProvider,button.dataset.providerLabel))
+  document.querySelectorAll('[data-disconnect-provider]').forEach(button=>button.onclick=()=>disconnectAiProvider(button.dataset.disconnectProvider))
+  document.getElementById('googleSetup').onclick=()=>oauthSetupModal('google')
+  document.getElementById('microsoftSetup').onclick=()=>oauthSetupModal('microsoft')
+  document.getElementById('filesJump').onclick=()=>go('documents')
+  document.getElementById('whatsappInfo').onclick=()=>modal('WhatsApp live connection','<p class="muted">A genuine live WhatsApp connector requires a Meta developer application, WhatsApp Business account, Phone Number ID, access token and webhook configuration. Memora will keep this separate from consumer chat imports so permissions remain explicit.</p>')
+
+  document.getElementById('chatgptImportBtn').onclick=()=>document.getElementById('chatgptFile').click()
+  document.getElementById('whatsappImportBtn').onclick=()=>document.getElementById('whatsappFile').click()
+
   document.getElementById('chatgptFile').onchange=async event=>{
     const file=event.target.files[0]
     if(!file) return
     const msg=document.getElementById('sourceMsg')
-    msg.textContent='Importing ChatGPT history...'
-    try{const count=await importChatGPT(file);msg.textContent=`Imported ${count} ChatGPT conversations.`;toast('ChatGPT history imported')}
-    catch(error){msg.textContent=error.message}
+    msg.textContent='Indexing ChatGPT archive...'
+    try{
+      const count=await importChatGPT(file)
+      msg.textContent=`Indexed ${count} ChatGPT conversations.`
+      await reindexVaultFromMemories()
+      toast('ChatGPT history indexed')
+    }catch(error){msg.textContent=error.message}
   }
+
   document.getElementById('whatsappFile').onchange=async event=>{
     const file=event.target.files[0]
     if(!file) return
     const msg=document.getElementById('sourceMsg')
-    msg.textContent='Importing WhatsApp chat...'
-    try{const count=await importWhatsApp(file);msg.textContent=`Imported ${count} searchable WhatsApp memory chunks.`;toast('WhatsApp chat imported')}
-    catch(error){msg.textContent=error.message}
+    msg.textContent='Indexing WhatsApp history...'
+    try{
+      const count=await importWhatsApp(file)
+      msg.textContent=`Indexed ${count} WhatsApp memory chunks.`
+      await reindexVaultFromMemories()
+      toast('WhatsApp history indexed')
+    }catch(error){msg.textContent=error.message}
   }
 }
-
 async function settings(){
   const [{data:profile},{data:settingsData}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
