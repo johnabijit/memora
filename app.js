@@ -1366,10 +1366,76 @@ async function openLiveCamera(mode='photo'){
   await start()
 }
 
+async function latestImageSignedUrl(){
+  const {data}=await supabase.from('memory_media').select('id,storage_path,file_name').eq('media_type','image').order('created_at',{ascending:false}).limit(1).maybeSingle()
+  if(!data?.storage_path) return null
+  const signed=await supabase.storage.from('memora-media').createSignedUrl(data.storage_path,900)
+  return signed.data?.signedUrl||null
+}
+
+async function aiReasonedAnswer(question){
+  const {data:{session}}=await supabase.auth.getSession()
+  if(!session?.access_token) return null
+
+  const history=chat
+    .filter(message=>!message.pending)
+    .slice(-12)
+    .map(message=>({role:message.role,text:String(message.text||'').slice(0,1800)}))
+
+  const response=await fetch('/api/ask',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      Authorization:`Bearer ${session.access_token}`
+    },
+    body:JSON.stringify({question,history})
+  })
+
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok){
+    console.warn('Memora AI fallback:',data?.error||response.status)
+    return null
+  }
+  if(!data?.answer) return null
+
+  let imageUrl=null
+  if(data.imageUsed) imageUrl=await latestImageSignedUrl().catch(()=>null)
+  return {
+    text:data.answer,
+    source:data.source||'Memora AI grounded in your saved memories',
+    imageUrl,
+    ai:true
+  }
+}
+
 async function answer(question){
   const rawQ=question.trim()
+
+  try{
+    const aiAnswer=await aiReasonedAnswer(rawQ)
+    if(aiAnswer) return aiAnswer
+  }catch(error){
+    console.warn('Memora AI error, using local memory engine',error)
+  }
+
   const q=normalizeQuestion(rawQ)
   const lower=q.toLowerCase()
+
+  if(/\bwho am i\b|\bwhat(?:'s| is) my name\b|\btell me about myself\b|\btell me who i am\b/i.test(q)){
+    const results=await smartMemorySearch('identity name born personal fact profile',14)
+    const facts=results.filter(result=>result.entity_type==='memory'||!result.entity_type).slice(0,5)
+    for(const result of facts){
+      const text=String(result.original_text||result.summary||'')
+      const match=text.match(/\bI am\s+([A-Z][A-Za-z .'-]{2,80}?)(?=\s+(?:and|born|working|from|at|,|\.|$))/i)
+      if(match){
+        conversationContext.subject=match[1].trim()
+        persistConversationState()
+        return {text:`You are ${match[1].trim()}. I found that in your saved personal memory.`,source:'Your stored identity memory'}
+      }
+    }
+    const {data:profile}=await supabase.from('profiles').select('display_name').maybeSingle()
+    if(profile?.display_name) return {text:`You are ${profile.display_name}.`,source:'Your Memora profile'}
+  }
 
   if(/\b(phone|mobile|contact)\s*(number)?\b|\bmy\s+number\b/i.test(q)){
     const evidence=await knownPhoneEvidence(conversationContext.lastImageMediaId)
