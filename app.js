@@ -552,6 +552,7 @@ function adaptiveTheme(){
   const theme=themeCatalog[(day*24+hour)%themeCatalog.length]
   const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
   applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
+  updateVisualScene()
   lastThemeHour=hour
 }
 
@@ -566,6 +567,8 @@ function updateTheme(){
 
 function setupAtmosphere(){
   updateTheme()
+  updateVisualScene()
+  setupAmbientUnlock()
   document.addEventListener('pointermove',event=>{
     const x=Math.round(event.clientX/window.innerWidth*100)
     const y=Math.round(event.clientY/window.innerHeight*100)
@@ -574,7 +577,13 @@ function setupAtmosphere(){
   },{passive:true})
   setInterval(()=>{
     const mode=localStorage.getItem('memora-theme')||'auto'
-    if(mode==='auto'&&new Date().getHours()!==lastThemeHour) adaptiveTheme()
+    const hour=new Date().getHours()
+    if(mode==='auto'&&hour!==lastThemeHour) adaptiveTheme()
+    else updateVisualScene()
+    if(ambientPreferences.enabled&&ambientPreferences.scene==='auto'&&ambientAudioContext?.state==='running'){
+      const nextScene=resolveAmbientScene()
+      if(nextScene!==ambientCurrentScene) startAmbient(nextScene)
+    }
   },60000)
 }
 
