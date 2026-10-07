@@ -14,7 +14,7 @@ let recorderStream = null
 let recorderChunks = []
 let cameraStream = null
 let cameraFacing = 'environment'
-let conversationContext = { thing: null, subject: null, lastMemoryId: null }
+let conversationContext = { thing: null, subject: null, lastMemoryId: null, lastImageMediaId: null }
 let ocrWorkerPromise = null
 let lastThemeHour = null
 
@@ -324,22 +324,48 @@ function compactText(text,max=280){
 }
 
 
+async function ensureTesseractBrowser(){
+  if(window.Tesseract?.createWorker) return window.Tesseract
+
+  const existing=document.getElementById('memora-tesseract')
+  if(existing){
+    await new Promise((resolve,reject)=>{
+      if(window.Tesseract?.createWorker) return resolve()
+      existing.addEventListener('load',resolve,{once:true})
+      existing.addEventListener('error',()=>reject(new Error('OCR library failed to load')),{once:true})
+    })
+    if(window.Tesseract?.createWorker) return window.Tesseract
+  }
+
+  await new Promise((resolve,reject)=>{
+    const script=document.createElement('script')
+    script.id='memora-tesseract'
+    script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
+    script.async=true
+    script.onload=resolve
+    script.onerror=()=>reject(new Error('OCR library failed to load'))
+    document.head.appendChild(script)
+  })
+
+  if(!window.Tesseract?.createWorker) throw new Error('OCR engine did not initialize correctly')
+  return window.Tesseract
+}
+
 async function getOcrWorker(){
   if(!ocrWorkerPromise){
-    ocrWorkerPromise=import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js')
-      .then(async module=>{
-        const worker=await module.createWorker('eng',1,{
-          workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
-          langPath:'https://tessdata.projectnaptha.com/4.0.0',
-          corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1'
-        })
-        await worker.setParameters({
-          preserve_interword_spaces:'1',
-          user_defined_dpi:'300'
-        })
-        return worker
+    ocrWorkerPromise=(async()=>{
+      const Tesseract=await ensureTesseractBrowser()
+      const worker=await Tesseract.createWorker('eng',1,{
+        workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+        langPath:'https://tessdata.projectnaptha.com/4.0.0',
+        corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1'
       })
-      .catch(error=>{ocrWorkerPromise=null;throw error})
+      await worker.setParameters({
+        preserve_interword_spaces:'1',
+        user_defined_dpi:'300'
+      })
+      return worker
+    })().catch(error=>{ocrWorkerPromise=null;throw error})
   }
   return ocrWorkerPromise
 }
@@ -494,39 +520,48 @@ async function analyzeImageMedia(media,{quiet=false,force=false}={}){
 async function latestImageEvidence(){
   const {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(1).maybeSingle()
   if(!data) return null
-  const shouldRetry=data.analysis_status==='failed'||data.analysis_status==='pending'||data.analysis_status==='processing'
+  conversationContext.lastImageMediaId=data.id
+  const shouldRetry=data.analysis_status!=='complete'||!String(data.extracted_text||'').trim()
   const analyzed=await analyzeImageMedia(data,{force:shouldRetry})
   const signed=await supabase.storage.from('memora-media').createSignedUrl(data.storage_path,900)
   return {...analyzed,image_url:signed.data?.signedUrl||null}
 }
 
-async function knownPhoneEvidence(){
-  let {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(8)
-  data=data||[]
-  for(const item of data){
-    if(item.analysis_status!=='complete'||!String(item.extracted_text||'').trim()){
-      await analyzeImageMedia(item,{quiet:true,force:true})
+async function knownPhoneEvidence(preferredMediaId=null){
+  const processItems=async items=>{
+    const evidence=[]
+    for(const item of items||[]){
+      let current=item
+      if(item.analysis_status!=='complete'||!String(item.extracted_text||'').trim()){
+        current=await analyzeImageMedia(item,{quiet:true,force:true})
+      }
+      const numbers=[
+        ...(current.extracted_data?.phone_numbers||[]),
+        ...extractPhoneNumbers(current.extracted_text||'')
+      ]
+      for(const number of numbers){
+        if(!evidence.some(x=>x.number===number)) evidence.push({number,media:current})
+      }
     }
-  }
-  const refreshed=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(10)
-  const evidence=[]
-  for(const item of refreshed.data||[]){
-    const numbers=[
-      ...(item.extracted_data?.phone_numbers||[]),
-      ...extractPhoneNumbers(item.extracted_text||'')
-    ]
-    for(const number of numbers){
-      if(!evidence.some(x=>x.number===number)) evidence.push({number,media:item})
-    }
+    return evidence
   }
 
-  if(!evidence.length){
-    const {data:memories}=await supabase.from('memories').select('id,original_text,summary,interpreted_data,created_at').order('created_at',{ascending:false}).limit(100)
-    for(const memory of memories||[]){
-      const text=[memory.original_text,memory.summary,memory.interpreted_data?.image_text].filter(Boolean).join(' ')
-      for(const number of extractPhoneNumbers(text)){
-        if(!evidence.some(x=>x.number===number)) evidence.push({number,media:{memory_id:memory.id,created_at:memory.created_at}})
-      }
+  if(preferredMediaId){
+    const preferred=await supabase.from('memory_media').select('*').eq('id',preferredMediaId).eq('media_type','image').maybeSingle()
+    const preferredEvidence=await processItems(preferred.data?[preferred.data]:[])
+    if(preferredEvidence.length) return preferredEvidence
+  }
+
+  const recent=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(8)
+  const imageEvidence=await processItems(recent.data||[])
+  if(imageEvidence.length) return imageEvidence
+
+  const {data:memories}=await supabase.from('memories').select('id,original_text,summary,interpreted_data,created_at').order('created_at',{ascending:false}).limit(120)
+  const evidence=[]
+  for(const memory of memories||[]){
+    const text=[memory.original_text,memory.summary,memory.interpreted_data?.image_text].filter(Boolean).join(' ')
+    for(const number of extractPhoneNumbers(text)){
+      if(!evidence.some(x=>x.number===number)) evidence.push({number,media:{memory_id:memory.id,created_at:memory.created_at}})
     }
   }
   return evidence
@@ -959,6 +994,96 @@ function bindDeletes(){
 }
 
 
+function editDistance(a,b){
+  a=String(a||'').toLowerCase()
+  b=String(b||'').toLowerCase()
+  const row=Array.from({length:b.length+1},(_,i)=>i)
+  for(let i=1;i<=a.length;i++){
+    let prev=row[0]
+    row[0]=i
+    for(let j=1;j<=b.length;j++){
+      const hold=row[j]
+      row[j]=Math.min(
+        row[j]+1,
+        row[j-1]+1,
+        prev+(a[i-1]===b[j-1]?0:1)
+      )
+      prev=hold
+    }
+  }
+  return row[b.length]
+}
+
+const intentVocabulary=[
+  'image','photo','picture','screenshot','phone','mobile','contact','number',
+  'where','when','who','what','which','find','show','tell','uploaded','upload',
+  'sister','brother','father','mother','parent','parents','sibling','siblings',
+  'wife','husband','daughter','son','work','working','employer','company',
+  'memory','remember','key','wallet','passport','before','last','activity',
+  'email','address','document','file','location','place','person','name'
+]
+
+const commonTypos={
+  '8mage':'image','img':'image','phne':'phone','fone':'phone','numbr':'number',
+  'siter':'sister','sisiter':'sister','broter':'brother','brther':'brother',
+  'moter':'mother','fater':'father','wher':'where','wht':'what','wat':'what',
+  'yhe':'the','teh':'the','ye':'the','uploaed':'uploaded','uploded':'uploaded',
+  'remembr':'remember','memroy':'memory','wrk':'work','adress':'address'
+}
+
+function normalizeQuestion(question){
+  return String(question||'').replace(/[A-Za-z0-9']+/g,token=>{
+    const lower=token.toLowerCase()
+    if(commonTypos[lower]) return commonTypos[lower]
+    if(intentVocabulary.includes(lower)) return lower
+    if(lower.length<3) return token
+
+    let best=null
+    let bestDistance=Infinity
+    for(const candidate of intentVocabulary){
+      if(Math.abs(candidate.length-lower.length)>2) continue
+      const distance=editDistance(lower,candidate)
+      if(distance<bestDistance){
+        bestDistance=distance
+        best=candidate
+      }
+    }
+    const threshold=lower.length<=4?1:lower.length<=7?2:2
+    return best&&bestDistance<=threshold?best:token
+  })
+}
+
+async function relationshipAnswerFromVault(relation){
+  let query=supabase.from('people').select('name,relationship').order('name')
+  if(relation==='parents') query=query.in('relationship',['father','mother'])
+  else if(relation==='siblings') query=query.in('relationship',['brother','sister'])
+  else query=query.eq('relationship',relation)
+
+  const {data}=await query
+  if(!data?.length) return null
+
+  if(relation==='parents'){
+    const fathers=data.filter(x=>x.relationship==='father').map(x=>x.name)
+    const mothers=data.filter(x=>x.relationship==='mother').map(x=>x.name)
+    const parts=[]
+    if(fathers.length) parts.push(`father: ${fathers.join(', ')}`)
+    if(mothers.length) parts.push(`mother: ${mothers.join(', ')}`)
+    return parts.length?`According to your memory, your ${parts.join(' and your ')}.`:null
+  }
+
+  if(relation==='siblings'){
+    const brothers=data.filter(x=>x.relationship==='brother').map(x=>x.name)
+    const sisters=data.filter(x=>x.relationship==='sister').map(x=>x.name)
+    const parts=[]
+    if(brothers.length) parts.push(`${brothers.length===1?'brother':'brothers'}: ${brothers.join(', ')}`)
+    if(sisters.length) parts.push(`${sisters.length===1?'sister':'sisters'}: ${sisters.join(', ')}`)
+    return parts.length?`According to your memory, your ${parts.join(' and your ')}.`:null
+  }
+
+  const names=data.map(x=>x.name)
+  return `According to your memory, your ${names.length===1?relation:relation+'s'} ${names.length===1?'is':'are'} ${names.join(', ')}.`
+}
+
 function detectRelationship(question){
   const q=question.toLowerCase()
   const groups=[
@@ -1051,9 +1176,25 @@ function relationshipAnswer(relation,memories){
 }
 
 async function smartMemorySearch(query,limit=8){
-  const result=await supabase.rpc('search_memories_smart',{search_query:query,result_limit:limit})
-  if(!result.error && result.data?.length) return result.data
-  const fallback=await supabase.rpc('search_memories',{search_query:query,result_limit:limit})
+  const normalized=normalizeQuestion(query)
+  const universe=await supabase.rpc('search_memory_universe',{search_query:normalized,result_limit:limit})
+  if(!universe.error&&universe.data?.length){
+    return universe.data.map(item=>({
+      id:item.entity_id,
+      entity_type:item.entity_type,
+      original_text:item.content||item.title,
+      summary:item.title,
+      memory_type:item.metadata?.memory_type||item.entity_type,
+      occurred_at:item.occurred_at,
+      provenance_kind:item.entity_type,
+      metadata:item.metadata||{},
+      rank:Number(item.rank||0)
+    }))
+  }
+
+  const result=await supabase.rpc('search_memories_smart',{search_query:normalized,result_limit:limit})
+  if(!result.error&&result.data?.length) return result.data
+  const fallback=await supabase.rpc('search_memories',{search_query:normalized,result_limit:limit})
   return fallback.data||[]
 }
 
@@ -1178,11 +1319,12 @@ async function openLiveCamera(mode='photo'){
 }
 
 async function answer(question){
-  const q=question.trim()
+  const rawQ=question.trim()
+  const q=normalizeQuestion(rawQ)
   const lower=q.toLowerCase()
 
   if(/\b(phone|mobile|contact)\s*(number)?\b|\bmy\s+number\b/i.test(q)){
-    const evidence=await knownPhoneEvidence()
+    const evidence=await knownPhoneEvidence(conversationContext.lastImageMediaId)
     if(evidence.length){
       const latest=evidence[0]
       const memory=await supabase.from('memories').select('occurred_at,created_at,summary').eq('id',latest.media.memory_id).maybeSingle()
@@ -1210,6 +1352,21 @@ async function answer(question){
     if(phones.length) answer+=` Detected number${phones.length>1?'s':''}: ${phones.join(', ')}.`
     if(emails.length) answer+=` Detected email${emails.length>1?'s':''}: ${emails.join(', ')}.`
     return {text:answer,source:'Latest saved image',imageUrl:media.image_url||null}
+  }
+
+  if(conversationContext.lastImageMediaId&&/\b(it|this|that)\b/i.test(q)&&/\b(say|read|contain|inside|there|text|detail|details|number|email)\b/i.test(q)){
+    const {data:mediaRow}=await supabase.from('memory_media').select('*').eq('id',conversationContext.lastImageMediaId).maybeSingle()
+    if(mediaRow){
+      const analyzed=await analyzeImageMedia(mediaRow,{force:mediaRow.analysis_status!=='complete'})
+      const text=String(analyzed.extracted_text||'').trim()
+      const phones=analyzed.extracted_data?.phone_numbers||extractPhoneNumbers(text)
+      const emails=analyzed.extracted_data?.emails||extractEmails(text)
+      const pieces=[]
+      if(text) pieces.push(`I can read: “${summarizeImageText(text)}”`)
+      if(phones.length) pieces.push(`Phone number${phones.length>1?'s':''}: ${phones.join(', ')}.`)
+      if(emails.length) pieces.push(`Email${emails.length>1?'s':''}: ${emails.join(', ')}.`)
+      if(pieces.length) return {text:pieces.join(' '),source:'The image from your previous question'}
+    }
   }
 
   if(/\b(where|which company|who)\b.*\b(work|working|employer|employed)\b|\bwhere do i work\b/i.test(lower)){
@@ -1245,6 +1402,8 @@ async function answer(question){
 
   const relation=detectRelationship(q)
   if(relation){
+    const vaultAnswer=await relationshipAnswerFromVault(relation)
+    if(vaultAnswer) return {text:vaultAnswer,source:'People recognized from your stored memories'}
     let relationQuery=relation
     if(relation==='parents') relationQuery='father mother parents'
     if(relation==='siblings') relationQuery='brother sister siblings'
@@ -1289,7 +1448,24 @@ async function answer(question){
   if(!relevant.length) return {text:"I don't have a relevant memory for that question yet."}
   const best=relevant[0]
   conversationContext.lastMemoryId=best.id
-  return {text:`Based on the relevant memory I found: ${best.original_text}`,source:`Stored memory from ${shortDate(best.occurred_at)}`}
+  conversationContext.subject=best.summary||conversationContext.subject
+
+  if(best.entity_type==='person'){
+    const relation=best.metadata?.relationship
+    return {text:relation?`${best.summary} is recorded as your ${relation}.`:`I found ${best.summary} in the people connected to your memories.`,source:'People in your memory vault'}
+  }
+  if(best.entity_type==='place'){
+    return {text:`I found ${best.summary} in the places connected to your memories.`,source:'Places in your memory vault'}
+  }
+  if(best.entity_type==='thing'){
+    const location=best.metadata?.current_location
+    return {text:location?`Your ${best.summary} is currently recorded at ${location}.`:`I found ${best.summary} in your tracked things.`,source:'Things in your memory vault'}
+  }
+  if(best.entity_type==='document'){
+    return {text:`I found the document “${best.summary}” in your memory vault.`,source:'Your stored documents'}
+  }
+
+  return {text:`Based on the most relevant memory I found: ${best.original_text}`,source:`Stored memory from ${shortDate(best.occurred_at)}`}
 }
 async function ask(){
   app.innerHTML=shell(`
@@ -1311,7 +1487,7 @@ async function ask(){
     const q=input.value.trim()
     if(!q) return
     chat.push({role:'user',text:q})
-    chat.push({role:'assistant',text:/\\b(image|photo|picture|screenshot|phone|mobile)\\b/i.test(q)?'Reading the relevant image and memory...':'Checking the most relevant memories...',pending:true})
+    chat.push({role:'assistant',text:/\\b(image|photo|picture|screenshot|phone|mobile)\\b/i.test(normalizeQuestion(q))?'Reading the relevant image and memory...':'Checking the most relevant memories...',pending:true})
     ask()
     try{
       const response=await answer(q)
