@@ -14,7 +14,8 @@ let recorderStream = null
 let recorderChunks = []
 let cameraStream = null
 let cameraFacing = 'environment'
-let conversationContext = { thing: null }
+let conversationContext = { thing: null, subject: null, lastMemoryId: null }
+let ocrWorkerPromise = null
 let lastThemeHour = null
 
 const manualThemes = {
@@ -304,7 +305,145 @@ async function trackThing(name,location,memoryId){
   if(loc.error) throw loc.error
 }
 
+
+function extractPhoneNumbers(text){
+  const matches=String(text||'').match(/\+?\d[\d\s().-]{6,}\d/g)||[]
+  return [...new Set(matches.map(raw=>raw.trim()).filter(raw=>{
+    const digits=raw.replace(/\D/g,'')
+    return digits.length>=8&&digits.length<=15
+  }))]
+}
+
+function extractEmails(text){
+  return [...new Set(String(text||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[])]
+}
+
+function compactText(text,max=280){
+  const clean=String(text||'').replace(/\s+/g,' ').trim()
+  return clean.length>max?clean.slice(0,max-1)+'…':clean
+}
+
+async function getOcrWorker(){
+  if(!ocrWorkerPromise){
+    ocrWorkerPromise=import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js')
+      .then(async module=>module.createWorker('eng'))
+      .catch(error=>{ocrWorkerPromise=null;throw error})
+  }
+  return ocrWorkerPromise
+}
+
+async function analyzeImageMedia(media,{quiet=false}={}){
+  if(!media||media.media_type!=='image') return media
+  if(media.analysis_status==='complete'&&media.extracted_text!=null) return media
+  if(!quiet) toast('Reading text from your image...')
+  await supabase.from('memory_media').update({analysis_status:'processing'}).eq('id',media.id)
+  try{
+    const download=await supabase.storage.from('memora-media').download(media.storage_path)
+    if(download.error) throw download.error
+    const worker=await getOcrWorker()
+    const result=await worker.recognize(download.data)
+    const text=String(result?.data?.text||'').trim()
+    const extracted_data={
+      phone_numbers:extractPhoneNumbers(text),
+      emails:extractEmails(text),
+      ocr_confidence:result?.data?.confidence??null
+    }
+    const update=await supabase.from('memory_media').update({
+      extracted_text:text,
+      extracted_data,
+      analysis_status:'complete',
+      analyzed_at:new Date().toISOString(),
+      caption:text?compactText(text,180):'No readable text detected'
+    }).eq('id',media.id).select().single()
+    if(update.error) throw update.error
+
+    const memory=await supabase.from('memories').select('interpreted_data').eq('id',media.memory_id).maybeSingle()
+    if(memory.data){
+      const existing=memory.data.interpreted_data||{}
+      const merged={
+        ...existing,
+        image_text:text||existing.image_text||null,
+        phone_numbers:[...new Set([...(existing.phone_numbers||[]),...extracted_data.phone_numbers])],
+        emails:[...new Set([...(existing.emails||[]),...extracted_data.emails])]
+      }
+      await supabase.from('memories').update({interpreted_data:merged}).eq('id',media.memory_id)
+    }
+    return update.data
+  }catch(error){
+    await supabase.from('memory_media').update({analysis_status:'failed',analyzed_at:new Date().toISOString()}).eq('id',media.id)
+    if(!quiet) toast('Image text reading could not finish')
+    return {...media,analysis_status:'failed',analysis_error:error.message}
+  }
+}
+
+async function latestImageEvidence(){
+  const {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(1).maybeSingle()
+  if(!data) return null
+  const analyzed=await analyzeImageMedia(data)
+  const signed=await supabase.storage.from('memora-media').createSignedUrl(data.storage_path,900)
+  return {...analyzed,image_url:signed.data?.signedUrl||null}
+}
+
+async function knownPhoneEvidence(){
+  let {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(5)
+  data=data||[]
+  for(const item of data){
+    if(item.analysis_status!=='complete') await analyzeImageMedia(item,{quiet:true})
+  }
+  const refreshed=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(8)
+  const evidence=[]
+  for(const item of refreshed.data||[]){
+    for(const number of item.extracted_data?.phone_numbers||[]){
+      if(!evidence.some(x=>x.number===number)) evidence.push({number,media:item})
+    }
+  }
+  return evidence
+}
+
+function extractWorkplace(text){
+  const source=String(text||'')
+  const patterns=[
+    /(?:started\s+)?working\s+(?:at|in|for)\s+([A-Za-z0-9][A-Za-z0-9& .'-]{1,80})/i,
+    /(?:work|worked)\s+(?:at|in|for)\s+([A-Za-z0-9][A-Za-z0-9& .'-]{1,80})/i,
+    /(?:employer|company)\s+(?:is|was)\s+([A-Za-z0-9][A-Za-z0-9& .'-]{1,80})/i
+  ]
+  for(const pattern of patterns){
+    const match=source.match(pattern)
+    if(match){
+      return match[1].split(/\s+(?:so|and|because|since|from|as|but)\b/i)[0].replace(/[.,;:!?]+$/,'').trim()
+    }
+  }
+  return null
+}
+
+function meaningfulTerms(question){
+  const stop=new Set(['what','where','when','who','why','how','which','is','am','are','was','were','do','does','did','the','a','an','my','me','i','you','your','tell','show','know','about','please','else','can','could','would','have','has','had'])
+  return String(question||'').toLowerCase().replace(/[^a-z0-9'+-]+/g,' ').split(/\s+/).filter(term=>term.length>2&&!stop.has(term))
+}
+
+function resultRelevant(question,result){
+  if(!result) return false
+  if(Number(result.rank||0)>=0.32) return true
+  const terms=meaningfulTerms(question)
+  if(!terms.length) return Number(result.rank||0)>=0.18
+  const hay=(String(result.original_text||'')+' '+String(result.summary||'')).toLowerCase()
+  return terms.some(term=>hay.includes(term))&&Number(result.rank||0)>=0.12
+}
+
+async function syncPeopleFromMemory(memory,text){
+  const rows=[]
+  for(const relation of ['father','mother','sister','brother','wife','husband','daughter','son']){
+    for(const name of relationNamesFromText(relation,text)){
+      rows.push({user_id:user.id,name,relationship:relation,notes:'Recognized from a saved memory',first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+    }
+  }
+  const meet=String(text||'').match(/(?:met|spoke with|talked with|worked with|played .*? with)\s+([A-Z][A-Za-z .'-]{1,60})/i)
+  if(meet) rows.push({user_id:user.id,name:meet[1].trim(),relationship:'known person',notes:'Recognized from a saved memory',first_seen_at:memory.occurred_at,last_seen_at:memory.occurred_at})
+  if(rows.length) await supabase.from('people').upsert(rows,{onConflict:'user_id,name',ignoreDuplicates:false})
+}
+
 async function uploadMedia(memoryId,files){
+  const uploadedRows=[]
   for(const file of files){
     const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
     const path=`${user.id}/${memoryId}/${Date.now()}-${safe}`
@@ -312,12 +451,17 @@ async function uploadMedia(memoryId,files){
     if(upload.error) throw upload.error
     const mediaType=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':'image'
     const row=await supabase.from('memory_media').insert({
-      user_id:user.id,memory_id:memoryId,storage_path:path,file_name:file.name,mime_type:file.type,media_type:mediaType
-    })
+      user_id:user.id,memory_id:memoryId,storage_path:path,file_name:file.name,mime_type:file.type,media_type:mediaType,
+      analysis_status:mediaType==='image'?'pending':'not_applicable'
+    }).select().single()
     if(row.error) throw row.error
+    uploadedRows.push(row.data)
   }
+  for(const media of uploadedRows.filter(item=>item.media_type==='image')){
+    await analyzeImageMedia(media,{quiet:true})
+  }
+  return uploadedRows
 }
-
 async function saveMemory(text,files=[],location=null){
   const parsed=interpret(text)
   let occurred=new Date()
@@ -329,6 +473,7 @@ async function saveMemory(text,files=[],location=null){
   }
   const {data:memory,error}=await supabase.from('memories').insert(payload).select().single()
   if(error) throw error
+  await syncPeopleFromMemory(memory,text)
   if(parsed.interpreted_data.thing&&parsed.interpreted_data.location) await trackThing(parsed.interpreted_data.thing,parsed.interpreted_data.location,memory.id)
   if(parsed.interpreted_data.person){
     const existing=await supabase.from('people').select('id').ilike('name',parsed.interpreted_data.person).limit(1).maybeSingle()
@@ -843,6 +988,66 @@ async function answer(question){
   const q=question.trim()
   const lower=q.toLowerCase()
 
+  if(/\b(phone|mobile|contact)\s*(number)?\b|\bmy\s+number\b/i.test(q)){
+    const evidence=await knownPhoneEvidence()
+    if(evidence.length){
+      const latest=evidence[0]
+      const memory=await supabase.from('memories').select('occurred_at,created_at,summary').eq('id',latest.media.memory_id).maybeSingle()
+      return {
+        text:evidence.length===1
+          ? `The phone number I can read from your saved image is ${latest.number}.`
+          : `I found these phone numbers in your saved images: ${evidence.map(x=>x.number).join(', ')}.`,
+        source:`Text extracted from your image${memory.data?.created_at?' saved '+shortDate(memory.data.created_at):''}`
+      }
+    }
+    return {text:"I don't have a readable phone number in your saved text or images yet."}
+  }
+
+  if(/\b(image|photo|picture|screenshot)\b/i.test(q)){
+    const media=await latestImageEvidence()
+    if(!media) return {text:"I don't have an image memory yet."}
+    const phones=media.extracted_data?.phone_numbers||[]
+    const emails=media.extracted_data?.emails||[]
+    const text=String(media.extracted_text||'').trim()
+    let answer='Your latest saved image is attached to a memory.'
+    if(text) answer+=` I can read this text from it: “${compactText(text,360)}”`
+    else answer+=' I could not detect readable text in it.'
+    if(phones.length) answer+=` Detected phone number${phones.length>1?'s':''}: ${phones.join(', ')}.`
+    if(emails.length) answer+=` Detected email${emails.length>1?'s':''}: ${emails.join(', ')}.`
+    return {text:answer,source:'Latest saved image',imageUrl:media.image_url||null}
+  }
+
+  if(/\b(where|which company|who)\b.*\b(work|working|employer|employed)\b|\bwhere do i work\b/i.test(lower)){
+    const results=await smartMemorySearch('working work employer company',10)
+    for(const result of results){
+      const workplace=extractWorkplace(result.original_text)||extractWorkplace(result.summary)
+      if(workplace){
+        conversationContext.subject=workplace
+        conversationContext.lastMemoryId=result.id
+        return {text:`You are recorded as working at ${workplace}.`,source:`Your memory from ${shortDate(result.occurred_at)}`}
+      }
+    }
+  }
+
+  const aboutMatch=q.match(/(?:what else|what|tell me).*?(?:about me (?:in|at|with)|about)\s+([A-Za-z0-9& .'-]{2,60})\??$/i)
+  if(aboutMatch){
+    const subject=aboutMatch[1].trim().replace(/[?.!]+$/,'')
+    const results=await smartMemorySearch(subject,12)
+    const exact=results.filter(result=>{
+      const hay=(String(result.original_text||'')+' '+String(result.summary||'')).toLowerCase()
+      return hay.includes(subject.toLowerCase())
+    })
+    if(exact.length){
+      conversationContext.subject=subject
+      const facts=[...new Set(exact.map(x=>String(x.original_text||x.summary||'').trim()).filter(Boolean))].slice(0,5)
+      if(facts.length===1){
+        return {text:`For ${subject}, I currently have one specific memory: ${facts[0]}`,source:'Only matching stored memory'}
+      }
+      return {text:`For ${subject}, I found ${facts.length} relevant memories: ${facts.map((fact,index)=>`${index+1}. ${fact}`).join(' ')}`,source:'Matching stored memories only'}
+    }
+    return {text:`I don't have a relevant stored memory about ${subject} yet.`}
+  }
+
   const relation=detectRelationship(q)
   if(relation){
     let relationQuery=relation
@@ -851,46 +1056,45 @@ async function answer(question){
     const memories=await smartMemorySearch(relationQuery,10)
     const response=relationshipAnswer(relation,memories)
     if(response) return {text:response,source:'Your stored personal memory'}
-    if(memories.length) return {text:`I found a related memory: “${memories[0].original_text}”`,source:'Your stored personal memory'}
   }
 
   let match=q.match(/where (?:is|did i (?:keep|put|leave)) (?:my )?(.+?)(?:\?|$)/i)
   if(match){
     let thingName=match[1].trim()
-    if(/^(?:it|that|this)$/i.test(thingName) && conversationContext.thing) thingName=conversationContext.thing
+    if(/^(?:it|that|this)$/i.test(thingName)&&conversationContext.thing) thingName=conversationContext.thing
     const thing=await findThing(thingName)
-    if(!thing) {
-      const memories=await smartMemorySearch(thingName,5)
-      if(memories.length) return {text:`I found this related memory: “${memories[0].original_text}”`,source:'Your stored memories'}
-      return {text:"I don't have a memory about that yet."}
-    }
+    if(!thing) return {text:`I don't have a current location recorded for your ${thingName}.`}
     conversationContext.thing=thing.name
-    return {text:`Your ${thing.name} is currently recorded as being at ${thing.current_location}.`,source:'Latest personal memory'}
+    return {text:`Your ${thing.name} is currently recorded at ${thing.current_location}.`,source:'Latest object-location memory'}
   }
 
   match=q.match(/where was (?:(?:my )?(.+?)|it|that|this) before(?:\?|$)/i)
-  if(match || /where was (?:it|that|this) before/i.test(lower)){
+  if(match||/where was (?:it|that|this) before/i.test(lower)){
     let thingName=match?.[1]?.trim()||conversationContext.thing
-    if(thingName && /^(?:it|that|this)$/i.test(thingName)) thingName=conversationContext.thing
-    if(!thingName) return {text:'Tell me which item you mean, for example “Where was my key before?”'}
+    if(thingName&&/^(?:it|that|this)$/i.test(thingName)) thingName=conversationContext.thing
+    if(!thingName) return {text:'Tell me which item you mean.'}
     const thing=await findThing(thingName)
     if(!thing) return {text:"I don't have a location history for that item yet."}
     conversationContext.thing=thing.name
     const {data}=await supabase.from('thing_locations').select('*').eq('thing_id',thing.id).order('recorded_at',{ascending:false}).limit(2)
-    if(!data||data.length<2) return {text:`I know the current location of your ${thing.name}, but I do not have an earlier location yet.`}
-    return {text:`Before ${data[0].location}, your ${thing.name} was recorded at ${data[1].location}.`,source:`Personal memory from ${when(data[1].recorded_at)}`}
+    if(!data||data.length<2) return {text:`I know where your ${thing.name} is now, but I do not have an earlier location yet.`}
+    return {text:`Before ${data[0].location}, your ${thing.name} was recorded at ${data[1].location}.`,source:`Location history from ${shortDate(data[1].recorded_at)}`}
   }
 
   match=q.match(/when did i last (.+?)(?:\?|$)/i)
   if(match){
     const data=await smartMemorySearch(match[1].trim(),8)
-    if(!data.length) return {text:"I don't have a memory about that yet."}
-    return {text:`The most recent matching memory I found is “${data[0].original_text}” from ${when(data[0].occurred_at)}.`,source:'Your stored memories'}
+    const relevant=data.filter(result=>resultRelevant(match[1],result))
+    if(!relevant.length) return {text:"I don't have a relevant memory about that yet."}
+    return {text:`The most recent relevant memory is: “${relevant[0].original_text}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
   }
 
   const data=await smartMemorySearch(q,8)
-  if(!data.length) return {text:"I don't have a memory about that yet."}
-  return {text:`I found this in your memory vault: “${data[0].original_text}”`,source:`Stored memory from ${when(data[0].occurred_at)}`}
+  const relevant=data.filter(result=>resultRelevant(q,result))
+  if(!relevant.length) return {text:"I don't have a relevant memory for that question yet."}
+  const best=relevant[0]
+  conversationContext.lastMemoryId=best.id
+  return {text:`Based on the relevant memory I found: ${best.original_text}`,source:`Stored memory from ${shortDate(best.occurred_at)}`}
 }
 async function ask(){
   app.innerHTML=shell(`
