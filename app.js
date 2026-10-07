@@ -2135,24 +2135,53 @@ function extractConversationText(conversation){
   return messages.join('\n').slice(0,12000)
 }
 
+async function loadZip(file){
+  const module=await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')
+  const JSZip=module.default||module
+  return await JSZip.loadAsync(file)
+}
+
 async function importChatGPT(file){
-  const raw=await file.text()
-  const parsed=JSON.parse(raw)
-  const conversations=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.conversations)?parsed.conversations:[])
-  if(!conversations.length) throw new Error('I could not find ChatGPT conversations in this JSON file.')
+  let conversations=[]
+  if(/\.zip$/i.test(file.name)||file.type==='application/zip'){
+    const zip=await loadZip(file)
+    const entries=Object.values(zip.files).filter(entry=>!entry.dir&&/(^|\/)conversations(?:[-_0-9]*)?\.json$/i.test(entry.name))
+    if(!entries.length) throw new Error('No conversations JSON was found in this ChatGPT export ZIP.')
+    for(const entry of entries.slice(0,25)){
+      const parsed=JSON.parse(await entry.async('text'))
+      if(Array.isArray(parsed)) conversations.push(...parsed)
+      else if(Array.isArray(parsed?.conversations)) conversations.push(...parsed.conversations)
+    }
+  }else{
+    const parsed=JSON.parse(await file.text())
+    conversations=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.conversations)?parsed.conversations:[])
+  }
+
+  if(!conversations.length) throw new Error('I could not find ChatGPT conversations in this export.')
   const source=await supabase.from('sources').insert({
-    user_id:user.id,source_type:'chatgpt_import',source_name:file.name,metadata:{imported_at:new Date().toISOString(),count:conversations.length}
+    user_id:user.id,
+    source_type:'chatgpt_import',
+    source_name:file.name,
+    metadata:{imported_at:new Date().toISOString(),count:conversations.length}
   }).select().single()
   if(source.error) throw source.error
+
   let imported=0
-  for(const conversation of conversations.slice(0,100)){
+  for(const conversation of conversations.slice(0,250)){
     const body=extractConversationText(conversation)
     if(!body) continue
     const title=conversation.title||'Imported ChatGPT conversation'
     const result=await supabase.from('memories').insert({
-      user_id:user.id,original_text:body,summary:title,memory_type:'conversation',state:'historical',
+      user_id:user.id,
+      original_text:body,
+      summary:title,
+      memory_type:'conversation',
+      state:'historical',
       occurred_at:conversation.create_time?new Date(conversation.create_time*1000).toISOString():new Date().toISOString(),
-      source_type:'import',provenance_kind:'imported',source_id:source.data.id,confidence:1,
+      source_type:'import',
+      provenance_kind:'imported',
+      source_id:source.data.id,
+      confidence:1,
       interpreted_data:{source:'ChatGPT export',title}
     })
     if(!result.error) imported++
@@ -2161,20 +2190,41 @@ async function importChatGPT(file){
 }
 
 async function importWhatsApp(file){
-  const raw=(await file.text()).trim()
+  let raw=''
+  if(/\.zip$/i.test(file.name)||file.type==='application/zip'){
+    const zip=await loadZip(file)
+    const entries=Object.values(zip.files).filter(entry=>!entry.dir&&/\.txt$/i.test(entry.name))
+    const chatFile=entries.find(entry=>/(^|\/)_chat\.txt$/i.test(entry.name))||entries[0]
+    if(!chatFile) throw new Error('No WhatsApp chat text file was found in this ZIP.')
+    raw=(await chatFile.async('text')).trim()
+  }else{
+    raw=(await file.text()).trim()
+  }
+
   if(!raw) throw new Error('This WhatsApp export appears empty.')
   const source=await supabase.from('sources').insert({
-    user_id:user.id,source_type:'whatsapp_import',source_name:file.name,metadata:{imported_at:new Date().toISOString()}
+    user_id:user.id,
+    source_type:'whatsapp_import',
+    source_name:file.name,
+    metadata:{imported_at:new Date().toISOString()}
   }).select().single()
   if(source.error) throw source.error
+
   const chunks=[]
-  for(let i=0;i<raw.length;i+=9000) chunks.push(raw.slice(i,i+9000))
+  for(let i=0;i<raw.length;i+=7000) chunks.push(raw.slice(i,i+7000))
   let imported=0
-  for(let i=0;i<Math.min(chunks.length,60);i++){
+  for(let i=0;i<Math.min(chunks.length,100);i++){
     const result=await supabase.from('memories').insert({
-      user_id:user.id,original_text:chunks[i],summary:`WhatsApp chat: ${file.name} · part ${i+1}`,
-      memory_type:'conversation',state:'historical',occurred_at:new Date().toISOString(),
-      source_type:'import',provenance_kind:'imported',source_id:source.data.id,confidence:1,
+      user_id:user.id,
+      original_text:chunks[i],
+      summary:`WhatsApp conversation import · part ${i+1}`,
+      memory_type:'conversation',
+      state:'historical',
+      occurred_at:new Date().toISOString(),
+      source_type:'import',
+      provenance_kind:'imported',
+      source_id:source.data.id,
+      confidence:1,
       interpreted_data:{source:'WhatsApp export',file_name:file.name,part:i+1}
     })
     if(!result.error) imported++
