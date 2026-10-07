@@ -344,14 +344,7 @@ async function ensureTesseractBrowser(){
   if(window.Tesseract?.createWorker) return window.Tesseract
 
   const existing=document.getElementById('memora-tesseract')
-  if(existing){
-    await new Promise((resolve,reject)=>{
-      if(window.Tesseract?.createWorker) return resolve()
-      existing.addEventListener('load',resolve,{once:true})
-      existing.addEventListener('error',()=>reject(new Error('OCR library failed to load')),{once:true})
-    })
-    if(window.Tesseract?.createWorker) return window.Tesseract
-  }
+  if(existing&&!window.Tesseract?.createWorker) existing.remove()
 
   await new Promise((resolve,reject)=>{
     const script=document.createElement('script')
