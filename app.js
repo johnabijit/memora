@@ -2276,8 +2276,17 @@ function openSourceInfo(kind){
 }
 
 async function sources(){
-  const [connections,health]=await Promise.all([getConnectionMap(),checkMemoraBackend()])
+  const [connections,health,lastAiResult,authProviders]=await Promise.all([
+    getConnectionMap(),
+    checkMemoraBackend(),
+    supabase.from('ai_request_logs').select('status,model,latency_ms,error_code,error_message,used_image,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle(),
+    getAuthProviderSettings()
+  ])
+  const lastAi=lastAiResult.data||null
   const connectedCount=Object.values(connections).filter(item=>item.status==='connected').length
+  const socialEnabled=['google','azure','apple','github'].filter(provider=>authProviders?.[provider]).length
+  const aiHealthy=lastAi?.status==='success'
+  const aiLabel=aiHealthy?'Last call passed':lastAi?.status==='error'?'Last call failed':health.aiGateway?'Ready for test':'Check setup'
 
   const providerButton=(provider,label)=>{
     const connection=connections[provider]
@@ -2299,11 +2308,18 @@ async function sources(){
 
     <div class="source-grid">
       <div class="glass source-card">
-        <span class="status ${health.aiGateway?'live':''}">${health.aiGateway?'Active':'Checking'}</span>
+        <span class="status ${aiHealthy||(!lastAi&&health.aiGateway)?'live':''}">${esc(aiLabel)}</span>
         <div class="source-icon">✦</div>
         <h3>Memora AI</h3>
-        <p>Primary reasoning through Vercel AI Gateway, using GPT 5.6 Luna with configured model fallbacks and your retrieved memories as evidence.</p>
-        <div class="source-actions"><button class="btn primary" data-nav="ask">Ask Memora</button></div>
+        <p>Primary server-side reasoning through Vercel AI Gateway, grounded in structured facts, memories and relevant image evidence.</p>
+        <div class="ai-diagnostic" id="aiDiagnostic">
+          ${lastAi
+            ?`<strong>${lastAi.status==='success'?'Reasoning healthy':'Needs attention'}</strong><span>${lastAi.status==='success'
+                ?`${esc(lastAi.model||'AI Gateway')} · ${(Number(lastAi.latency_ms||0)/1000).toFixed(1)}s`
+                :esc(lastAi.error_message||lastAi.error_code||'Last reasoning call failed')}</span>`
+            :'<strong>No live reasoning test yet</strong><span>Run the test below while signed in.</span>'}
+        </div>
+        <div class="source-actions"><button class="btn primary" data-nav="ask">Ask Memora</button><button class="btn" id="testMemoraAi">Run AI test</button></div>
       </div>
 
       <div class="glass source-card">
@@ -2380,12 +2396,28 @@ async function sources(){
     </div>
 
     <div class="glass" style="padding:16px;border-radius:20px;margin-top:16px">
-      <b>${connectedCount} optional provider connection${connectedCount===1?'':'s'} active</b>
-      <div class="muted small" style="margin-top:5px">Memora AI does not require one of these optional provider keys to run on Vercel.</div>
+      <b>${connectedCount} optional AI provider connection${connectedCount===1?'':'s'} active · ${socialEnabled} social sign-in provider${socialEnabled===1?'':'s'} enabled</b>
+      <div class="muted small" style="margin-top:5px">Memora AI can run through Vercel without an optional provider key. Social sign-in activates only when its OAuth provider is configured in Supabase.</div>
       <div id="sourceMsg" class="muted" style="margin-top:8px"></div>
     </div>
   `,'Source Universe','Live AI, optional provider APIs, device context and external data connectors.')
   wire()
+
+  document.getElementById('testMemoraAi').onclick=async()=>{
+    const target=document.getElementById('aiDiagnostic')
+    target.innerHTML='<strong>Running live reasoning test...</strong><span>Authenticating, retrieving a saved identity fact and asking the server-side model.</span>'
+    try{
+      const response=await aiReasonedAnswer('Using my saved memory, answer only this question naturally: What is my name?')
+      if(!response?.text) throw new Error('No AI response returned')
+      const latest=await supabase.from('ai_request_logs').select('status,model,latency_ms,error_message,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle()
+      const row=latest.data
+      target.innerHTML=`<strong>${row?.status==='success'?'Live reasoning passed':'AI answered'}</strong><span>${esc(cleanAnswerText(response.text))}${row?.latency_ms?` · ${(Number(row.latency_ms)/1000).toFixed(1)}s`:''}</span>`
+      toast('Memora AI test completed')
+    }catch(error){
+      const latest=await supabase.from('ai_request_logs').select('status,error_message,error_code,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle()
+      target.innerHTML=`<strong>Live reasoning failed</strong><span>${esc(latest.data?.error_message||error.message||'Unknown error')}</span>`
+    }
+  }
 
   document.querySelectorAll('[data-connect-provider]').forEach(button=>button.onclick=()=>connectAiProvider(button.dataset.connectProvider,button.dataset.providerLabel))
   document.querySelectorAll('[data-disconnect-provider]').forEach(button=>button.onclick=()=>disconnectAiProvider(button.dataset.disconnectProvider))
