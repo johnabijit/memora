@@ -1951,6 +1951,7 @@ async function ask(){
           <button class="chip" data-ask-suggestion="Who is my eldest brother?">Family order</button>
           <button class="chip" data-ask-suggestion="What do I do for work?">My work</button>
           <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
+          <button class="chip subtle" id="clearAskChat">Clear conversation</button>
         </div>
         <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty"><strong>Ask your own life</strong>Try a natural question, even with spelling mistakes. Memora combines structured facts, memories and context before answering.</div>'}</div>
       </div>
@@ -1991,6 +1992,12 @@ async function ask(){
     await ask()
   }
 
+  document.getElementById('clearAskChat').onclick=()=>{
+    chat=[]
+    conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
+    persistConversationState()
+    ask()
+  }
   document.getElementById('askButton').onclick=submit
   document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)submit()}
   document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
