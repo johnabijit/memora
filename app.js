@@ -323,37 +323,140 @@ function compactText(text,max=280){
   return clean.length>max?clean.slice(0,max-1)+'…':clean
 }
 
+
 async function getOcrWorker(){
   if(!ocrWorkerPromise){
-    ocrWorkerPromise=import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js')
-      .then(async module=>module.createWorker('eng'))
+    ocrWorkerPromise=import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js')
+      .then(async module=>{
+        const worker=await module.createWorker('eng',1,{
+          workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+          langPath:'https://tessdata.projectnaptha.com/4.0.0',
+          corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1'
+        })
+        await worker.setParameters({
+          preserve_interword_spaces:'1',
+          user_defined_dpi:'300'
+        })
+        return worker
+      })
       .catch(error=>{ocrWorkerPromise=null;throw error})
   }
   return ocrWorkerPromise
 }
 
-async function analyzeImageMedia(media,{quiet=false}={}){
+async function imageBitmapFromBlob(blob){
+  if('createImageBitmap' in window) return await createImageBitmap(blob)
+  const url=URL.createObjectURL(blob)
+  try{
+    const img=new Image()
+    img.decoding='async'
+    img.src=url
+    await img.decode()
+    return img
+  }finally{
+    setTimeout(()=>URL.revokeObjectURL(url),1000)
+  }
+}
+
+async function prepareImageForOcr(blob,{highContrast=false}={}){
+  const bitmap=await imageBitmapFromBlob(blob)
+  const sourceWidth=bitmap.width||bitmap.naturalWidth
+  const sourceHeight=bitmap.height||bitmap.naturalHeight
+  if(!sourceWidth||!sourceHeight) return blob
+
+  const maxSide=3200
+  let scale=sourceWidth<1800?Math.min(2.4,1800/sourceWidth):1
+  if(Math.max(sourceWidth*scale,sourceHeight*scale)>maxSide){
+    scale=maxSide/Math.max(sourceWidth,sourceHeight)
+  }
+
+  const canvas=document.createElement('canvas')
+  canvas.width=Math.max(1,Math.round(sourceWidth*scale))
+  canvas.height=Math.max(1,Math.round(sourceHeight*scale))
+  const ctx=canvas.getContext('2d',{willReadFrequently:highContrast})
+  ctx.imageSmoothingEnabled=true
+  ctx.imageSmoothingQuality='high'
+  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height)
+
+  if(highContrast){
+    const imageData=ctx.getImageData(0,0,canvas.width,canvas.height)
+    const d=imageData.data
+    for(let i=0;i<d.length;i+=4){
+      const gray=Math.round(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114)
+      const boosted=gray<145?Math.max(0,gray*0.72):Math.min(255,gray*1.18)
+      d[i]=d[i+1]=d[i+2]=boosted
+    }
+    ctx.putImageData(imageData,0,0)
+  }
+
+  return await new Promise(resolve=>canvas.toBlob(result=>resolve(result||blob),'image/png',1))
+}
+
+function ocrQuality(result){
+  const text=String(result?.data?.text||'').trim()
+  const useful=(text.match(/[A-Za-z0-9]/g)||[]).length
+  const confidence=Number(result?.data?.confidence||0)
+  return {text,useful,confidence,score:useful+confidence*2}
+}
+
+function summarizeImageText(text){
+  const clean=String(text||'').replace(/\r/g,'').trim()
+  if(!clean) return ''
+  const lines=clean.split('\n').map(line=>line.replace(/\s+/g,' ').trim()).filter(line=>line.length>=2)
+  const picked=[]
+  for(const line of lines){
+    if(!picked.some(existing=>existing.toLowerCase()===line.toLowerCase())) picked.push(line)
+    if(picked.length>=8) break
+  }
+  return compactText(picked.join(' | '),520)
+}
+
+async function analyzeImageMedia(media,{quiet=false,force=false}={}){
   if(!media||media.media_type!=='image') return media
-  if(media.analysis_status==='complete'&&media.extracted_text!=null) return media
+  if(!force&&media.analysis_status==='complete'&&String(media.extracted_text||'').trim()) return media
   if(!quiet) toast('Reading text from your image...')
-  await supabase.from('memory_media').update({analysis_status:'processing'}).eq('id',media.id)
+
+  await supabase.from('memory_media').update({
+    analysis_status:'processing',
+    analysis_error:null,
+    analysis_attempts:Number(media.analysis_attempts||0)+1
+  }).eq('id',media.id)
+
   try{
     const download=await supabase.storage.from('memora-media').download(media.storage_path)
     if(download.error) throw download.error
+
     const worker=await getOcrWorker()
-    const result=await worker.recognize(download.data)
-    const text=String(result?.data?.text||'').trim()
+    const normalImage=await prepareImageForOcr(download.data,{highContrast:false})
+    const first=await worker.recognize(normalImage)
+    let best=first
+    let bestQuality=ocrQuality(first)
+
+    if(bestQuality.useful<45||bestQuality.confidence<48){
+      const contrastImage=await prepareImageForOcr(download.data,{highContrast:true})
+      const second=await worker.recognize(contrastImage)
+      const secondQuality=ocrQuality(second)
+      if(secondQuality.score>bestQuality.score){
+        best=second
+        bestQuality=secondQuality
+      }
+    }
+
+    const text=String(best?.data?.text||'').trim()
     const extracted_data={
       phone_numbers:extractPhoneNumbers(text),
       emails:extractEmails(text),
-      ocr_confidence:result?.data?.confidence??null
+      ocr_confidence:best?.data?.confidence??null,
+      readable_summary:summarizeImageText(text)
     }
+
     const update=await supabase.from('memory_media').update({
       extracted_text:text,
       extracted_data,
-      analysis_status:'complete',
+      analysis_status:text?'complete':'no_text',
+      analysis_error:null,
       analyzed_at:new Date().toISOString(),
-      caption:text?compactText(text,180):'No readable text detected'
+      caption:text?summarizeImageText(text):'No readable text detected'
     }).eq('id',media.id).select().single()
     if(update.error) throw update.error
 
@@ -363,38 +466,67 @@ async function analyzeImageMedia(media,{quiet=false}={}){
       const merged={
         ...existing,
         image_text:text||existing.image_text||null,
+        image_summary:extracted_data.readable_summary||existing.image_summary||null,
         phone_numbers:[...new Set([...(existing.phone_numbers||[]),...extracted_data.phone_numbers])],
         emails:[...new Set([...(existing.emails||[]),...extracted_data.emails])]
       }
       await supabase.from('memories').update({interpreted_data:merged}).eq('id',media.memory_id)
     }
+
+    if(!quiet){
+      if(text) toast('Image text indexed')
+      else toast('No readable text found in this image')
+    }
     return update.data
   }catch(error){
-    await supabase.from('memory_media').update({analysis_status:'failed',analyzed_at:new Date().toISOString()}).eq('id',media.id)
-    if(!quiet) toast('Image text reading could not finish')
-    return {...media,analysis_status:'failed',analysis_error:error.message}
+    const message=String(error?.message||error||'Image analysis failed').slice(0,500)
+    await supabase.from('memory_media').update({
+      analysis_status:'failed',
+      analysis_error:message,
+      analyzed_at:new Date().toISOString()
+    }).eq('id',media.id)
+    if(!quiet) toast('Image reading failed. Tap Analyze image to retry.')
+    return {...media,analysis_status:'failed',analysis_error:message}
   }
 }
+
 
 async function latestImageEvidence(){
   const {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(1).maybeSingle()
   if(!data) return null
-  const analyzed=await analyzeImageMedia(data)
+  const shouldRetry=data.analysis_status==='failed'||data.analysis_status==='pending'||data.analysis_status==='processing'
+  const analyzed=await analyzeImageMedia(data,{force:shouldRetry})
   const signed=await supabase.storage.from('memora-media').createSignedUrl(data.storage_path,900)
   return {...analyzed,image_url:signed.data?.signedUrl||null}
 }
 
 async function knownPhoneEvidence(){
-  let {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(5)
+  let {data}=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(8)
   data=data||[]
   for(const item of data){
-    if(item.analysis_status!=='complete') await analyzeImageMedia(item,{quiet:true})
+    if(item.analysis_status!=='complete'||!String(item.extracted_text||'').trim()){
+      await analyzeImageMedia(item,{quiet:true,force:true})
+    }
   }
-  const refreshed=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(8)
+  const refreshed=await supabase.from('memory_media').select('*').eq('media_type','image').order('created_at',{ascending:false}).limit(10)
   const evidence=[]
   for(const item of refreshed.data||[]){
-    for(const number of item.extracted_data?.phone_numbers||[]){
+    const numbers=[
+      ...(item.extracted_data?.phone_numbers||[]),
+      ...extractPhoneNumbers(item.extracted_text||'')
+    ]
+    for(const number of numbers){
       if(!evidence.some(x=>x.number===number)) evidence.push({number,media:item})
+    }
+  }
+
+  if(!evidence.length){
+    const {data:memories}=await supabase.from('memories').select('id,original_text,summary,interpreted_data,created_at').order('created_at',{ascending:false}).limit(100)
+    for(const memory of memories||[]){
+      const text=[memory.original_text,memory.summary,memory.interpreted_data?.image_text].filter(Boolean).join(' ')
+      for(const number of extractPhoneNumbers(text)){
+        if(!evidence.some(x=>x.number===number)) evidence.push({number,media:{memory_id:memory.id,created_at:memory.created_at}})
+      }
     }
   }
   return evidence
@@ -1006,13 +1138,15 @@ async function answer(question){
   if(/\b(image|photo|picture|screenshot)\b/i.test(q)){
     const media=await latestImageEvidence()
     if(!media) return {text:"I don't have an image memory yet."}
-    const phones=media.extracted_data?.phone_numbers||[]
-    const emails=media.extracted_data?.emails||[]
+    const phones=media.extracted_data?.phone_numbers||extractPhoneNumbers(media.extracted_text||'')
+    const emails=media.extracted_data?.emails||extractEmails(media.extracted_text||'')
     const text=String(media.extracted_text||'').trim()
-    let answer='Your latest saved image is attached to a memory.'
-    if(text) answer+=` I can read this text from it: “${compactText(text,360)}”`
-    else answer+=' I could not detect readable text in it.'
-    if(phones.length) answer+=` Detected phone number${phones.length>1?'s':''}: ${phones.join(', ')}.`
+    const summary=media.extracted_data?.readable_summary||summarizeImageText(text)
+    let answer='I found your latest saved image.'
+    if(summary) answer+=` I can read: “${summary}”`
+    else if(media.analysis_status==='failed') answer+=' The image is saved, but text analysis failed. I will retry it when you ask again or when you save a new image.'
+    else answer+=' The image is saved, but I could not find reliable readable text in it.'
+    if(phones.length) answer+=` Detected number${phones.length>1?'s':''}: ${phones.join(', ')}.`
     if(emails.length) answer+=` Detected email${emails.length>1?'s':''}: ${emails.join(', ')}.`
     return {text:answer,source:'Latest saved image',imageUrl:media.image_url||null}
   }
