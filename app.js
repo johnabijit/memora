@@ -7,6 +7,10 @@ const app = document.getElementById('app')
 let user = null
 let view = 'home'
 let chat = []
+try{
+  const savedChat=JSON.parse(sessionStorage.getItem('memora-chat')||'[]')
+  if(Array.isArray(savedChat)) chat=savedChat.slice(-40)
+}catch{}
 let pendingMedia = []
 let pendingLocation = null
 let recorder = null
@@ -15,6 +19,17 @@ let recorderChunks = []
 let cameraStream = null
 let cameraFacing = 'environment'
 let conversationContext = { thing: null, subject: null, lastMemoryId: null, lastImageMediaId: null }
+try{
+  const savedContext=JSON.parse(sessionStorage.getItem('memora-context')||'{}')
+  conversationContext={...conversationContext,...savedContext}
+}catch{}
+
+function persistConversationState(){
+  try{
+    sessionStorage.setItem('memora-chat',JSON.stringify(chat.slice(-40)))
+    sessionStorage.setItem('memora-context',JSON.stringify(conversationContext))
+  }catch{}
+}
 let ocrWorkerPromise = null
 let lastThemeHour = null
 
@@ -1062,6 +1077,29 @@ function normalizeQuestion(question){
   })
 }
 
+function expandSearchQuery(question){
+  const q=normalizeQuestion(question)
+  const lower=q.toLowerCase()
+  const expansions=[]
+  const groups=[
+    [['work','working','job','employer','employed','company'],['work','working','job','employer','company','office','occupation']],
+    [['phone','mobile','contact','number'],['phone','mobile','contact','telephone','number']],
+    [['image','photo','picture','screenshot'],['image','photo','picture','screenshot','media']],
+    [['sister','brother','sibling','siblings'],['sister','brother','sibling','family']],
+    [['father','mother','parent','parents'],['father','mother','parent','family']],
+    [['address','home','house','residence'],['address','home','house','residence','location']],
+    [['born','birth','birthday','birthplace'],['born','birth','birthday','birthplace','hospital']],
+    [['document','file','pdf','record'],['document','file','pdf','record']],
+    [['insurance','policy','coverage'],['insurance','policy','coverage']],
+    [['vehicle','car','bike','motorcycle'],['vehicle','car','bike','motorcycle']],
+    [['wedding','marriage','spouse'],['wedding','marriage','spouse']]
+  ]
+  for(const [triggers,words] of groups){
+    if(triggers.some(word=>new RegExp('\\b'+word+'\\b','i').test(lower))) expansions.push(...words)
+  }
+  return [q,...new Set(expansions)].join(' ')
+}
+
 async function relationshipAnswerFromVault(relation){
   let query=supabase.from('people').select('name,relationship').order('name')
   if(relation==='parents') query=query.in('relationship',['father','mother'])
@@ -1186,7 +1224,8 @@ function relationshipAnswer(relation,memories){
 
 async function smartMemorySearch(query,limit=8){
   const normalized=normalizeQuestion(query)
-  const universe=await supabase.rpc('search_memory_universe',{search_query:normalized,result_limit:limit})
+  const expanded=expandSearchQuery(normalized)
+  const universe=await supabase.rpc('search_memory_universe',{search_query:expanded,result_limit:limit})
   if(!universe.error&&universe.data?.length){
     return universe.data.map(item=>({
       id:item.entity_id,
@@ -1201,9 +1240,9 @@ async function smartMemorySearch(query,limit=8){
     }))
   }
 
-  const result=await supabase.rpc('search_memories_smart',{search_query:normalized,result_limit:limit})
+  const result=await supabase.rpc('search_memories_smart',{search_query:expanded,result_limit:limit})
   if(!result.error&&result.data?.length) return result.data
-  const fallback=await supabase.rpc('search_memories',{search_query:normalized,result_limit:limit})
+  const fallback=await supabase.rpc('search_memories',{search_query:expanded,result_limit:limit})
   return fallback.data||[]
 }
 
@@ -1409,6 +1448,18 @@ async function answer(question){
     return {text:`I don't have a relevant stored memory about ${subject} yet.`}
   }
 
+  if(/^(what else|tell me more|anything else|more|more about (?:it|that))\??$/i.test(q)&&conversationContext.subject){
+    const results=await smartMemorySearch(conversationContext.subject,12)
+    const relevant=results.filter(result=>result.id!==conversationContext.lastMemoryId&&resultRelevant(conversationContext.subject,result))
+    if(relevant.length){
+      const next=relevant[0]
+      conversationContext.lastMemoryId=next.id
+      persistConversationState()
+      return {text:`Another relevant memory about ${conversationContext.subject} is: ${next.original_text}`,source:'Related stored memory'}
+    }
+    return {text:`I don't have another relevant stored memory about ${conversationContext.subject} yet.`}
+  }
+
   const relation=detectRelationship(q)
   if(relation){
     const vaultAnswer=await relationshipAnswerFromVault(relation)
@@ -1496,15 +1547,18 @@ async function ask(){
     const q=input.value.trim()
     if(!q) return
     chat.push({role:'user',text:q})
+    persistConversationState()
     chat.push({role:'assistant',text:/\\b(image|photo|picture|screenshot|phone|mobile)\\b/i.test(normalizeQuestion(q))?'Reading the relevant image and memory...':'Checking the most relevant memories...',pending:true})
     ask()
     try{
       const response=await answer(q)
       chat=chat.filter(message=>!message.pending)
       chat.push({role:'assistant',...response})
+      persistConversationState()
     }catch(error){
       chat=chat.filter(message=>!message.pending)
       chat.push({role:'assistant',text:'I could not complete that lookup. Please try again.',source:error.message})
+      persistConversationState()
     }
     ask()
   }
