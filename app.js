@@ -1368,6 +1368,7 @@ async function uploadMedia(memoryId,files){
   return uploadedRows
 }
 async function saveMemory(text,files=[],location=null){
+  if(looksLikeSecret(text)) throw new Error('Sensitive credential detected. Store API keys in Sources, not Memories.')
   const parsed=interpret(text)
   let occurred=new Date()
   if(parsed.interpreted_data.relative_date==='yesterday') occurred.setDate(occurred.getDate()-1)
@@ -1521,20 +1522,45 @@ async function hydrateMemoryExtras(memoriesList){
   }
 }
 
-function memoryCard(m){
-  return `<article class="glass memory-card">
+function memoryCard(m,{compact=false}={}){
+  const title=compactText(cleanAnswerText(m.summary||m.original_text||'Memory'),compact?92:140)
+  const preview=compactText(cleanAnswerText(m.original_text||m.summary||''),compact?150:240)
+  return `<article class="glass memory-card ${compact?'compact-card':''}" data-memory-card="${m.id}">
     <div class="memory-media hidden" data-media-slot="${m.id}"></div>
     <div class="memory-body">
       <div class="memory-top">
         <div><span class="badge">${esc(typeLabel(m.memory_type))}</span> <span class="badge alt hidden" data-media-badge="${m.id}">Media</span></div>
         <button class="kebab" data-delete-memory="${m.id}" title="Delete">•••</button>
       </div>
-      <div class="memory-title">${esc(m.summary||m.original_text)}</div>
-      <div class="memory-original">${esc(m.original_text)}</div>
+      <div class="memory-title">${esc(title)}</div>
+      <div class="memory-original">${esc(preview)}</div>
       <div class="context-row" data-location-slot="${m.id}"></div>
-      <div class="memory-meta"><span>${shortDate(m.occurred_at||m.created_at)}</span><span>•</span><span>${esc((m.provenance_kind||'user_stated').replaceAll('_',' '))}</span></div>
+      <div class="memory-footer">
+        <div class="memory-meta"><span>${shortDate(m.occurred_at||m.created_at)}</span><span>•</span><span>${esc((m.provenance_kind||'user_stated').replaceAll('_',' '))}</span></div>
+        <button class="memory-open" data-open-memory="${m.id}">Open</button>
+      </div>
     </div>
   </article>`
+}
+
+function bindMemoryViews(memoriesList){
+  const map=new Map((memoriesList||[]).map(item=>[String(item.id),item]))
+  document.querySelectorAll('[data-open-memory]').forEach(button=>button.onclick=()=>{
+    const memory=map.get(String(button.dataset.openMemory))
+    if(!memory) return
+    const title=cleanAnswerText(memory.summary||memory.original_text||'Memory')
+    const original=cleanAnswerText(memory.original_text||'')
+    modal(typeLabel(memory.memory_type),`
+      <div class="memory-detail">
+        <div class="eyebrow">${esc(shortDate(memory.occurred_at||memory.created_at))} · ${esc((memory.provenance_kind||'user_stated').replaceAll('_',' '))}</div>
+        <h3>${esc(title)}</h3>
+        ${original&&original!==title?`<p>${esc(original)}</p>`:''}
+        <div class="filter-row" style="margin-top:14px">
+          <button class="btn" data-memory-close>Close</button>
+        </div>
+      </div>
+    `).querySelector('[data-memory-close]').onclick=event=>event.target.closest('.modal-backdrop')?.remove()
+  })
 }
 
 async function home(){
@@ -1542,16 +1568,16 @@ async function home(){
     supabase.from('memories').select('*',{count:'exact',head:true}),
     supabase.from('things').select('*',{count:'exact',head:true}),
     supabase.from('documents').select('*',{count:'exact',head:true}),
-    supabase.from('memories').select('*').order('created_at',{ascending:false}).limit(6),
+    supabase.from('memories').select('*').order('created_at',{ascending:false}).limit(3),
     supabase.from('profiles').select('display_name').maybeSingle()
   ])
   const firstName=(profile?.display_name||'').split(' ')[0]
   app.innerHTML=shell(`
-    <section class="glass hero">
+    <section class="glass hero home-hero">
       <div class="hero-content">
         <div class="eyebrow">${firstName?`Hello ${esc(firstName)} · `:''}Capture anything</div>
-        <h2><span class="gradient-text">A living universe of your memories.</span></h2>
-        <p>Write it, photograph it, record it, attach your location or add a file. Memora keeps the detail, the source and the history together.</p>
+        <h2><span class="gradient-text">Remember the detail. Find it later.</span></h2>
+        <p>Text, camera, video, voice, location or a file. Memora keeps the memory, its source and the context together.</p>
         <div class="composer">
           <textarea id="memoryInput" placeholder="I kept my keys in the top drawer beside the watch..."></textarea>
           <div id="pendingPreview" class="preview-strip"></div>
@@ -1573,22 +1599,50 @@ async function home(){
         </div>
       </div>
     </section>
-    <section class="section">
-      <div class="section-head"><div><h3>Your memory space</h3><p>It grows as your life grows.</p></div></div>
-      <div class="grid three">
-        <div class="glass stat" style="--accent:var(--c1)"><span class="muted">Memories</span><b>${memoryCount||0}</b></div>
-        <div class="glass stat" style="--accent:var(--c2)"><span class="muted">Things tracked</span><b>${thingCount||0}</b></div>
-        <div class="glass stat" style="--accent:var(--c3)"><span class="muted">Files remembered</span><b>${docCount||0}</b></div>
+
+    <section class="glass home-hub">
+      <div class="home-hub-head">
+        <div><div class="eyebrow">Your memory space</div><h3>Everything organized, nothing dumped.</h3></div>
+        <div class="home-tabs" role="tablist">
+          <button class="home-tab active" data-home-tab="overview">Overview</button>
+          <button class="home-tab" data-home-tab="recent">Recent</button>
+          <button class="home-tab" data-home-tab="shortcuts">Shortcuts</button>
+        </div>
       </div>
-    </section>
-    <section class="section">
-      <div class="section-head"><div><h3>Recent memories</h3><p>Your newest moments, objects and details.</p></div><button class="btn" data-nav="memories">See gallery</button></div>
-      <div class="memory-grid">${recent?.length?recent.map(memoryCard).join(''):'<div class="glass empty"><strong>Your universe is waiting</strong>Add a sentence, image, video, voice note or location.</div>'}</div>
+
+      <div class="home-panel active" data-home-panel="overview">
+        <div class="stat-strip">
+          <button class="glass stat mini-stat" data-nav="memories" style="--accent:var(--c1)"><span>Memories</span><b>${memoryCount||0}</b><small>Open gallery</small></button>
+          <button class="glass stat mini-stat" data-nav="things" style="--accent:var(--c2)"><span>Things tracked</span><b>${thingCount||0}</b><small>Find objects</small></button>
+          <button class="glass stat mini-stat" data-nav="documents" style="--accent:var(--c3)"><span>Files remembered</span><b>${docCount||0}</b><small>Open documents</small></button>
+        </div>
+      </div>
+
+      <div class="home-panel" data-home-panel="recent">
+        <div class="panel-head"><div><h3>Recent memories</h3><p class="muted">Only a preview here. Open a card for the full memory.</p></div><button class="btn" data-nav="memories">Full gallery</button></div>
+        <div class="memory-grid compact-grid">${recent?.length?recent.map(m=>memoryCard(m,{compact:true})).join(''):'<div class="empty"><strong>Your universe is waiting</strong>Capture your first memory above.</div>'}</div>
+      </div>
+
+      <div class="home-panel" data-home-panel="shortcuts">
+        <div class="shortcut-grid">
+          <button class="shortcut-card" data-nav="ask"><span>◎</span><div><b>Ask Memora</b><small>Search and reason across your life</small></div></button>
+          <button class="shortcut-card" data-nav="vault"><span>◇</span><div><b>Open Vault</b><small>People, places, things and documents</small></div></button>
+          <button class="shortcut-card" data-nav="sources"><span>◉</span><div><b>Sources</b><small>AI, imports and connected data</small></div></button>
+          <button class="shortcut-card" id="homeSoundscapes"><span>◌</span><div><b>Soundscapes</b><small>Rain, ocean, forest and focus</small></div></button>
+        </div>
+      </div>
     </section>
   `)
   wire()
   bindComposerInputs()
   renderPending()
+
+  document.querySelectorAll('[data-home-tab]').forEach(button=>button.onclick=()=>{
+    document.querySelectorAll('[data-home-tab]').forEach(x=>x.classList.toggle('active',x===button))
+    document.querySelectorAll('[data-home-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.homePanel===button.dataset.homeTab))
+  })
+
+  document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
   document.getElementById('fileBtn').onclick=()=>go('documents')
   document.getElementById('saveMemory').onclick=async()=>{
     const input=document.getElementById('memoryInput')
@@ -1596,6 +1650,8 @@ async function home(){
     if(!text&&pendingMedia.length) text='Visual memory'
     if(!text&&pendingLocation) text='Location memory'
     if(!text) return toast('Add a note, media or location first')
+    if(looksLikeSecret(text)) return toast('Credential detected. Add API keys through Sources, not Memories.')
+
     const button=document.getElementById('saveMemory')
     button.disabled=true
     button.textContent='Saving...'
@@ -1612,6 +1668,7 @@ async function home(){
     }
   }
   bindDeletes()
+  bindMemoryViews(recent||[])
   await hydrateMemoryExtras(recent||[])
 }
 
