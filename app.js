@@ -3050,6 +3050,13 @@ async function sources(){
       <div class="source-summary"><b>${aiAvailable?'LIVE':'CHECK'}</b><span>${openAiConnected?'OpenAI ready':'AI reasoning'}</span></div>
     </div>
 
+    <div class="glass source-tabs" role="tablist">
+      <button class="source-tab active" data-source-tab="ai">AI reasoning</button>
+      <button class="source-tab" data-source-tab="accounts">Accounts and live data</button>
+      <button class="source-tab" data-source-tab="imports">Imports and files</button>
+      <button class="source-tab" data-source-tab="all">Show all</button>
+    </div>
+
     <div class="source-grid">
       <div class="glass source-card">
         <span class="status ${aiHealthy||(!lastAi&&health.aiGateway)?'live':''}">${esc(aiLabel)}</span>
@@ -3146,6 +3153,22 @@ async function sources(){
     </div>
   `,'Source Universe','Live AI, optional provider APIs, device context and external data connectors.')
   wire()
+
+  const sourceGroups={
+    ai:new Set(['Memora AI','OpenAI API','Gemini API','Claude API']),
+    accounts:new Set(['Google Workspace','Microsoft 365','Maps and location']),
+    imports:new Set(['WhatsApp','Files and documents','ChatGPT history'])
+  }
+  document.querySelectorAll('.source-card').forEach(card=>{
+    const title=card.querySelector('h3')?.textContent?.trim()||''
+    card.dataset.sourceGroup=Object.entries(sourceGroups).find(([,titles])=>titles.has(title))?.[0]||'accounts'
+  })
+  const applySourceTab=tab=>{
+    document.querySelectorAll('[data-source-tab]').forEach(button=>button.classList.toggle('active',button.dataset.sourceTab===tab))
+    document.querySelectorAll('.source-card').forEach(card=>card.classList.toggle('hidden',tab!=='all'&&card.dataset.sourceGroup!==tab))
+  }
+  document.querySelectorAll('[data-source-tab]').forEach(button=>button.onclick=()=>applySourceTab(button.dataset.sourceTab))
+  applySourceTab('ai')
 
   document.getElementById('testMemoraAi').onclick=async()=>{
     const target=document.getElementById('aiDiagnostic')
