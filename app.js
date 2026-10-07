@@ -2539,8 +2539,8 @@ function startThinkingAnimation(){
   return ()=>clearInterval(timer)
 }
 
-async function ask(){
-  await ensureChatThread()
+async function ask({reload=true}={}){
+  if(reload) await ensureChatThread()
   await loadChatThreads()
   const currentThread=chatThreads.find(item=>item.id===currentThreadId)||{title:'New chat'}
 
@@ -2670,7 +2670,7 @@ async function ask(){
     await saveChatMessage('user',q)
 
     chat.push({role:'assistant',pending:true,text:''})
-    await ask()
+    await ask({reload:false})
     const stopThinking=startThinkingAnimation()
 
     try{
