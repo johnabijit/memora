@@ -1116,7 +1116,16 @@ async function ask(){
     const q=input.value.trim()
     if(!q) return
     chat.push({role:'user',text:q})
-    chat.push({role:'assistant',...(await answer(q))})
+    chat.push({role:'assistant',text:/\\b(image|photo|picture|screenshot|phone|mobile)\\b/i.test(q)?'Reading the relevant image and memory...':'Checking the most relevant memories...',pending:true})
+    ask()
+    try{
+      const response=await answer(q)
+      chat=chat.filter(message=>!message.pending)
+      chat.push({role:'assistant',...response})
+    }catch(error){
+      chat=chat.filter(message=>!message.pending)
+      chat.push({role:'assistant',text:'I could not complete that lookup. Please try again.',source:error.message})
+    }
     ask()
   }
   document.getElementById('askButton').onclick=submit
