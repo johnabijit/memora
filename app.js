@@ -750,12 +750,30 @@ const dockItems=[
   ['vault','◇','Vault']
 ]
 
+function routeUrl(next=view,threadId=currentThreadId){
+  const url=new URL(window.location.href)
+  url.search=''
+  url.searchParams.set('view',next)
+  if(next==='ask'&&threadId) url.searchParams.set('thread',threadId)
+  return url.pathname+url.search
+}
+
+function routeState(next=view){
+  return {memora:true,view:next,threadId:next==='ask'?currentThreadId:null}
+}
+
 function shell(content,title,subtitle=''){
+  const canBack=view!=='home'
   return `
   <div class="app">
+    <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar">
-      <div class="brand" id="brandHome"><div class="logo">M</div><div><h1>Memora</h1><small>Your life, remembered beautifully</small></div></div>
+      <div class="top-left">
+        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Back">‹</button>':''}
+        <div class="brand" id="brandHome"><div class="logo">M</div><div><h1>Memora</h1><small>Your life, remembered beautifully</small></div></div>
+      </div>
       <div class="top-actions">
+        <button class="icon-btn sound-button" id="soundButton" title="Ambient sound"><span class="sound-icon">◉</span><span class="sound-label">${ambientPreferences.enabled?'Sound':'Silent'}</span></button>
         <button class="icon-btn" id="themeButton"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton">Profile</button>
       </div>
@@ -778,16 +796,63 @@ function wire(){
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
+  document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
+  document.getElementById('appBackButton')?.addEventListener('click',()=>{
+    if(window.history.length>1) window.history.back()
+    else go('home')
+  })
+  updateSoundButton()
 }
 
-async function go(next,focus=false){
-  view=next
+async function renderRoute(next,focus=false){
   const routes={home,memories,ask,timeline,sources,vault,people,places,things,documents,settings}
   await (routes[next]||home)()
-  if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),50)
+  if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
 }
-const render=()=>go(view)
+
+async function go(next,focus=false,{push=true,replace=false}={}){
+  if(next==='ask'&&!currentThreadId) await ensureChatThread()
+  view=next
+  if(navigationInitialized){
+    const state=routeState(next)
+    const url=routeUrl(next)
+    if(replace) window.history.replaceState(state,'',url)
+    else if(push) window.history.pushState(state,'',url)
+  }
+  await renderRoute(next,focus)
+}
+
+async function initializeNavigation(){
+  const url=new URL(window.location.href)
+  const requested=url.searchParams.get('view')
+  const allowed=new Set(['home','memories','ask','timeline','sources','vault','people','places','things','documents','settings'])
+  view=allowed.has(requested)?requested:'home'
+  const requestedThread=url.searchParams.get('thread')
+  if(view==='ask'){
+    if(requestedThread) currentThreadId=requestedThread
+    await ensureChatThread()
+  }
+  navigationInitialized=true
+  const state=routeState(view)
+  const cleanUrl=routeUrl(view)
+  window.history.replaceState(state,'',cleanUrl)
+  window.history.pushState(state,'',cleanUrl)
+  await renderRoute(view)
+}
+
+window.addEventListener('popstate',async event=>{
+  if(!user||!event.state?.memora) return
+  const next=event.state.view||'home'
+  view=next
+  if(next==='ask'){
+    currentThreadId=event.state.threadId||currentThreadId
+    await ensureChatThread()
+  }
+  await renderRoute(next)
+})
+
+const render=()=>go(view,false,{push:false})
 
 function interpret(text){
   const result={memory_type:'note',summary:text,interpreted_data:{}}
