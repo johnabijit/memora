@@ -5186,10 +5186,11 @@ async function settings(){
       supabase.from('places').select('*'),
       supabase.from('documents').select('*'),
       supabase.from('memory_contexts').select('*'),
+      supabase.from('mood_logs').select('*').order('created_at'),
       supabase.from('chat_threads').select('*').order('created_at'),
       supabase.from('chat_messages').select('*').order('created_at')
     ])
-    const [memoryData,factData,thingData,peopleData,placeData,docData,contexts,threads,messages]=results.map(result=>result.data||[])
+    const [memoryData,factData,thingData,peopleData,placeData,docData,contexts,moods,threads,messages]=results.map(result=>result.data||[])
     const blob=new Blob([JSON.stringify({
       exported_at:new Date().toISOString(),
       memories:memoryData.map(memory=>({...memory,original_text:redactSecrets(memory.original_text),summary:redactSecrets(memory.summary)})),
@@ -5199,6 +5200,7 @@ async function settings(){
       places:placeData,
       documents:docData,
       contexts,
+      mood_logs:moods,
       chat_threads:threads,
       chat_messages:messages.map(message=>({...message,content:redactSecrets(message.content)}))
     },null,2)],{type:'application/json'})
