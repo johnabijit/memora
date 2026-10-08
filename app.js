@@ -4225,6 +4225,11 @@ async function ask({reload=true}={}){
     chat.push(userMessage)
     await saveChatMessage('user',q)
 
+    const detectedMood=detectMoodStatement(q)
+    if(detectedMood){
+      try{await recordMood(detectedMood,q,'chat')}catch(error){console.warn('Mood save failed',error)}
+    }
+
     const directReply=directConversationReply(q)
     if(directReply){
       const directMessage={role:'assistant',text:directReply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()}
@@ -4242,9 +4247,17 @@ async function ask({reload=true}={}){
       const response=await answer(q)
       stopThinking()
       chat=chat.filter(message=>!message.pending)
-      const finalMessage={role:'assistant',...response,text:cleanAnswerText(response.text),fresh:true,created_at:new Date().toISOString()}
+      let responseText=cleanAnswerText(response.text)
+      let action=response.action||null
+      if(detectedMood){
+        const label=moodCatalog[detectedMood]?.label||detectedMood
+        if(!/saved|remembered|mood check-in/i.test(responseText)) responseText+=` I’ve also saved this as your ${label.toLowerCase()} mood check-in.`
+        action={type:'mood_audio',mood:detectedMood,label:'Play something for this mood'}
+      }
+      const finalMessage={role:'assistant',...response,text:responseText,action,fresh:true,created_at:new Date().toISOString()}
       chat.push(finalMessage)
       await saveChatMessage('assistant',finalMessage.text,finalMessage)
+      maybeApplyContextScene(q+' '+finalMessage.text)
     }catch(error){
       stopThinking()
       chat=chat.filter(message=>!message.pending)
@@ -4260,6 +4273,20 @@ async function ask({reload=true}={}){
   document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
     document.getElementById('askInput').value=button.dataset.askSuggestion
     submit()
+  })
+  document.querySelectorAll('[data-chat-action]').forEach(button=>button.onclick=async()=>{
+    if(button.dataset.chatAction==='mood_audio'){
+      button.disabled=true
+      button.textContent='Finding something...'
+      try{
+        await playForMood(button.dataset.chatMood||'calm')
+        button.textContent='Playing'
+      }catch(error){
+        button.disabled=false
+        button.textContent='Try audio'
+        toast('I could not start that audio just now')
+      }
+    }
   })
 }
 
