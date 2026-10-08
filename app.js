@@ -146,17 +146,25 @@ const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medi
 const shortDate = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)) : 'Unknown'
 
 function removeStrayEscapedNewline(){
-  const clean=root=>{
-    if(!root) return
-    for(const node of [...root.childNodes]){
-      if(node.nodeType===Node.TEXT_NODE){
-        const value=String(node.textContent||'').trim()
-        if(value==='\\n'||value==='/n') node.remove()
-      }
+  if(!document.body) return
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT)
+  const remove=[]
+  while(walker.nextNode()){
+    const node=walker.currentNode
+    const parent=node.parentElement
+    if(!parent||parent.closest('textarea,input,pre,code,[contenteditable="true"]')) continue
+    const raw=String(node.textContent||'')
+    const trimmed=raw.trim()
+    if(/^(?:\\n|\/n)+$/i.test(trimmed)){
+      remove.push(node)
+      continue
+    }
+    if(/^(?:\\n|\/n)\s+/i.test(raw)){
+      node.textContent=raw.replace(/^(?:\\n|\/n)\s*/i,'')
     }
   }
-  clean(document.body)
-  clean(document.getElementById('app'))
+  remove.forEach(node=>node.remove())
+  document.querySelectorAll('body > br:first-child,#app > br:first-child').forEach(node=>node.remove())
 }
 
 const typeLabel = type => ({
@@ -175,12 +183,19 @@ function toast(message){
 }
 
 function modal(title,body){
+  const previousFocus=document.activeElement
   const wrap=document.createElement('div')
   wrap.className='modal-backdrop'
-  wrap.innerHTML=`<div class="glass modal"><div class="modal-head"><h3>${esc(title)}</h3><button class="close" aria-label="Close">×</button></div>${body}</div>`
-  wrap.querySelector('.close').onclick=()=>wrap.remove()
-  wrap.onclick=e=>{if(e.target===wrap)wrap.remove()}
+  wrap.innerHTML=`<div class="glass modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="close" aria-label="Close">×</button></div>${body}</div>`
+  const close=()=>{
+    wrap.remove()
+    if(previousFocus?.focus) previousFocus.focus({preventScroll:true})
+  }
+  wrap.querySelector('.close').onclick=close
+  wrap.onclick=e=>{if(e.target===wrap)close()}
+  wrap.addEventListener('keydown',e=>{if(e.key==='Escape')close()})
   document.body.appendChild(wrap)
+  setTimeout(()=>wrap.querySelector('.close')?.focus({preventScroll:true}),20)
   return wrap
 }
 
@@ -994,7 +1009,7 @@ async function openSoundscapePicker(){
     ...countries.map(country=>`<option value="${esc(country.code)}" ${mediaPlayerState.radioCountry===country.code?'selected':''}>${esc(country.name)} (${country.stationcount.toLocaleString()} stations)</option>`)
   ].join('')
 
-  const preferredLanguages=['English','Tamil','Malayalam','Hindi','Telugu','Kannada','Spanish','Portuguese','Arabic','Punjabi','Urdu','Hebrew','French','German','Italian']
+  const preferredLanguages=['English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati','Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Latin','Greek','Russian','Hebrew','Persian','Turkish','Indonesian','Malay','Sinhala','Nepali','Japanese','Korean','Chinese']
   const languageRows=[...languages].sort((a,b)=>{
     const ai=preferredLanguages.findIndex(x=>x.toLowerCase()===a.name.toLowerCase())
     const bi=preferredLanguages.findIndex(x=>x.toLowerCase()===b.name.toLowerCase())
@@ -1034,6 +1049,13 @@ async function openSoundscapePicker(){
         ['christian','christian hindi','Hindi Christian'],
         ['christian','christian telugu','Telugu Christian'],
         ['christian','christian kannada','Kannada Christian'],
+        ['christian','christian marathi','Marathi Christian'],
+        ['christian','christian bengali','Bengali Christian'],
+        ['christian','christian punjabi','Punjabi Christian'],
+        ['christian','christian sinhala','Sinhala Christian'],
+        ['christian','arabic christian','Arabic Christian'],
+        ['christian','korean christian','Korean Christian'],
+        ['christian','indonesian christian','Indonesian Christian'],
         ['christian','filipino christian','Filipino Christian'],
         ['christian','african gospel','African Gospel'],
         ['christian','christian spanish','Spanish Christian'],
@@ -1171,7 +1193,7 @@ async function openSoundscapePicker(){
       <div class="devotional-language-quick">
         <span>Quick languages</span>
         <div>
-          ${['English','Tamil','Malayalam','Hindi','Telugu','Spanish','Portuguese','Arabic','Punjabi','Urdu'].map(label=>`<button class="chip ${mediaPlayerState.devotionalLanguage.toLowerCase()===label.toLowerCase()?'active':''}" data-devotional-language="${esc(label)}">${esc(label)}</button>`).join('')}
+          ${['English','Tamil','Malayalam','Hindi','Telugu','Kannada','Bengali','Marathi','Punjabi','Urdu','Arabic','Spanish','Portuguese','French','Korean','Indonesian'].map(label=>`<button class="chip ${mediaPlayerState.devotionalLanguage.toLowerCase()===label.toLowerCase()?'active':''}" data-devotional-language="${esc(label)}">${esc(label)}</button>`).join('')}
           <button class="chip ${!mediaPlayerState.devotionalLanguage?'active':''}" data-devotional-language="">All</button>
         </div>
       </div>
@@ -1695,26 +1717,34 @@ function shell(content,title,subtitle=''){
   const canBack=view!=='home'
   return `
   <div class="app">
+    <a class="skip-link" href="#mainContent">Skip to content</a>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-    <header class="topbar">
+    <header class="topbar" role="banner">
       <div class="top-left">
-        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Back">‹</button>':''}
-        <div class="brand" id="brandHome"><div class="logo">M</div><div><h1>Memora</h1><small>Your life, remembered beautifully</small></div></div>
+        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">‹</button>':''}
+        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <div class="top-actions">
-        <button class="icon-btn sound-button" id="soundButton" title="Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
-        <button class="icon-btn" id="themeButton"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
-        <button class="icon-btn" id="settingsButton">Profile</button>
+        <button class="icon-btn sound-button" id="soundButton" title="Memora Audio" aria-label="Open Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
+        <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
+        <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
     </header>
-    <main class="main">
+    <main class="main" id="mainContent" tabindex="-1">
       ${title?`<div class="page-head"><div><div class="eyebrow">Memora</div><h2>${esc(title)}</h2>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div></div>`:''}
       ${content}
+      <footer class="app-footer" aria-label="Memora footer">
+        <div class="footer-copy">
+          <strong>Memora</strong>
+          <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
+        </div>
+        <button class="footer-help" data-nav="help">Help & feedback</button>
+      </footer>
     </main>
-    <nav class="dock">
+    <nav class="dock" aria-label="Primary navigation">
       ${dockItems.map(([id,icon,label])=>id==='capture'
-        ?`<button class="capture" id="dockCapture" aria-label="New memory">${icon}</button>`
-        :`<button data-nav="${id}" class="${view===id?'active':''}"><span>${icon}</span><small>${label}</small></button>`
+        ?`<button class="capture" id="dockCapture" aria-label="Create a new memory">${icon}</button>`
+        :`<button data-nav="${id}" class="${view===id?'active':''}" aria-label="${esc(label)}" ${view===id?'aria-current="page"':''}><span aria-hidden="true">${icon}</span><small>${label}</small></button>`
       ).join('')}
     </nav>
   </div>`
@@ -1735,8 +1765,20 @@ function wire(){
 }
 
 async function renderRoute(next,focus=false){
-  const routes={home,memories,ask,timeline,sources,vault,people,places,things,documents,settings}
-  await (routes[next]||home)()
+  const routes={home,memories,ask,timeline,sources,vault,people,places,things,documents,settings,help}
+  const renderPage=async()=>await (routes[next]||home)()
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  if(document.startViewTransition&&!reduced){
+    try{
+      const transition=document.startViewTransition(renderPage)
+      await transition.finished
+    }catch{
+      await renderPage()
+    }
+  }else{
+    await renderPage()
+  }
+  removeStrayEscapedNewline()
   if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
 }
 
@@ -1755,7 +1797,7 @@ async function go(next,focus=false,{push=true,replace=false}={}){
 async function initializeNavigation(){
   const url=new URL(window.location.href)
   const requested=url.searchParams.get('view')
-  const allowed=new Set(['home','memories','ask','timeline','sources','vault','people','places','things','documents','settings'])
+  const allowed=new Set(['home','memories','ask','timeline','sources','vault','people','places','things','documents','settings','help'])
   view=allowed.has(requested)?requested:'home'
   const requestedThread=url.searchParams.get('thread')
   if(view==='ask'){
@@ -4217,8 +4259,14 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.28</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.30</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
+      </section>
+
+      <section class="glass settings-card contact-settings-card">
+        <div class="eyebrow">Support</div><h3>Help & feedback</h3>
+        <p class="muted">Questions, accessibility feedback, bug reports or ideas are welcome. Contact the creator directly by email, WhatsApp or phone.</p>
+        <button class="btn primary" data-nav="help">Open Help & Feedback</button>
       </section>
 
       <section class="glass settings-card">
@@ -4369,5 +4417,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=28').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=30').then(reg=>reg.update()).catch(()=>{})
 }
