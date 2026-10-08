@@ -565,21 +565,25 @@ function ensureMediaPlayer(){
 
   player=document.createElement('section')
   player.id='memoraMediaPlayer'
-  player.className='memora-player glass'
+  player.className='memora-player glass compact-player'
+  player.setAttribute('role','region')
+  player.setAttribute('aria-label','Memora audio mini player')
   player.innerHTML=`
     <audio id="memoraAudio" preload="metadata" playsinline></audio>
-    <button class="player-live-orb" id="playerLibraryOrb" aria-label="Open audio library"><span></span><i></i><i></i><i></i></button>
-    <div class="player-track">
-      <small id="playerSource">Natural sound · Wikimedia Commons</small>
+    <button class="player-mini-art" id="playerNowPlaying" aria-label="Open Now Playing">
+      <img id="playerArtwork" alt="" loading="eager">
+      <span class="player-art-fallback"><i></i><i></i><i></i></span>
+    </button>
+    <button class="player-track player-track-button" id="playerTrackOpen" aria-label="Open Now Playing">
+      <small id="playerSource">Nature · Wikimedia Commons</small>
       <strong id="playerTitle">Rain, thunder and birds</strong>
-      <span id="playerStatus">Ready · sound is enabled</span>
-    </div>
-    <div class="player-actions">
-      <button class="player-action primary" id="playerPlay" aria-label="Play">Play</button>
-      <button class="player-action" id="playerNext" aria-label="Next">Next</button>
-      <button class="player-action" id="playerMute" aria-label="Mute">Mute</button>
-      <button class="player-action" id="playerStop" aria-label="Stop">Stop</button>
-      <button class="player-action library" id="playerLibrary" aria-label="Open library">Library</button>
+      <span id="playerStatus">Ready</span>
+    </button>
+    <div class="player-actions mini-actions">
+      <button class="player-action primary" id="playerPlay" aria-label="Play or pause">▶</button>
+      <button class="player-action" id="playerNext" aria-label="Next">››</button>
+      <button class="player-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
+      <button class="player-action expand-action" id="playerExpand" aria-label="Expand Now Playing">⌃</button>
     </div>
   `
   document.body.appendChild(player)
@@ -591,29 +595,157 @@ function ensureMediaPlayer(){
   audio.src=defaultNaturalTrack.url
   mediaPlayerState.current=defaultNaturalTrack
 
-  audio.addEventListener('play',()=>{mediaPlayerState.unlocked=true;refreshMediaPlayerUI()})
-  audio.addEventListener('pause',refreshMediaPlayerUI)
-  audio.addEventListener('waiting',()=>setPlayerStatus('Buffering natural audio...'))
+  audio.addEventListener('play',()=>{mediaPlayerState.unlocked=true;refreshMediaPlayerUI();syncNowPlayingProgress()})
+  audio.addEventListener('pause',()=>{refreshMediaPlayerUI();syncNowPlayingProgress()})
+  audio.addEventListener('timeupdate',syncNowPlayingProgress)
+  audio.addEventListener('durationchange',syncNowPlayingProgress)
+  audio.addEventListener('waiting',()=>setPlayerStatus('Buffering...'))
   audio.addEventListener('playing',refreshMediaPlayerUI)
   audio.addEventListener('error',()=>{
-    setPlayerStatus('This stream could not play. Trying the next one...')
-    setTimeout(()=>nextMediaTrack(true),500)
+    setPlayerStatus('Stream unavailable · trying next')
+    setTimeout(()=>nextMediaTrack(true),650)
   })
   audio.addEventListener('ended',()=>{
-    if(mediaPlayerState.current?.type==='nature') nextMediaTrack(true)
+    if(['nature','music'].includes(mediaPlayerState.mode)) nextMediaTrack(true)
     else refreshMediaPlayerUI()
   })
 
   document.getElementById('playerPlay').onclick=toggleMediaPlayback
   document.getElementById('playerNext').onclick=()=>nextMediaTrack(true)
   document.getElementById('playerMute').onclick=toggleMediaMute
-  document.getElementById('playerStop').onclick=stopMediaPlayback
-  document.getElementById('playerLibrary').onclick=openSoundscapePicker
-  document.getElementById('playerLibraryOrb').onclick=openSoundscapePicker
+  document.getElementById('playerExpand').onclick=openNowPlayingSheet
+  document.getElementById('playerNowPlaying').onclick=openNowPlayingSheet
+  document.getElementById('playerTrackOpen').onclick=openNowPlayingSheet
 
   refreshMediaPlayerUI()
-  loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
+  if(mediaPlayerState.mode==='music'){
+    loadMediaLibrary('music',mediaPlayerState.musicQuery,50,{preserveCurrent:true,sort:mediaPlayerState.musicSort,genre:mediaPlayerState.musicGenre}).catch(()=>{})
+  }else{
+    loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
+  }
   return player
+}
+
+function formatPlayerTime(seconds){
+  const value=Number(seconds||0)
+  if(!Number.isFinite(value)||value<0) return '0:00'
+  const mins=Math.floor(value/60)
+  const secs=Math.floor(value%60).toString().padStart(2,'0')
+  return `${mins}:${secs}`
+}
+
+function syncNowPlayingProgress(){
+  const audio=mediaAudio()
+  const progress=document.getElementById('nowPlayingProgress')
+  const elapsed=document.getElementById('nowPlayingElapsed')
+  const total=document.getElementById('nowPlayingTotal')
+  if(!audio||!progress) return
+  const live=mediaPlayerState.current?.type==='radio'
+  if(live){
+    progress.value='0'
+    progress.disabled=true
+    if(elapsed) elapsed.textContent='LIVE'
+    if(total) total.textContent=''
+    return
+  }
+  const duration=Number.isFinite(audio.duration)?audio.duration:Number(mediaPlayerState.current?.duration||0)
+  const current=Number.isFinite(audio.currentTime)?audio.currentTime:0
+  progress.disabled=!duration
+  progress.max=String(Math.max(1,duration||1))
+  progress.value=String(Math.min(current,duration||current))
+  if(elapsed) elapsed.textContent=formatPlayerTime(current)
+  if(total) total.textContent=duration?formatPlayerTime(duration):''
+}
+
+async function previousMediaTrack(autoplay=true){
+  ensureMediaPlayer()
+  if(!mediaPlayerState.library.length) return
+  mediaPlayerState.index=(mediaPlayerState.index-1+mediaPlayerState.library.length)%mediaPlayerState.library.length
+  await selectMediaTrack(mediaPlayerState.library[mediaPlayerState.index],autoplay)
+}
+
+function nowPlayingArtwork(current){
+  return current?.artwork||current?.favicon||''
+}
+
+function openNowPlayingSheet(){
+  ensureMediaPlayer()
+  const current=mediaPlayerState.current||defaultNaturalTrack
+  const audio=mediaAudio()
+  const artwork=nowPlayingArtwork(current)
+  const source=current.type==='music'
+    ?'Open Music · Audius'
+    :current.devotional
+      ?`Devotional · ${current.traditionLabel||'Spiritual'}`
+      :current.type==='radio'
+        ?'Live Radio'
+        :'Nature'
+
+  const wrap=modal('Now Playing',`
+    <div class="now-playing">
+      <div class="now-playing-art ${artwork?'has-image':''}">
+        ${artwork?`<img src="${esc(artwork)}" alt="" referrerpolicy="no-referrer">`:'<span><i></i><i></i><i></i><i></i></span>'}
+      </div>
+      <div class="now-playing-copy">
+        <span class="eyebrow" id="nowPlayingSource">${esc(source)}</span>
+        <h3 id="nowPlayingTitle">${esc(current.title||'Memora Audio')}</h3>
+        <p id="nowPlayingArtist">${esc(current.artist||current.country||current.devotionalLanguage||current.category||'')}</p>
+      </div>
+      <div class="now-playing-progress">
+        <input id="nowPlayingProgress" type="range" min="0" max="1" value="0" step="0.1" aria-label="Playback position">
+        <div><span id="nowPlayingElapsed">0:00</span><span id="nowPlayingTotal"></span></div>
+      </div>
+      <div class="now-playing-controls">
+        <button class="now-control secondary" id="nowPrevious" aria-label="Previous">‹‹</button>
+        <button class="now-control play" id="nowPlay" aria-label="Play or pause">${audio&&!audio.paused?'Ⅱ':'▶'}</button>
+        <button class="now-control secondary" id="nowNext" aria-label="Next">››</button>
+      </div>
+      <div class="now-playing-tools">
+        <button class="btn" id="nowMute">${audio?.muted?'Unmute':'Mute'}</button>
+        <button class="btn" id="nowStop">Stop</button>
+        <button class="btn primary" id="nowLibrary">Browse Audio</button>
+      </div>
+      <label class="now-volume"><span>Volume</span><input id="nowVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b>${Math.round(ambientPreferences.volume*100)}%</b></label>
+      <div class="now-playing-meta">
+        ${current.type==='music'?'<span>Full track from the Audius open music catalog</span>':''}
+        ${current.type==='radio'?'<span>Live station stream supplied by the broadcaster</span>':''}
+        ${current.type==='nature'?'<span>Open nature recording streamed from Wikimedia Commons</span>':''}
+        ${current.sourcePage?`<a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Open source page ↗</a>`:''}
+      </div>
+    </div>
+  `)
+  wrap.classList.add('now-playing-backdrop')
+  const modalEl=wrap.querySelector('.modal')
+  modalEl?.classList.add('now-playing-modal')
+
+  wrap.querySelector('#nowPrevious').onclick=async()=>{await previousMediaTrack(true);wrap.remove();openNowPlayingSheet()}
+  wrap.querySelector('#nowPlay').onclick=async()=>{await toggleMediaPlayback();wrap.querySelector('#nowPlay').textContent=mediaAudio()?.paused?'▶':'Ⅱ'}
+  wrap.querySelector('#nowNext').onclick=async()=>{await nextMediaTrack(true);wrap.remove();openNowPlayingSheet()}
+  wrap.querySelector('#nowMute').onclick=async()=>{await toggleMediaMute();wrap.querySelector('#nowMute').textContent=mediaAudio()?.muted?'Unmute':'Mute'}
+  wrap.querySelector('#nowStop').onclick=()=>{stopMediaPlayback();wrap.querySelector('#nowPlay').textContent='▶'}
+  wrap.querySelector('#nowLibrary').onclick=()=>{wrap.remove();openSoundscapePicker()}
+
+  const volume=wrap.querySelector('#nowVolume')
+  const volumeLabel=volume?.parentElement?.querySelector('b')
+  if(volume){
+    volume.oninput=event=>{
+      const value=Number(event.target.value)
+      ambientPreferences.volume=value
+      const a=mediaAudio()
+      if(a) a.volume=value
+      if(volumeLabel) volumeLabel.textContent=`${Math.round(value*100)}%`
+    }
+    volume.onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
+  }
+
+  const progress=wrap.querySelector('#nowPlayingProgress')
+  if(progress){
+    progress.oninput=event=>{
+      const a=mediaAudio()
+      if(a&&!progress.disabled&&Number.isFinite(a.duration)) a.currentTime=Number(event.target.value)
+    }
+  }
+  syncNowPlayingProgress()
 }
 
 function setPlayerStatus(message){
@@ -625,6 +757,7 @@ function updateAudioVisualScene(item,playing){
   const text=(String(item?.title||'')+' '+String(item?.category||'')).toLowerCase()
   let scene='ambient'
   if(item?.devotional) scene='devotional'
+  else if(item?.type==='music') scene='music'
   else if(item?.type==='radio') scene='radio'
   else if(/rain|storm|thunder/.test(text)) scene='rain'
   else if(/ocean|wave|sea|beach/.test(text)) scene='ocean'
@@ -651,27 +784,45 @@ function refreshMediaPlayerUI(){
   const status=document.getElementById('playerStatus')
   const play=document.getElementById('playerPlay')
   const mute=document.getElementById('playerMute')
+  const artwork=document.getElementById('playerArtwork')
+  const artButton=document.getElementById('playerNowPlaying')
 
   if(title) title.textContent=current.title||'Memora Audio'
   if(source){
-    if(current.type==='radio'){
+    if(current.type==='music'){
+      source.textContent=['Open Music',current.artist,current.genre].filter(Boolean).join(' · ')
+    }else if(current.type==='radio'){
       source.textContent=current.devotional
-        ?[`${current.traditionLabel||'Devotional'} · Live radio`,current.devotionalLanguage||current.language,current.country||current.countrycode||'Worldwide'].filter(Boolean).join(' · ')
-        :`Live radio · ${current.country||current.countrycode||'Worldwide'}`
+        ?[`${current.traditionLabel||'Devotional'} · Live`,current.devotionalLanguage||current.language,current.country||current.countrycode||'Worldwide'].filter(Boolean).join(' · ')
+        :`Live Radio · ${current.country||current.countrycode||'Worldwide'}`
     }else{
-      const attribution=[current.artist,current.license].filter(Boolean).join(' · ')
-      source.textContent=attribution?`Natural recording · ${attribution}`:`Natural recording · ${current.category||'Nature'}`
+      source.textContent=`Nature · ${current.category||'Open recording'}`
     }
   }
   if(status){
-    if(playing) status.textContent=current.type==='radio'?'Live stream playing':'Natural recording playing'
+    if(playing) status.textContent=current.type==='radio'?'LIVE':current.type==='music'?'Playing':'Playing'
     else if(!ambientPreferences.enabled||audio.muted) status.textContent='Muted'
     else status.textContent='Paused'
   }
-  if(play) play.textContent=playing?'Pause':'Play'
+  if(play) play.textContent=playing?'Ⅱ':'▶'
   if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
+
+  const artworkUrl=nowPlayingArtwork(current)
+  if(artwork){
+    if(artworkUrl){
+      artwork.src=artworkUrl
+      artwork.classList.remove('hidden')
+      artButton?.classList.add('has-image')
+    }else{
+      artwork.removeAttribute('src')
+      artwork.classList.add('hidden')
+      artButton?.classList.remove('has-image')
+    }
+  }
+
   updateAudioVisualScene(current,playing)
   updateSoundButton()
+  syncNowPlayingProgress()
 }
 
 async function loadRadioCountries(){
