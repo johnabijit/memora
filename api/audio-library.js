@@ -485,6 +485,7 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
   const target=Math.min(100,Math.max(10,limit||60))
   const q=String(query||'').trim()
   const country=String(countrycode||'').trim().toUpperCase()
+  const requestedLanguage=String(language||'').trim()
   const lang=String(language||'').trim()
   const order=random||sort==='random'?'random':sort==='quality'?'bitrate':'clickcount'
   const reverse=order==='random'?'false':'true'
