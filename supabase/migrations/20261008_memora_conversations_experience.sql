@@ -201,3 +201,35 @@ using ((select auth.uid()) = user_id);
 
 create index if not exists mood_logs_user_created_idx
 on public.mood_logs(user_id, created_at desc);
+
+
+-- Keep mood history within "delete my memory vault"
+create or replace function public.delete_all_my_memory_data()
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+
+  delete from public.ai_request_logs where user_id=uid;
+  delete from public.reminders where user_id=uid;
+  delete from public.events where user_id=uid;
+  delete from public.mood_logs where user_id=uid;
+  delete from public.thing_locations where user_id=uid;
+  delete from public.things where user_id=uid;
+  delete from public.memory_facts where user_id=uid;
+  delete from public.people where user_id=uid;
+  delete from public.places where user_id=uid;
+  delete from public.documents where user_id=uid;
+  delete from public.sources where user_id=uid;
+  delete from public.tags where user_id=uid;
+  delete from public.memories where user_id=uid;
+end;
+$$;
+
+revoke all on function public.delete_all_my_memory_data() from public, anon;
+grant execute on function public.delete_all_my_memory_data() to authenticated;
