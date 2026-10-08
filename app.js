@@ -51,7 +51,7 @@ let mediaPlayerState={
   radioHasMore:true,
   countries:[],
   languages:[],
-  audioView:localStorage.getItem('memora-audio-view')||'nature',
+  audioView:localStorage.getItem('memora-audio-view')||'music',
   devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all_faiths',
   devotionalLanguage:localStorage.getItem('memora-devotional-language')||'',
   devotionalQuery:localStorage.getItem('memora-devotional-query')||'',
@@ -1458,8 +1458,10 @@ async function openSoundscapePicker(){
           <div>
             ${[
               'English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati',
-              'Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Russian','Ukrainian','Korean',
-              'Japanese','Chinese','Tagalog','Indonesian','Malay','Swahili','Sinhala','Nepali'
+              'Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Russian','Ukrainian','Polish',
+              'Romanian','Dutch','Swedish','Norwegian','Finnish','Czech','Hungarian','Greek','Armenian','Georgian',
+              'Korean','Japanese','Chinese','Tagalog','Indonesian','Malay','Thai','Vietnamese','Swahili','Amharic',
+              'Hausa','Yoruba','Zulu','Afrikaans','Sinhala','Nepali'
             ].map(language=>`<button class="chip" data-regional-language="${esc(language)}" data-devotional="christian" data-devotional-query="">${esc(language)}</button>`).join('')}
           </div>
         </div>
@@ -1470,7 +1472,8 @@ async function openSoundscapePicker(){
             ${[
               'All languages','English','Tamil','Malayalam','Hindi','Telugu','Kannada','Punjabi','Urdu','Arabic',
               'Spanish','Portuguese','French','German','Russian','Hebrew','Persian','Turkish','Indonesian','Malay',
-              'Swahili','Sinhala','Nepali','Korean','Japanese','Chinese','Tagalog'
+              'Swahili','Amharic','Hausa','Yoruba','Zulu','Afrikaans','Sinhala','Nepali','Korean','Japanese',
+              'Chinese','Tagalog','Thai','Vietnamese','Polish','Romanian','Dutch','Swedish','Norwegian'
             ].map(language=>`<button class="chip ${(language==='All languages'&&!mediaPlayerState.devotionalLanguage)||mediaPlayerState.devotionalLanguage===language?'active':''}" data-devotional-language-quick="${language==='All languages'?'':esc(language)}">${esc(language)}</button>`).join('')}
           </div>
         </div>
@@ -4786,5 +4789,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=34').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=27').then(reg=>reg.update()).catch(()=>{})
 }
