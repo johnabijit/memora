@@ -82,6 +82,11 @@ let mediaPlayerState={
   musicQuery:localStorage.getItem('memora-music-query')||'',
   musicSort:localStorage.getItem('memora-music-sort')||'relevant',
   musicGenre:localStorage.getItem('memora-music-genre')||'',
+  musicBrowseKind:localStorage.getItem('memora-music-browse-kind')||'tracks',
+  musicCollections:[],
+  musicCollectionOffset:0,
+  musicCollectionHasMore:true,
+  activeCollection:null,
   musicOffset:0,
   musicHasMore:true
 }
