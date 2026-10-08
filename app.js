@@ -54,7 +54,12 @@ let mediaPlayerState={
   audioView:localStorage.getItem('memora-audio-view')||'nature',
   devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all_faiths',
   devotionalLanguage:localStorage.getItem('memora-devotional-language')||'',
-  devotionalQuery:localStorage.getItem('memora-devotional-query')||''
+  devotionalQuery:localStorage.getItem('memora-devotional-query')||'',
+  musicQuery:localStorage.getItem('memora-music-query')||'',
+  musicSort:localStorage.getItem('memora-music-sort')||'relevant',
+  musicGenre:localStorage.getItem('memora-music-genre')||'',
+  musicOffset:0,
+  musicHasMore:true
 }
 
 const defaultNaturalTrack={
@@ -687,10 +692,72 @@ async function loadRadioLanguages(){
   return mediaPlayerState.languages
 }
 
-async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null,tradition=null,language=null}={}){
+async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null,tradition=null,language=null,genre=null}={}){
   mediaPlayerState.loading=true
-  const safeMode=['radio','devotional'].includes(mode)?mode:'nature'
+  const safeMode=['radio','devotional','music'].includes(mode)?mode:'nature'
   const safeQuery=String(query||'').trim()
+
+  if(safeMode==='music'){
+    try{
+      const requestedSort=['relevant','popular','recent'].includes(sort)?sort:(mediaPlayerState.musicSort||'relevant')
+      const requestedGenre=genre===null?mediaPlayerState.musicGenre:String(genre||'').trim()
+      const sameSelection=mediaPlayerState.mode==='music'
+        &&mediaPlayerState.musicQuery===safeQuery
+        &&mediaPlayerState.musicSort===requestedSort
+        &&mediaPlayerState.musicGenre===requestedGenre
+      const shouldAppend=append&&sameSelection
+      const offset=shouldAppend?mediaPlayerState.musicOffset:0
+      const params=new URLSearchParams({
+        mode:safeQuery?'search':'trending',
+        q:safeQuery,
+        limit:String(Math.min(50,limit)),
+        offset:String(offset),
+        sort:requestedSort
+      })
+      if(requestedGenre) params.set('genre',requestedGenre)
+      params.set('nonce',String(Date.now()))
+
+      const response=await fetch(`/api/open-music?${params.toString()}`,{cache:'no-store'})
+      const data=await response.json()
+      if(!response.ok) throw new Error(data?.error||'Open music failed')
+
+      const incoming=Array.isArray(data.items)?data.items:[]
+      mediaPlayerState.mode='music'
+      mediaPlayerState.audioView='music'
+      mediaPlayerState.query=safeQuery
+      mediaPlayerState.musicQuery=safeQuery
+      mediaPlayerState.musicSort=requestedSort
+      mediaPlayerState.musicGenre=requestedGenre
+      mediaPlayerState.musicOffset=Number(data.nextOffset||offset+incoming.length)
+      mediaPlayerState.musicHasMore=data.hasMore!==false
+
+      if(shouldAppend){
+        const existing=new Set(mediaPlayerState.library.map(item=>item.id))
+        mediaPlayerState.library=[...mediaPlayerState.library,...incoming.filter(item=>!existing.has(item.id))]
+      }else{
+        mediaPlayerState.library=incoming
+        mediaPlayerState.index=0
+      }
+
+      localStorage.setItem('memora-player-mode','music')
+      localStorage.setItem('memora-audio-view','music')
+      localStorage.setItem('memora-player-query',safeQuery)
+      localStorage.setItem('memora-music-query',safeQuery)
+      localStorage.setItem('memora-music-sort',requestedSort)
+      localStorage.setItem('memora-music-genre',requestedGenre)
+
+      if(!preserveCurrent&&mediaPlayerState.library.length){
+        mediaPlayerState.index=0
+        await selectMediaTrack(mediaPlayerState.library[0],false)
+      }else if(preserveCurrent&&mediaPlayerState.current?.type==='music'){
+        const found=mediaPlayerState.library.findIndex(item=>item.id===mediaPlayerState.current.id)
+        if(found>=0) mediaPlayerState.index=found
+      }
+      return mediaPlayerState.library
+    }finally{
+      mediaPlayerState.loading=false
+    }
+  }
   const requestedCountry=countrycode===null?mediaPlayerState.radioCountry:String(countrycode||'').toUpperCase()
   const requestedSort=sort||mediaPlayerState.radioSort||'popular'
   const useRandom=random===null?requestedSort==='random':Boolean(random)
@@ -819,7 +886,7 @@ async function selectMediaTrack(item,autoplay=true){
   mediaPlayerState.current=item
   const found=mediaPlayerState.library.findIndex(entry=>entry.id===item.id)
   if(found>=0) mediaPlayerState.index=found
-  mediaPlayerState.mode=item.devotional?'devotional':(item.type==='radio'?'radio':'nature')
+  mediaPlayerState.mode=item.devotional?'devotional':(item.type==='radio'?'radio':item.type==='music'?'music':'nature')
   mediaPlayerState.audioView=mediaPlayerState.mode
   localStorage.setItem('memora-audio-view',mediaPlayerState.audioView)
   localStorage.setItem('memora-player-mode',mediaPlayerState.mode)
