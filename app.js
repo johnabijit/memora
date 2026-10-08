@@ -564,6 +564,44 @@ async function playForMood(mood){
   }
 }
 
+async function playMemoryMix(){
+  if(!user) return
+  const {data}=await supabase.from('memories').select('summary,original_text,memory_type,occurred_at').order('occurred_at',{ascending:false}).limit(8)
+  const text=(data||[]).map(item=>`${item.summary||''} ${item.original_text||''}`).join(' ').toLowerCase()
+  let mode='music'
+  let query='calm uplifting'
+  let tradition='all_faiths'
+
+  if(/wedding|marriage|love|anniversary|romantic/.test(text)) query='romantic acoustic'
+  else if(/travel|trip|flight|beach|holiday|vacation/.test(text)) query='world chill travel'
+  else if(/work|office|study|project|meeting|exam/.test(text)) query='focus instrumental'
+  else if(/football|cricket|basketball|gym|sport|workout/.test(text)) query='energetic workout'
+  else if(/church|christian|gospel|worship|prayer/.test(text)){mode='devotional';tradition='christian';query='worship'}
+  else if(/temple|bhajan|hindu|aarti|mantra/.test(text)){mode='devotional';tradition='hindu';query='bhajan'}
+  else if(/quran|nasheed|islam|mosque/.test(text)){mode='devotional';tradition='islamic';query='nasheed'}
+
+  mediaPlayerState.audioView=mode
+  if(mode==='devotional'){
+    mediaPlayerState.devotionalTradition=tradition
+    mediaPlayerState.devotionalQuery=query
+    const items=await loadMediaLibrary('devotional',query,100,{preserveCurrent:false,tradition,sort:'popular'})
+    if(items?.length) await selectMediaTrack(items[0],true)
+  }else{
+    const items=await loadMediaLibrary('music',query,50,{preserveCurrent:false,sort:'relevant'})
+    if(items?.length) await selectMediaTrack(items[0],true)
+  }
+  maybeApplyContextScene(text)
+}
+
+async function playWorldSurprise(){
+  mediaPlayerState.audioView='radio'
+  mediaPlayerState.radioCountry=''
+  mediaPlayerState.radioLanguage=''
+  mediaPlayerState.radioSort='random'
+  const items=await loadMediaLibrary('radio','',100,{preserveCurrent:false,random:true,countrycode:'',language:'',sort:'random'})
+  if(items?.length) await selectMediaTrack(items[0],true)
+}
+
 async function completeOnboarding(skipped=false){
   experiencePreferences.onboardingCompleted=true
   await supabase.from('user_settings').upsert({
@@ -1674,11 +1712,14 @@ async function openSoundscapePicker(){
         <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
       </div>
 
-      ${latestMood&&moodCatalog[latestMood.mood]?`
-        <div class="audio-for-you">
-          <div><span class="eyebrow">For you</span><strong>Based on your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in</strong><small>One tap starts a gentle suggestion. You can change it anytime.</small></div>
-          <button class="btn primary compact" id="audioMoodForYou">Play suggestion</button>
-        </div>`:''}
+      <div class="audio-for-you">
+        <div><span class="eyebrow">For you</span><strong>${latestMood&&moodCatalog[latestMood.mood]?`Your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in can guide the next sound.`:'Personalized without clutter.'}</strong><small>Use your mood, recent memories, or discover a random live station from anywhere in the world.</small></div>
+        <div class="audio-for-you-actions">
+          ${latestMood&&moodCatalog[latestMood.mood]?'<button class="btn primary compact" id="audioMoodForYou">For my mood</button>':''}
+          <button class="btn compact" id="audioMemoryMix">Memory Mix</button>
+          <button class="btn compact" id="audioWorldSurprise">Surprise me</button>
+        </div>
+      </div>
 
       <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
         <div class="audio-section-intro">
@@ -1857,6 +1898,18 @@ async function openSoundscapePicker(){
       button.disabled=false
       button.textContent='Try again'
     }
+  })
+  box.querySelector('#audioMemoryMix')?.addEventListener('click',async event=>{
+    const button=event.currentTarget
+    button.disabled=true
+    button.textContent='Building mix...'
+    try{await playMemoryMix();button.textContent='Playing'}catch{button.disabled=false;button.textContent='Try again'}
+  })
+  box.querySelector('#audioWorldSurprise')?.addEventListener('click',async event=>{
+    const button=event.currentTarget
+    button.disabled=true
+    button.textContent='Tuning...'
+    try{await playWorldSurprise();button.textContent='Playing'}catch{button.disabled=false;button.textContent='Try again'}
   })
 
   const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'music'
@@ -2978,6 +3031,7 @@ async function saveMemory(text,files=[],location=null){
     })
     if(context.error) throw context.error
   }
+  maybeApplyContextScene(text)
   return memory
 }
 
