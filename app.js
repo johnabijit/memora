@@ -35,6 +35,30 @@ let ambientPreferences = {
   dynamicBackground: true
 }
 
+let experiencePreferences={
+  onboardingCompleted:false,
+  moodCheckinsEnabled:true,
+  contextualScenery:true
+}
+let latestMood=null
+let sceneBackdropState={query:'',url:'',sourcePage:'',artist:'',license:'',loading:false}
+
+const moodCatalog={
+  great:{label:'Great',audio:{mode:'music',query:'uplifting happy'}},
+  happy:{label:'Happy',audio:{mode:'music',query:'feel good uplifting'}},
+  calm:{label:'Calm',audio:{mode:'nature',query:'ocean'}},
+  okay:{label:'Okay',audio:{mode:'music',query:'easy listening'}},
+  low:{label:'Low',audio:{mode:'nature',query:'gentle rain'}},
+  sad:{label:'Sad',audio:{mode:'nature',query:'forest'}},
+  stressed:{label:'Stressed',audio:{mode:'nature',query:'rain'}},
+  anxious:{label:'Anxious',audio:{mode:'nature',query:'ocean'}},
+  tired:{label:'Tired',audio:{mode:'nature',query:'night'}},
+  focused:{label:'Focused',audio:{mode:'music',query:'focus instrumental'}},
+  prayerful:{label:'Prayerful',audio:{mode:'devotional',query:'',tradition:'all_faiths'}},
+  grateful:{label:'Grateful',audio:{mode:'music',query:'peaceful uplifting'}}
+}
+
+
 let mediaPlayerState={
   mode:localStorage.getItem('memora-player-mode')||'nature',
   query:localStorage.getItem('memora-player-query')||'rain',
