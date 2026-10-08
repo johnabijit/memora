@@ -3156,6 +3156,23 @@ async function home(){
           <button class="glass stat mini-stat" data-nav="things" style="--accent:var(--c2)"><span>Things tracked</span><b>${thingCount||0}</b><small>Find objects</small></button>
           <button class="glass stat mini-stat" data-nav="documents" style="--accent:var(--c3)"><span>Files remembered</span><b>${docCount||0}</b><small>Open documents</small></button>
         </div>
+
+        <div class="mood-checkin ${experiencePreferences.moodCheckinsEnabled?'':'hidden'}">
+          <div class="mood-copy">
+            <span class="eyebrow">A small check-in</span>
+            <strong>How are you feeling today?</strong>
+            <small>${latestMood?`Last check-in: ${esc(moodCatalog[latestMood.mood]?.label||latestMood.mood)}`:'Memora can remember this gently and use it only when useful.'}</small>
+          </div>
+          <div class="mood-pills" role="group" aria-label="Mood check-in">
+            ${[
+              ['great','Great'],['calm','Calm'],['okay','Okay'],['low','Low'],['stressed','Stressed'],['tired','Tired'],['prayerful','Prayerful']
+            ].map(([id,label])=>`<button class="mood-pill" data-mood-checkin="${id}">${label}</button>`).join('')}
+          </div>
+          <div class="mood-response hidden" id="moodResponse">
+            <span id="moodResponseText"></span>
+            <button class="btn compact primary" id="moodPlayButton">Play something for me</button>
+          </div>
+        </div>
       </div>
 
       <div class="home-panel" data-home-panel="recent">
@@ -3183,6 +3200,23 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
+  document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
+    const mood=button.dataset.moodCheckin
+    document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
+    try{
+      await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
+      const response=document.getElementById('moodResponse')
+      const text=document.getElementById('moodResponseText')
+      if(text) text.textContent=`Remembered. You are feeling ${String(moodCatalog[mood]?.label||mood).toLowerCase()} today.`
+      if(response) response.classList.remove('hidden')
+      const play=document.getElementById('moodPlayButton')
+      if(play) play.onclick=async()=>{
+        play.disabled=true
+        play.textContent='Finding something...'
+        try{await playForMood(mood);play.textContent='Playing'}catch{play.disabled=false;play.textContent='Try audio'}
+      }
+    }catch(error){toast(error.message||'Could not save mood check-in')}
+  })
   document.getElementById('fileBtn').onclick=()=>go('documents')
   document.getElementById('saveMemory').onclick=async()=>{
     const input=document.getElementById('memoryInput')
