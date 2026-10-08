@@ -154,3 +154,50 @@ on public.memory_facts(source_memory_id);
 
 create index if not exists memory_facts_source_media_idx
 on public.memory_facts(source_media_id);
+
+
+-- Companion onboarding, mood memory and contextual scenery preferences
+alter table public.user_settings
+  add column if not exists onboarding_completed boolean not null default false,
+  add column if not exists onboarding_skipped_at timestamptz,
+  add column if not exists mood_checkins_enabled boolean not null default true,
+  add column if not exists contextual_scenery boolean not null default true;
+
+create table if not exists public.mood_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  mood text not null,
+  intensity smallint check (intensity is null or (intensity between 1 and 5)),
+  note text,
+  source text not null default 'chat',
+  memory_id uuid references public.memories(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.mood_logs enable row level security;
+grant select, insert, update, delete on public.mood_logs to authenticated;
+
+drop policy if exists mood_logs_select_own on public.mood_logs;
+drop policy if exists mood_logs_insert_own on public.mood_logs;
+drop policy if exists mood_logs_update_own on public.mood_logs;
+drop policy if exists mood_logs_delete_own on public.mood_logs;
+
+create policy mood_logs_select_own on public.mood_logs
+for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy mood_logs_insert_own on public.mood_logs
+for insert to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy mood_logs_update_own on public.mood_logs
+for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy mood_logs_delete_own on public.mood_logs
+for delete to authenticated
+using ((select auth.uid()) = user_id);
+
+create index if not exists mood_logs_user_created_idx
+on public.mood_logs(user_id, created_at desc);
