@@ -233,3 +233,7 @@ $$;
 
 revoke all on function public.delete_all_my_memory_data() from public, anon;
 grant execute on function public.delete_all_my_memory_data() to authenticated;
+
+
+create index if not exists mood_logs_memory_idx
+on public.mood_logs(memory_id);
