@@ -5200,7 +5200,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.09.40</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.09.41</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -5408,5 +5408,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=40').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=41').then(reg=>reg.update()).catch(()=>{})
 }
