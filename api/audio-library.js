@@ -59,6 +59,45 @@ function bestPlayable(info){
   return mp3?.src||ogg?.src||info?.url||null
 }
 
+async function hydrateCurated(){
+  const titles=CURATED.map(([,file])=>'File:'+file).join('|')
+  const params=new URLSearchParams({
+    action:'query',
+    titles,
+    prop:'imageinfo',
+    iiprop:'url|mime|extmetadata|derivatives',
+    format:'json',
+    formatversion:'2',
+    origin:'*'
+  })
+  try{
+    const response=await fetch(COMMONS_API+'?'+params.toString(),{
+      headers:{'User-Agent':'Memora/1.0 (personal memory app)'}
+    })
+    if(!response.ok) return curatedItems()
+    const data=await response.json()
+    const pages=new Map((data?.query?.pages||[]).map(page=>[String(page.title||'').replace(/^File:/,''),page]))
+    return CURATED.map(([title,file,category,license],index)=>{
+      const page=pages.get(file)
+      const info=page?.imageinfo?.[0]
+      return {
+        id:'curated-'+index,
+        type:'nature',
+        title,
+        category,
+        license:textOnly(info?.extmetadata?.LicenseShortName?.value||license),
+        artist:textOnly(info?.extmetadata?.Artist?.value||'Wikimedia Commons contributor'),
+        url:bestPlayable(info)||directFile(file),
+        sourcePage:sourcePage(file),
+        file,
+        curated:true
+      }
+    })
+  }catch{
+    return curatedItems()
+  }
+}
+
 async function commonsSearch(term,limit){
   const params=new URLSearchParams({
     action:'query',
@@ -102,9 +141,11 @@ async function commonsSearch(term,limit){
 
 async function natureLibrary(query,limit){
   const target=Math.min(100,Math.max(8,limit||60))
-  const curated=curatedItems()
   const terms=query?[query+' nature sound',query+' ambient sound'] : DEFAULT_TERMS
-  const batches=await Promise.allSettled(terms.map(term=>commonsSearch(term,Math.ceil(target/terms.length)+4)))
+  const [curated,batches]=await Promise.all([
+    hydrateCurated(),
+    Promise.allSettled(terms.map(term=>commonsSearch(term,Math.ceil(target/terms.length)+4)))
+  ])
   const seen=new Set()
   const items=[]
   for(const item of curated){
