@@ -233,6 +233,123 @@ async function radioCountries(){
     .filter(Boolean)
 }
 
+const DEVOTIONAL_LIBRARY={
+  christian:{
+    label:'Christian',
+    terms:['christian','gospel','worship','hymn','praise','jesus'],
+    description:'Christian music, worship, praise, gospel and hymns'
+  },
+  catholic:{
+    label:'Catholic',
+    terms:['catholic','rosary','mass','gregorian','marian'],
+    description:'Catholic radio, hymns, prayer and liturgical music'
+  },
+  orthodox:{
+    label:'Orthodox Christian',
+    terms:['orthodox christian','orthodox','byzantine chant'],
+    description:'Orthodox Christian radio and sacred chant'
+  },
+  islamic:{
+    label:'Islamic',
+    terms:['islamic','quran','nasheed','islam','sufi'],
+    description:'Quran, nasheed, Islamic and Sufi radio'
+  },
+  sufi:{
+    label:'Sufi and Qawwali',
+    terms:['sufi','qawwali','ghazal'],
+    description:'Sufi, qawwali and ghazal stations'
+  },
+  hindu:{
+    label:'Hindu',
+    terms:['hindu','bhajan','kirtan','mantra','devotional'],
+    description:'Bhajans, kirtan, mantra and Hindu devotional music'
+  },
+  carnatic_devotional:{
+    label:'Carnatic devotional',
+    terms:['carnatic devotional','carnatic','bhakti'],
+    description:'South Indian classical and devotional music'
+  },
+  sikh:{
+    label:'Sikh and Gurbani',
+    terms:['gurbani','sikh','kirtan'],
+    description:'Gurbani, Sikh devotional music and kirtan'
+  },
+  buddhist:{
+    label:'Buddhist',
+    terms:['buddhist','buddhism','chant','dharma'],
+    description:'Buddhist chants, teachings and meditation radio'
+  },
+  jewish:{
+    label:'Jewish',
+    terms:['jewish','judaism','hebrew','torah'],
+    description:'Jewish music, Hebrew programming and religious radio'
+  },
+  jain:{
+    label:'Jain',
+    terms:['jain','jainism','navkar'],
+    description:'Jain devotional and spiritual programming'
+  },
+  bahai:{
+    label:"Baha'i",
+    terms:['bahai',"baha'i"],
+    description:"Baha'i spiritual and community programming"
+  },
+  spiritual:{
+    label:'Spiritual and meditation',
+    terms:['spiritual','meditation','devotional','sacred'],
+    description:'Interfaith, spiritual and meditation audio'
+  },
+  ghazal:{
+    label:'Ghazal',
+    terms:['ghazal','ghazals'],
+    description:'Ghazal stations and related music'
+  }
+}
+
+async function devotionalLibrary(tradition,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
+  const key=String(tradition||'christian').toLowerCase()
+  const entry=DEVOTIONAL_LIBRARY[key]||{
+    label:key||'Devotional',
+    terms:[key||'devotional'],
+    description:'Devotional and spiritual radio'
+  }
+
+  const perTerm=Math.max(12,Math.ceil(Math.min(100,limit||60)/Math.max(1,entry.terms.length))+10)
+  const batches=await Promise.allSettled(
+    entry.terms.map(term=>radioLibrary(term,perTerm,{random,offset:0,countrycode,sort}))
+  )
+  const seen=new Set()
+  const merged=[]
+  for(const batch of batches){
+    if(batch.status!=='fulfilled') continue
+    for(const item of batch.value?.items||[]){
+      if(seen.has(item.id)) continue
+      seen.add(item.id)
+      merged.push({...item,devotional:true,tradition:key,traditionLabel:entry.label})
+    }
+  }
+
+  if(sort==='random'||random){
+    for(let i=merged.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1))
+      ;[merged[i],merged[j]]=[merged[j],merged[i]]
+    }
+  }else{
+    merged.sort((a,b)=>(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
+  }
+
+  const start=Math.max(0,Number(offset)||0)
+  const size=Math.min(100,Math.max(10,limit||60))
+  return {
+    items:merged.slice(start,start+size),
+    nextOffset:start+size,
+    hasMore:merged.length>start+size,
+    tradition:key,
+    label:entry.label,
+    description:entry.description
+  }
+}
+
 async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
   const target=Math.min(100,Math.max(10,limit||60))
   const q=String(query||'').trim()
@@ -323,6 +440,26 @@ module.exports=async function handler(req,res){
         countrycode:result.countrycode,
         offset:result.offset,
         nextOffset:result.offset+result.items.length,
+        hasMore:result.hasMore,
+        liveDirectory:true,
+        batchSize:limit
+      },'no-store')
+    }
+    if(mode==='devotional'){
+      const tradition=String(req.query?.tradition||'christian').slice(0,48).toLowerCase()
+      const result=await devotionalLibrary(tradition,limit,{random,offset,countrycode,sort})
+      return json(res,200,{
+        mode:'devotional',
+        tradition:result.tradition,
+        label:result.label,
+        description:result.description,
+        count:result.items.length,
+        items:result.items,
+        random,
+        sort,
+        countrycode,
+        offset,
+        nextOffset:result.nextOffset,
         hasMore:result.hasMore,
         liveDirectory:true,
         batchSize:limit
