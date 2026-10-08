@@ -1,5 +1,5 @@
-const CACHE = 'memora-v21'
-const ASSETS = ['./', './index.html', './styles.css?v=21', './app.js?v=21', './config.js', './manifest.webmanifest']
+const CACHE = 'memora-v22'
+const ASSETS = ['./', './index.html', './styles.css?v=22', './app.js?v=22', './config.js', './manifest.webmanifest']
 
 self.addEventListener('install', event => {
   self.skipWaiting()
