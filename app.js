@@ -1000,9 +1000,10 @@ async function openSoundscapePicker(){
     }
     return b.stationcount-a.stationcount
   })
+  const selectedAudioLanguage=currentMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
   const languageOptions=[
     '<option value="">All languages</option>',
-    ...languageRows.map(language=>`<option value="${esc(language.name)}" ${mediaPlayerState.devotionalLanguage.toLowerCase()===language.name.toLowerCase()?'selected':''}>${esc(language.name)} (${language.stationcount.toLocaleString()})</option>`)
+    ...languageRows.map(language=>`<option value="${esc(language.name)}" ${selectedAudioLanguage.toLowerCase()===language.name.toLowerCase()?'selected':''}>${esc(language.name)} (${language.stationcount.toLocaleString()})</option>`)
   ].join('')
 
   const faithGroups=[
@@ -1014,8 +1015,10 @@ async function openSoundscapePicker(){
         ['christian','worship','Worship and praise'],
         ['christian','gospel','Gospel'],
         ['christian','hymn','Hymns'],
+        ['christian_prayer','','Prayer, Bible and sermons'],
+        ['christian','christian choir','Christian choir'],
         ['catholic','','Catholic'],
-        ['catholic','gregorian','Gregorian chant'],
+        ['gregorian','','Gregorian chant'],
         ['orthodox','','Orthodox Christian'],
         ['protestant','','Protestant'],
         ['pentecostal','','Pentecostal'],
@@ -1025,6 +1028,9 @@ async function openSoundscapePicker(){
         ['christian','christian malayalam','Malayalam Christian'],
         ['christian','christian hindi','Hindi Christian'],
         ['christian','christian telugu','Telugu Christian'],
+        ['christian','christian kannada','Kannada Christian'],
+        ['christian','filipino christian','Filipino Christian'],
+        ['christian','african gospel','African Gospel'],
         ['christian','christian spanish','Spanish Christian'],
         ['christian','christian portuguese','Portuguese Christian']
       ]
@@ -1114,7 +1120,7 @@ async function openSoundscapePicker(){
           <span>Country</span>
           <select class="input" id="radioCountry">${countryOptions}</select>
         </label>
-        <label class="radio-country-field ${currentMode==='devotional'?'':'hidden'}" id="devotionalLanguageField">
+        <label class="radio-country-field ${['radio','devotional'].includes(currentMode)?'':'hidden'}" id="devotionalLanguageField">
           <span>Language</span>
           <select class="input" id="devotionalLanguage">${languageOptions}</select>
         </label>
@@ -1237,7 +1243,7 @@ async function openSoundscapePicker(){
         ?(tradition||mediaPlayerState.devotionalTradition||'all_faiths')
         :null
       const devotionalQuery=mode==='devotional'?String(query||'').trim():query
-      const devotionalLanguage=mode==='devotional'?(languageSelect?.value||''):''
+      const selectedLanguage=['radio','devotional'].includes(mode)?(languageSelect?.value||''):''
 
       await loadMediaLibrary(mode,devotionalQuery,100,{
         preserveCurrent:true,
@@ -1246,7 +1252,7 @@ async function openSoundscapePicker(){
         countrycode,
         sort,
         tradition:selectedTradition,
-        language:devotionalLanguage
+        language:selectedLanguage
       })
 
       mediaPlayerState.audioView=mode
@@ -1261,7 +1267,7 @@ async function openSoundscapePicker(){
         const pieces=[
           selectedTradition==='all_faiths'?'Across traditions':(mediaPlayerState.library[0]?.traditionLabel||selectedTradition.replaceAll('_',' ')),
           devotionalQuery||null,
-          devotionalLanguage||null,
+          selectedLanguage||null,
           countrycode||'Worldwide'
         ].filter(Boolean)
         modeHint.textContent=pieces.join(' · ')
@@ -1314,10 +1320,17 @@ async function openSoundscapePicker(){
 
   if(languageSelect){
     languageSelect.onchange=async()=>{
-      mediaPlayerState.devotionalLanguage=languageSelect.value
-      localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
-      box.querySelectorAll('[data-devotional-language]').forEach(button=>button.classList.toggle('active',button.dataset.devotionalLanguage===mediaPlayerState.devotionalLanguage))
-      if(activeMode()==='devotional') await runLoad('devotional',mediaPlayerState.devotionalQuery)
+      const mode=activeMode()
+      if(mode==='devotional'){
+        mediaPlayerState.devotionalLanguage=languageSelect.value
+        localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
+        box.querySelectorAll('[data-devotional-language]').forEach(button=>button.classList.toggle('active',button.dataset.devotionalLanguage===mediaPlayerState.devotionalLanguage))
+        await runLoad('devotional',mediaPlayerState.devotionalQuery)
+      }else if(mode==='radio'){
+        mediaPlayerState.radioLanguage=languageSelect.value
+        localStorage.setItem('memora-radio-language',mediaPlayerState.radioLanguage)
+        await runLoad('radio',search.value.trim())
+      }
     }
   }
 
@@ -1336,13 +1349,16 @@ async function openSoundscapePicker(){
     const radioLike=['radio','devotional'].includes(mode)
     worldControls.classList.toggle('hidden',!radioLike)
     devotionalPanel.classList.toggle('hidden',mode!=='devotional')
-    languageField?.classList.toggle('hidden',mode!=='devotional')
+    languageField?.classList.toggle('hidden',!radioLike)
+    if(languageSelect){
+      languageSelect.value=mode==='devotional'?mediaPlayerState.devotionalLanguage:mode==='radio'?mediaPlayerState.radioLanguage:''
+    }
     discoverMore.hidden=!radioLike
 
     modeHint.textContent=mode==='devotional'
       ?'Choose a tradition, language and country, or search a specific devotional style.'
       :mode==='radio'
-        ?'Live stations, not songs. Choose any country or keep Worldwide.'
+        ?'Live stations, not songs. Filter by country, language, genre or station name.'
         :'Real recordings streamed on demand from Wikimedia Commons.'
 
     search.placeholder=mode==='devotional'
