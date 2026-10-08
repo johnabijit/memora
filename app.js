@@ -46,7 +46,7 @@ let mediaPlayerState={
 }
 
 const defaultNaturalTrack={
-  id:'curated-rain-thunder-birds',
+  id:'curated-0',
   type:'nature',
   title:'Rain, thunder and birds',
   category:'Rain',
@@ -621,7 +621,18 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       await selectMediaTrack(mediaPlayerState.library[0],false)
     }else if(preserveCurrent&&mediaPlayerState.current){
       const found=mediaPlayerState.library.findIndex(item=>item.id===mediaPlayerState.current.id)
-      if(found>=0) mediaPlayerState.index=found
+      if(found>=0){
+        mediaPlayerState.index=found
+        const refreshed=mediaPlayerState.library[found]
+        const audio=mediaAudio()
+        const wasPlaying=audio&&!audio.paused
+        mediaPlayerState.current=refreshed
+        if(audio&&!wasPlaying){
+          audio.src=refreshed.url
+          audio.load()
+        }
+        refreshMediaPlayerUI()
+      }
     }
     return mediaPlayerState.library
   }finally{
@@ -3634,6 +3645,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.21</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
