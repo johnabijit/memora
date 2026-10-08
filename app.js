@@ -4532,10 +4532,10 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
-        <div class="eyebrow">Audio</div><h3>Nature, world radio and devotionals</h3>
-        <p class="muted">Play open nature recordings, browse live radio from around the world, or discover devotional and spiritual stations across many traditions including extensive Christian music, Gospel, worship, ghazal, bhajan, Gurbani, Quran, nasheed, Sufi, Buddhist and other spiritual programming.</p>
+        <div class="eyebrow">Audio</div><h3>Open music, world radio, devotionals and nature</h3>
+        <p class="muted">Use the compact mini player for full tracks from the Audius open catalog, live radio from around the world, devotional and spiritual stations across many traditions and languages, or open nature recordings.</p>
         <div class="setting-row"><span>Sound</span><b>${ambientPreferences.enabled?'On':'Silent'}</b></div>
-        <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='devotional'?'Devotional and spiritual':mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
+        <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='music'?'Open Music':mediaPlayerState.mode==='devotional'?'Devotional and spiritual':mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
         <div class="setting-row"><span>Volume</span><b>${Math.round(ambientPreferences.volume*100)}%</b></div>
         <div class="filter-row"><button class="btn primary" id="settingsSound">Open audio library</button><button class="btn" id="quickMute">${ambientPreferences.enabled?'Mute':'Enable audio'}</button></div>
       </section>
@@ -4562,7 +4562,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.32</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.33</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4750,5 +4750,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=32').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=33').then(reg=>reg.update()).catch(()=>{})
 }
