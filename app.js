@@ -914,29 +914,54 @@ function renderAudioLibraryResults(box){
 async function openSoundscapePicker(){
   ensureMediaPlayer()
   const currentMode=mediaPlayerState.mode||'nature'
+  let countries=[]
+  try{countries=await loadRadioCountries()}catch{}
+
+  const countryOptions=[
+    '<option value="">Worldwide</option>',
+    ...countries.map(country=>`<option value="${esc(country.code)}" ${mediaPlayerState.radioCountry===country.code?'selected':''}>${esc(country.name)} (${country.stationcount.toLocaleString()} stations)</option>`)
+  ].join('')
+
   const box=modal('Memora Audio',`
     <div class="audio-library-head">
       <div>
-        <div class="eyebrow">Natural sound and live radio</div>
-        <h3>Sound that feels alive.</h3>
-        <p class="muted">Nature audio is streamed on demand from Wikimedia Commons, not pre-downloaded into Memora. Live Radio plays real station streams. Radio loads 100 random stations per discovery batch and can keep adding fresh batches as you continue listening.</p>
+        <div class="eyebrow">Natural recordings and real live radio</div>
+        <h3>Listen around the world.</h3>
+        <p class="muted">Nature audio streams on demand from Wikimedia Commons. Live Radio connects to actual internet-radio station streams discovered through Radio Browser. The 100 number is only one discovery batch, not a total limit.</p>
       </div>
       <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute audio':'Enable audio'}</button>
     </div>
 
     <div class="audio-mode-tabs">
       <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature recordings</button>
-      <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">Live radio</button>
+      <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">World radio</button>
+    </div>
+
+    <div class="radio-world-controls ${currentMode==='radio'?'':'hidden'}" id="radioWorldControls">
+      <label class="radio-country-field">
+        <span>Country</span>
+        <select class="input" id="radioCountry">${countryOptions}</select>
+      </label>
+      <div class="radio-sort-switch" role="group" aria-label="Radio discovery mode">
+        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-radio-sort="popular">Popular / major stations</button>
+        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-radio-sort="random">Random discovery</button>
+      </div>
+      <div class="radio-country-quick">
+        ${[
+          ['','Worldwide'],['IN','India'],['US','USA'],['GB','UK'],['CA','Canada'],
+          ['AU','Australia'],['DE','Germany'],['FR','France'],['JP','Japan'],['SG','Singapore'],['AE','UAE']
+        ].map(([code,label])=>`<button class="chip" data-radio-country-quick="${code}">${label}</button>`).join('')}
+      </div>
     </div>
 
     <div class="audio-search-row">
-      <input class="input" id="audioLibrarySearch" value="${esc(mediaPlayerState.query||'')}" placeholder="${currentMode==='radio'?'Search ambient, chill, jazz, Tamil...':'Search rain, forest, night, ocean...'}">
+      <input class="input" id="audioLibrarySearch" value="${esc(mediaPlayerState.query||'')}" placeholder="${currentMode==='radio'?'Optional: station, genre or language':'Search rain, forest, night, ocean...'}">
       <button class="btn primary" id="audioLibrarySearchButton">Search</button>
     </div>
 
     <div class="audio-presets" id="audioPresets">
       ${(currentMode==='radio'
-        ?['ambient','relax','chillout','lofi','jazz','classical','sleep','meditation','Tamil','world']
+        ?['Tamil','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
         :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
       ).map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')}
     </div>
@@ -944,8 +969,8 @@ async function openSoundscapePicker(){
     <div class="audio-library-toolbar">
       <b id="audioLibraryCount">${mediaPlayerState.library.length} available</b>
       <div class="audio-library-actions">
-        <span class="muted small">Tap any item to play it immediately.</span>
-        <button class="btn compact" id="audioDiscoverMore" ${currentMode==='radio'?'':'hidden'}>Discover 100 more</button>
+        <span class="muted small" id="radioModeHint">${currentMode==='radio'?'Live stations, not songs.':'Real recordings streamed on demand.'}</span>
+        <button class="btn compact" id="audioDiscoverMore" ${currentMode==='radio'?'':'hidden'}>Load 100 more</button>
       </div>
     </div>
     <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
@@ -953,38 +978,52 @@ async function openSoundscapePicker(){
 
     <div class="audio-library-footer">
       <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-      <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly and seasonal background motion</span></label>
+      <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly, seasonal and audio-reactive background motion</span></label>
     </div>
   `)
 
-  const modeTabs=box.querySelectorAll('[data-audio-mode]')
+  const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
   const search=box.querySelector('#audioLibrarySearch')
+  const discoverMore=box.querySelector('#audioDiscoverMore')
+  const worldControls=box.querySelector('#radioWorldControls')
+  const countrySelect=box.querySelector('#radioCountry')
+  const modeHint=box.querySelector('#radioModeHint')
+
+  const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
+  const activeSort=()=>box.querySelector('[data-radio-sort].active')?.dataset.radioSort||mediaPlayerState.radioSort||'popular'
 
   const runLoad=async(mode,query,{append=false}={})=>{
     const results=box.querySelector('#audioLibraryResults')
     if(!append) results.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Loading live audio...</div>'
-    const discover=box.querySelector('#audioDiscoverMore')
-    if(discover) discover.disabled=true
+    discoverMore.disabled=true
     try{
-      await loadMediaLibrary(mode,query,100,{preserveCurrent:true,append,random:mode==='radio'})
+      const sort=activeSort()
+      const countrycode=countrySelect?.value||''
+      await loadMediaLibrary(mode,query,100,{
+        preserveCurrent:true,
+        append,
+        random:mode==='radio'&&sort==='random',
+        countrycode,
+        sort
+      })
       renderAudioLibraryResults(box)
       if(append) results.scrollTop=results.scrollHeight
+      discoverMore.textContent=mediaPlayerState.radioHasMore||sort==='random'?'Load 100 more':'No more stations'
+      discoverMore.disabled=mode!=='radio'||(!mediaPlayerState.radioHasMore&&sort!=='random')
     }catch(error){
       if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>Audio directory unavailable</strong>${esc(error.message)}</div>`
-      else toast('Could not discover another radio batch just now')
+      else toast('Could not load another station batch just now')
     }finally{
-      if(discover) discover.disabled=false
+      if(activeMode()==='radio'&&(mediaPlayerState.radioHasMore||activeSort()==='random')) discoverMore.disabled=false
     }
   }
 
   if(!mediaPlayerState.library.length) await runLoad(currentMode,mediaPlayerState.query)
   else renderAudioLibraryResults(box)
 
-  const discoverMore=box.querySelector('#audioDiscoverMore')
   discoverMore.onclick=async()=>{
-    const mode=[...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
-    if(mode!=='radio') return
-    await runLoad('radio',search.value.trim()||mediaPlayerState.query||'ambient',{append:true})
+    if(activeMode()!=='radio') return
+    await runLoad('radio',search.value.trim(),{append:true})
   }
 
   box.querySelector('#libraryMute').onclick=async()=>{
@@ -993,31 +1032,49 @@ async function openSoundscapePicker(){
     box.querySelector('#libraryMute').classList.toggle('primary',ambientPreferences.enabled)
   }
 
+  box.querySelectorAll('[data-radio-sort]').forEach(button=>button.onclick=async()=>{
+    box.querySelectorAll('[data-radio-sort]').forEach(x=>x.classList.toggle('active',x===button))
+    mediaPlayerState.radioSort=button.dataset.radioSort
+    localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
+    await runLoad('radio',search.value.trim())
+  })
+
+  countrySelect.onchange=async()=>{
+    mediaPlayerState.radioCountry=countrySelect.value
+    localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
+    await runLoad('radio',search.value.trim())
+  }
+
+  box.querySelectorAll('[data-radio-country-quick]').forEach(button=>button.onclick=async()=>{
+    const code=button.dataset.radioCountryQuick
+    countrySelect.value=code
+    countrySelect.dispatchEvent(new Event('change'))
+  })
+
   modeTabs.forEach(button=>button.onclick=async()=>{
     const mode=button.dataset.audioMode
     modeTabs.forEach(tab=>tab.classList.toggle('active',tab===button))
-    search.placeholder=mode==='radio'?'Search ambient, chill, jazz, Tamil...':'Search rain, forest, night, ocean...'
-    search.value=mode==='radio'?'ambient':'rain'
-    discoverMore.hidden=mode!=='radio'
-    const presets=mode==='radio'
-      ?['ambient','relax','chillout','lofi','jazz','classical','sleep','meditation','Tamil','world']
+    const radio=mode==='radio'
+    worldControls.classList.toggle('hidden',!radio)
+    discoverMore.hidden=!radio
+    modeHint.textContent=radio?'Live stations, not songs. Choose any country or keep Worldwide.':'Real recordings streamed on demand from Wikimedia Commons.'
+    search.placeholder=radio?'Optional: station, genre or language':'Search rain, forest, night, ocean...'
+    search.value=radio?'':'rain'
+    const presets=radio
+      ?['Tamil','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
       :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
     box.querySelector('#audioPresets').innerHTML=presets.map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')
     bindPresets()
     await runLoad(mode,search.value)
   })
 
-  box.querySelector('#audioLibrarySearchButton').onclick=()=>runLoad(
-    [...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature',
-    search.value.trim()
-  )
+  box.querySelector('#audioLibrarySearchButton').onclick=()=>runLoad(activeMode(),search.value.trim())
   search.onkeydown=e=>{if(e.key==='Enter') box.querySelector('#audioLibrarySearchButton').click()}
 
   const bindPresets=()=>{
     box.querySelectorAll('[data-audio-preset]').forEach(button=>button.onclick=async()=>{
       search.value=button.dataset.audioPreset
-      const mode=[...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
-      await runLoad(mode,button.dataset.audioPreset)
+      await runLoad(activeMode(),button.dataset.audioPreset)
     })
   }
   bindPresets()
