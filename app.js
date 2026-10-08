@@ -704,7 +704,12 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       params.set('offset',String(offset))
       params.set('nonce',String(Date.now()))
       if(requestedLanguage) params.set('language',requestedLanguage)
-      if(safeMode==='devotional') params.set('tradition',requestedTradition)
+      if(safeMode==='devotional'){
+        params.set('tradition',requestedTradition)
+        if(requestedLanguage) params.set('language',requestedLanguage)
+      }else if(requestedLanguage){
+        params.set('language',requestedLanguage)
+      }
     }
 
     const response=await fetch(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
@@ -4198,7 +4203,7 @@ async function settings(){
         <div class="eyebrow">Audio</div><h3>Nature, world radio and devotionals</h3>
         <p class="muted">Play open nature recordings, browse live radio from around the world, or discover devotional and spiritual stations across many traditions including extensive Christian music, Gospel, worship, ghazal, bhajan, Gurbani, Quran, nasheed, Sufi, Buddhist and other spiritual programming.</p>
         <div class="setting-row"><span>Sound</span><b>${ambientPreferences.enabled?'On':'Silent'}</b></div>
-        <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
+        <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='devotional'?'Devotional and spiritual':mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
         <div class="setting-row"><span>Volume</span><b>${Math.round(ambientPreferences.volume*100)}%</b></div>
         <div class="filter-row"><button class="btn primary" id="settingsSound">Open audio library</button><button class="btn" id="quickMute">${ambientPreferences.enabled?'Mute':'Enable audio'}</button></div>
       </section>
