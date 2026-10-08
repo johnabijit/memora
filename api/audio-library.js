@@ -266,22 +266,22 @@ const DEVOTIONAL_LIBRARY={
   },
   christian:{
     label:'Christian',
-    terms:['christian','gospel','worship','praise','hymn','jesus','christian contemporary','christian music'],
+    terms:['christian','gospel','worship','praise','hymn','jesus','christian contemporary','christian music','ccm','christian radio','christian songs','christian worship music','christian praise'],
     description:'Christian music, contemporary worship, praise, gospel, hymns and teaching'
   },
   catholic:{
     label:'Catholic',
-    terms:['catholic','catholic radio','rosary','mass','gregorian','marian','eucharist'],
+    terms:['catholic','catholic radio','rosary','mass','gregorian','gregorian chant','marian','eucharist','catholic music','catholic hymns'],
     description:'Catholic radio, hymns, prayer, rosary, Mass and liturgical music'
   },
   orthodox:{
     label:'Orthodox Christian',
-    terms:['orthodox christian','orthodox','byzantine chant','orthodox chant'],
+    terms:['orthodox christian','orthodox','byzantine chant','orthodox chant','orthodox hymns','eastern christian'],
     description:'Orthodox Christian radio and sacred chant'
   },
   protestant:{
     label:'Protestant',
-    terms:['protestant','evangelical','christian worship','christian teaching'],
+    terms:['protestant','evangelical','christian worship','christian teaching','baptist','methodist','lutheran','anglican','reformed christian'],
     description:'Protestant, evangelical, worship and Christian teaching stations'
   },
   pentecostal:{
@@ -296,7 +296,7 @@ const DEVOTIONAL_LIBRARY={
   },
   islamic:{
     label:'Islamic',
-    terms:['islamic','quran','nasheed','islam','islamic radio'],
+    terms:['islamic','quran','quran recitation','nasheed','islam','islamic radio','islamic devotional'],
     description:'Quran, nasheed and Islamic religious radio'
   },
   sufi:{
@@ -311,7 +311,7 @@ const DEVOTIONAL_LIBRARY={
   },
   hindu:{
     label:'Hindu',
-    terms:['hindu','bhajan','kirtan','mantra','bhakti','hindu devotional'],
+    terms:['hindu','bhajan','kirtan','mantra','bhakti','hindu devotional','devotional songs','temple music','aarti'],
     description:'Bhajan, kirtan, mantra, bhakti and Hindu devotional music'
   },
   carnatic_devotional:{
@@ -321,7 +321,7 @@ const DEVOTIONAL_LIBRARY={
   },
   sikh:{
     label:'Sikh and Gurbani',
-    terms:['gurbani','sikh','sikh radio','gurbani kirtan','shabad'],
+    terms:['gurbani','sikh','sikh radio','gurbani kirtan','shabad','shabad kirtan','gurdwara'],
     description:'Gurbani, shabad and Sikh devotional kirtan'
   },
   buddhist:{
@@ -542,6 +542,7 @@ module.exports=async function handler(req,res){
   const random=String(req.query?.random??'0')==='1'
   const offset=Math.max(0,Number(req.query?.offset)||0)
   const countrycode=String(req.query?.countrycode||'').slice(0,2).toUpperCase()
+  const language=String(req.query?.language||'').slice(0,64).trim()
   const requestedSort=String(req.query?.sort||'popular').toLowerCase()
   const sort=['popular','random','quality'].includes(requestedSort)?requestedSort:'popular'
   try{
@@ -554,7 +555,7 @@ module.exports=async function handler(req,res){
       return json(res,200,{mode:'languages',count:languages.length,languages},'public, s-maxage=21600, stale-while-revalidate=86400')
     }
     if(mode==='radio'){
-      const result=await radioLibrary(query,limit,{random,offset,countrycode,sort})
+      const result=await radioLibrary(query,limit,{random,offset,countrycode,sort,language})
       return json(res,200,{
         mode:'radio',
         query,
@@ -572,7 +573,7 @@ module.exports=async function handler(req,res){
     }
     if(mode==='devotional'){
       const tradition=String(req.query?.tradition||'christian').slice(0,48).toLowerCase()
-      const result=await devotionalLibrary(tradition,query,limit,{random,offset,countrycode,sort})
+      const result=await devotionalLibrary(tradition,query,limit,{random,offset,countrycode,sort,language})
       return json(res,200,{
         mode:'devotional',
         tradition:result.tradition,
@@ -585,6 +586,7 @@ module.exports=async function handler(req,res){
         random,
         sort,
         countrycode,
+        language,
         offset,
         nextOffset:result.nextOffset,
         hasMore:result.hasMore,
