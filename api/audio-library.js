@@ -294,6 +294,16 @@ const DEVOTIONAL_LIBRARY={
     terms:['adventist','seventh day adventist','sda christian'],
     description:'Adventist Christian music, teaching and worship'
   },
+  christian_prayer:{
+    label:'Christian prayer and teaching',
+    terms:['christian prayer','bible radio','christian sermon','scripture','christian teaching','prayer radio','bible teaching'],
+    description:'Christian prayer, Bible readings, sermons, scripture and teaching'
+  },
+  gregorian:{
+    label:'Gregorian chant',
+    terms:['gregorian chant','gregorian','latin chant','catholic chant','sacred chant'],
+    description:'Gregorian, Latin and Catholic sacred chant'
+  },
   islamic:{
     label:'Islamic',
     terms:['islamic','quran','quran recitation','nasheed','islam','islamic radio','islamic devotional'],
