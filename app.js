@@ -4177,7 +4177,8 @@ async function ask({reload=true}={}){
         </div>
 
         <div class="glass ask-box">
-          <input class="input" id="askInput" autocomplete="off" placeholder="Ask Memora anything about your memories">
+          <input class="input" id="askInput" autocomplete="off" placeholder="Talk to Memora or ask anything">
+          <button class="btn voice-btn" id="askVoice" aria-label="Speak to Memora">Mic</button>
           <button class="btn primary" id="askButton">Ask</button>
         </div>
       </div>
@@ -4304,6 +4305,29 @@ async function ask({reload=true}={}){
 
   document.getElementById('askButton').onclick=submit
   document.getElementById('askInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}}
+  document.getElementById('askVoice').onclick=()=>{
+    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition
+    if(!Recognition) return toast('Voice dictation is not supported by this browser yet')
+    const recognition=new Recognition()
+    recognition.lang=navigator.language||'en-US'
+    recognition.interimResults=true
+    recognition.continuous=false
+    const voiceButton=document.getElementById('askVoice')
+    const input=document.getElementById('askInput')
+    voiceButton.classList.add('listening')
+    voiceButton.textContent='Listening'
+    recognition.onresult=event=>{
+      const transcript=[...event.results].map(result=>result[0]?.transcript||'').join(' ').trim()
+      if(transcript) input.value=transcript
+    }
+    recognition.onerror=()=>toast('I could not hear that clearly')
+    recognition.onend=()=>{
+      voiceButton.classList.remove('listening')
+      voiceButton.textContent='Mic'
+      input.focus()
+    }
+    recognition.start()
+  }
   document.querySelectorAll('[data-ask-suggestion]').forEach(button=>button.onclick=()=>{
     document.getElementById('askInput').value=button.dataset.askSuggestion
     submit()
