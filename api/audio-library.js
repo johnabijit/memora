@@ -1,5 +1,6 @@
 const COMMONS_API='https://commons.wikimedia.org/w/api.php'
-const RADIO_API='https://de1.api.radio-browser.info/json/stations/search'
+const RADIO_ROOT='https://de1.api.radio-browser.info'
+const RADIO_API=RADIO_ROOT+'/json/stations/search'
 
 const CURATED=[
   ['Rain, thunder and birds','Rainthunderandbirds.ogg','Rain','Public domain'],
@@ -167,17 +168,7 @@ async function natureLibrary(query,limit){
   return items
 }
 
-async function radioLibrary(query,limit,{random=true,offset=0}={}){
-  const target=Math.min(100,Math.max(10,limit||60))
-  const q=(query||'ambient').trim()
-  const params=new URLSearchParams({
-    tag:q,
-    hidebroken:'true',
-    order:random?'random':'clickcount',
-    reverse:random?'false':'true',
-    offset:String(Math.max(0,Number(offset)||0)),
-    limit:String(target*2)
-  })
+async function fetchRadioRows(params){
   const response=await fetch(RADIO_API+'?'+params.toString(),{
     headers:{
       'User-Agent':'Memora/1.0 (personal memory app)',
@@ -185,34 +176,125 @@ async function radioLibrary(query,limit,{random=true,offset=0}={}){
     }
   })
   if(!response.ok) throw new Error('Radio Browser '+response.status)
+  return await response.json()
+}
+
+function radioItem(row,category=''){
+  const url=String(row.url_resolved||row.url||'')
+  if(!url.startsWith('https://')) return null
+  if(Number(row.lastcheckok)===0) return null
+  const id=String(row.stationuuid||url)
+  return {
+    id:'radio-'+id,
+    type:'radio',
+    title:String(row.name||'Internet radio').trim(),
+    category,
+    country:String(row.country||'').trim(),
+    countrycode:String(row.countrycode||'').trim().toUpperCase(),
+    state:String(row.state||'').trim(),
+    language:String(row.language||'').trim(),
+    tags:String(row.tags||'').split(',').filter(Boolean).slice(0,8),
+    bitrate:Number(row.bitrate||0),
+    codec:String(row.codec||'').trim(),
+    votes:Number(row.votes||0),
+    clickcount:Number(row.clickcount||0),
+    url,
+    homepage:String(row.homepage||'').trim(),
+    favicon:String(row.favicon||'').trim(),
+    stationuuid:String(row.stationuuid||'')
+  }
+}
+
+async function radioCountries(){
+  const params=new URLSearchParams({
+    hidebroken:'true',
+    order:'stationcount',
+    reverse:'true',
+    limit:'400'
+  })
+  const response=await fetch(RADIO_ROOT+'/json/countrycodes?'+params.toString(),{
+    headers:{
+      'User-Agent':'Memora/1.0 (personal memory app)',
+      'Accept':'application/json'
+    }
+  })
+  if(!response.ok) throw new Error('Radio Browser '+response.status)
   const rows=await response.json()
+  let names=null
+  try{names=new Intl.DisplayNames(['en'],{type:'region'})}catch{}
+  return (rows||[])
+    .map(row=>{
+      const code=String(row.name||'').trim().toUpperCase()
+      if(!/^[A-Z]{2}$/.test(code)) return null
+      let name=code
+      try{name=names?.of(code)||code}catch{}
+      return {code,name,stationcount:Number(row.stationcount||0)}
+    })
+    .filter(Boolean)
+}
+
+async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
+  const target=Math.min(100,Math.max(10,limit||60))
+  const q=String(query||'').trim()
+  const country=String(countrycode||'').trim().toUpperCase()
+  const order=random||sort==='random'?'random':'clickcount'
+  const reverse=order==='random'?'false':'true'
+  const base={
+    hidebroken:'true',
+    order,
+    reverse,
+    offset:String(Math.max(0,Number(offset)||0)),
+    limit:String(Math.min(300,target*3))
+  }
+
+  const buildParams=extra=>{
+    const params=new URLSearchParams(base)
+    if(country) params.set('countrycode',country)
+    for(const [key,value] of Object.entries(extra||{})){
+      if(value) params.set(key,String(value))
+    }
+    return params
+  }
+
+  let batches=[]
+  if(q){
+    batches=await Promise.allSettled([
+      fetchRadioRows(buildParams({name:q})),
+      fetchRadioRows(buildParams({tag:q})),
+      fetchRadioRows(buildParams({language:q}))
+    ])
+  }else{
+    batches=[{status:'fulfilled',value:await fetchRadioRows(buildParams())}]
+  }
+
   const items=[]
   const seen=new Set()
-  for(const row of rows||[]){
-    const url=String(row.url_resolved||row.url||'')
-    if(!url.startsWith('https://')) continue
-    if(Number(row.lastcheckok)===0) continue
-    const id=String(row.stationuuid||url)
-    if(seen.has(id)) continue
-    seen.add(id)
-    items.push({
-      id:'radio-'+id,
-      type:'radio',
-      title:String(row.name||'Internet radio').trim(),
-      category:q,
-      country:String(row.country||'').trim(),
-      language:String(row.language||'').trim(),
-      tags:String(row.tags||'').split(',').filter(Boolean).slice(0,6),
-      bitrate:Number(row.bitrate||0),
-      codec:String(row.codec||'').trim(),
-      url,
-      homepage:String(row.homepage||'').trim(),
-      favicon:String(row.favicon||'').trim(),
-      stationuuid:String(row.stationuuid||'')
-    })
-    if(items.length>=target) break
+  for(const batch of batches){
+    if(batch.status!=='fulfilled') continue
+    for(const row of batch.value||[]){
+      const item=radioItem(row,q)
+      if(!item||seen.has(item.id)) continue
+      seen.add(item.id)
+      items.push(item)
+    }
   }
-  return items
+
+  if(order!=='random'){
+    items.sort((a,b)=>(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
+  }else{
+    for(let i=items.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1))
+      ;[items[i],items[j]]=[items[j],items[i]]
+    }
+  }
+
+  return {
+    items:items.slice(0,target),
+    hasMore:items.length>=target,
+    countrycode:country,
+    sort:order==='random'?'random':'popular',
+    offset:Math.max(0,Number(offset)||0)
+  }
 }
 
 module.exports=async function handler(req,res){
@@ -220,18 +302,28 @@ module.exports=async function handler(req,res){
   const mode=String(req.query?.mode||'nature').toLowerCase()
   const query=String(req.query?.q||'').slice(0,80).trim()
   const limit=Math.min(100,Math.max(8,Number(req.query?.limit)||60))
-  const random=String(req.query?.random??'1')!=='0'
+  const random=String(req.query?.random??'0')==='1'
   const offset=Math.max(0,Number(req.query?.offset)||0)
+  const countrycode=String(req.query?.countrycode||'').slice(0,2).toUpperCase()
+  const sort=String(req.query?.sort||'popular').toLowerCase()==='random'?'random':'popular'
   try{
+    if(mode==='countries'){
+      const countries=await radioCountries()
+      return json(res,200,{mode:'countries',count:countries.length,countries},'public, s-maxage=21600, stale-while-revalidate=86400')
+    }
     if(mode==='radio'){
-      const items=await radioLibrary(query,limit,{random,offset})
+      const result=await radioLibrary(query,limit,{random,offset,countrycode,sort})
       return json(res,200,{
         mode:'radio',
-        query:query||'ambient',
-        count:items.length,
-        items,
-        random,
-        offset,
+        query,
+        count:result.items.length,
+        items:result.items,
+        random:result.sort==='random',
+        sort:result.sort,
+        countrycode:result.countrycode,
+        offset:result.offset,
+        nextOffset:result.offset+result.items.length,
+        hasMore:result.hasMore,
         liveDirectory:true,
         batchSize:limit
       },'no-store')
