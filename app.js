@@ -408,13 +408,20 @@ function updateVisualScene(){
 
 async function loadExperiencePreferences(){
   if(!user) return ambientPreferences
-  const {data}=await supabase.from('user_settings').select('ambient_enabled,ambient_scene,ambient_volume,dynamic_background,reduce_motion').maybeSingle()
+  const {data}=await supabase.from('user_settings')
+    .select('ambient_enabled,ambient_scene,ambient_volume,dynamic_background,reduce_motion,onboarding_completed,mood_checkins_enabled,contextual_scenery')
+    .maybeSingle()
   if(data){
     ambientPreferences={
       enabled:data.ambient_enabled!==false,
       scene:data.ambient_scene||'auto',
       volume:Number(data.ambient_volume??0.24),
       dynamicBackground:data.dynamic_background!==false
+    }
+    experiencePreferences={
+      onboardingCompleted:data.onboarding_completed===true,
+      moodCheckinsEnabled:data.mood_checkins_enabled!==false,
+      contextualScenery:data.contextual_scenery!==false
     }
     document.documentElement.dataset.reduceMotion=data.reduce_motion?'on':'off'
   }else{
@@ -423,9 +430,14 @@ async function loadExperiencePreferences(){
       ambient_enabled:true,
       ambient_scene:'auto',
       ambient_volume:0.24,
-      dynamic_background:true
+      dynamic_background:true,
+      onboarding_completed:false,
+      mood_checkins_enabled:true,
+      contextual_scenery:true
     })
   }
+  const {data:moodRows}=await supabase.from('mood_logs').select('mood,intensity,note,created_at').order('created_at',{ascending:false}).limit(1)
+  latestMood=moodRows?.[0]||null
   updateVisualScene()
   updateSoundButton()
   return ambientPreferences
@@ -442,6 +454,9 @@ async function saveExperiencePreferences(patch){
       ambient_scene:ambientPreferences.scene,
       ambient_volume:ambientPreferences.volume,
       dynamic_background:ambientPreferences.dynamicBackground,
+      mood_checkins_enabled:experiencePreferences.moodCheckinsEnabled,
+      contextual_scenery:experiencePreferences.contextualScenery,
+      onboarding_completed:experiencePreferences.onboardingCompleted,
       updated_at:new Date().toISOString()
     })
   }
