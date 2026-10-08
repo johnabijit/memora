@@ -1215,7 +1215,7 @@ async function openSoundscapePicker(){
 
     <div class="audio-presets" id="audioPresets">
       ${(currentMode==='radio'
-        ?['Tamil','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
+        ?['FM','Tamil','Malayalam','Hindi','Arabic','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
         :currentMode==='devotional'
           ?['Christian','Worship','Gospel','Catholic','Hymn','Quran','Nasheed','Sufi','Qawwali','Bhajan','Gurbani','Ghazal']
           :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
@@ -1392,7 +1392,7 @@ async function openSoundscapePicker(){
     modeHint.textContent=mode==='devotional'
       ?'Choose a tradition, language and country, or search a specific devotional style.'
       :mode==='radio'
-        ?'Live stations, not songs. Filter by country, language, genre or station name.'
+        ?'Real live station streams. Popular mode surfaces major stations in the selected country, while FM search finds stations indexed with FM in their name or tags.'
         :'Real recordings streamed on demand from Wikimedia Commons.'
 
     search.placeholder=mode==='devotional'
@@ -1668,6 +1668,10 @@ async function authScreen(mode='login'){
       </div>
       <p id="authMsg" class="muted"></p>
       <p class="small muted">Only providers that are enabled in Supabase can redirect. Disabled providers now stay inside Memora and show setup guidance.</p>
+      <div class="auth-public-footer">
+        <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
+        <a href="mailto:johnabijit@gmail.com?subject=Memora%20support">Contact & feedback</a>
+      </div>
     </div>
   </div>`
 
@@ -4334,7 +4338,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.31</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.32</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4509,5 +4513,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=31').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=32').then(reg=>reg.update()).catch(()=>{})
 }
