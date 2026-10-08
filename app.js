@@ -43,7 +43,12 @@ let mediaPlayerState={
   index:0,
   loading:false,
   unlocked:false,
-  radioBatches:0
+  radioBatches:0,
+  radioCountry:localStorage.getItem('memora-radio-country')||'',
+  radioSort:localStorage.getItem('memora-radio-sort')||'popular',
+  radioOffset:0,
+  radioHasMore:true,
+  countries:[]
 }
 
 const defaultNaturalTrack={
@@ -133,6 +138,20 @@ function looksLikeSecret(value){
 
 const when = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Unknown date'
 const shortDate = value => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)) : 'Unknown'
+
+function removeStrayEscapedNewline(){
+  const clean=root=>{
+    if(!root) return
+    for(const node of [...root.childNodes]){
+      if(node.nodeType===Node.TEXT_NODE){
+        const value=String(node.textContent||'').trim()
+        if(value==='\\n'||value==='/n') node.remove()
+      }
+    }
+  }
+  clean(document.body)
+  clean(document.getElementById('app'))
+}
 
 const typeLabel = type => ({
   note:'Moment',object:'Object',activity:'Activity',event:'Event',person:'Person',place:'Place',
@@ -602,7 +621,7 @@ function refreshMediaPlayerUI(){
   if(title) title.textContent=current.title||'Memora Audio'
   if(source){
     if(current.type==='radio'){
-      source.textContent=`Live radio · ${current.country||current.category||'Worldwide'}`
+      source.textContent=`Live radio · ${current.country||current.countrycode||'Worldwide'}`
     }else{
       const attribution=[current.artist,current.license].filter(Boolean).join(' · ')
       source.textContent=attribution?`Natural recording · ${attribution}`:`Natural recording · ${current.category||'Nature'}`
@@ -619,13 +638,29 @@ function refreshMediaPlayerUI(){
   updateSoundButton()
 }
 
-async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=true}={}){
+async function loadRadioCountries(){
+  if(mediaPlayerState.countries.length) return mediaPlayerState.countries
+  const response=await fetch('/api/audio-library?mode=countries',{cache:'no-store'})
+  const data=await response.json()
+  if(!response.ok) throw new Error(data?.error||'Country list failed')
+  mediaPlayerState.countries=Array.isArray(data.countries)?data.countries:[]
+  return mediaPlayerState.countries
+}
+
+async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null}={}){
   mediaPlayerState.loading=true
   const safeMode=mode==='radio'?'radio':'nature'
   const safeQuery=String(query||'').trim()
+  const requestedCountry=countrycode===null?mediaPlayerState.radioCountry:String(countrycode||'').toUpperCase()
+  const requestedSort=sort||mediaPlayerState.radioSort||'popular'
+  const useRandom=random===null?requestedSort==='random':Boolean(random)
   const previousMode=mediaPlayerState.mode
   const previousQuery=mediaPlayerState.query
-  const shouldAppend=append&&safeMode==='radio'&&previousMode==='radio'&&previousQuery===safeQuery
+  const previousCountry=mediaPlayerState.radioCountry
+  const previousSort=mediaPlayerState.radioSort
+  const sameRadioSelection=previousMode==='radio'&&previousQuery===safeQuery&&previousCountry===requestedCountry&&previousSort===requestedSort
+  const shouldAppend=append&&safeMode==='radio'&&sameRadioSelection
+
   try{
     const params=new URLSearchParams({
       mode:safeMode,
@@ -633,16 +668,28 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       limit:String(Math.min(100,limit))
     })
     if(safeMode==='radio'){
-      params.set('random',random?'1':'0')
+      const offset=shouldAppend&&requestedSort!=='random'?mediaPlayerState.radioOffset:0
+      params.set('countrycode',requestedCountry)
+      params.set('sort',requestedSort)
+      params.set('random',useRandom?'1':'0')
+      params.set('offset',String(offset))
       params.set('nonce',String(Date.now()))
     }
+
     const response=await fetch(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
     const data=await response.json()
     if(!response.ok) throw new Error(data?.error||'Audio library failed')
 
     mediaPlayerState.mode=safeMode
-    mediaPlayerState.query=safeQuery||(safeMode==='radio'?'ambient':'')
+    mediaPlayerState.query=safeQuery
     const incoming=Array.isArray(data.items)?data.items:[]
+
+    if(safeMode==='radio'){
+      mediaPlayerState.radioCountry=requestedCountry
+      mediaPlayerState.radioSort=requestedSort
+      localStorage.setItem('memora-radio-country',requestedCountry)
+      localStorage.setItem('memora-radio-sort',requestedSort)
+    }
 
     if(shouldAppend){
       const existingIds=new Set(mediaPlayerState.library.map(item=>item.id))
@@ -653,6 +700,14 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       mediaPlayerState.library=incoming
       mediaPlayerState.index=0
       mediaPlayerState.radioBatches=safeMode==='radio'&&incoming.length?1:0
+    }
+
+    if(safeMode==='radio'){
+      mediaPlayerState.radioOffset=Number(data.nextOffset||mediaPlayerState.library.length||0)
+      mediaPlayerState.radioHasMore=data.hasMore!==false
+    }else{
+      mediaPlayerState.radioOffset=0
+      mediaPlayerState.radioHasMore=true
     }
 
     localStorage.setItem('memora-player-mode',safeMode)
@@ -769,10 +824,12 @@ async function nextMediaTrack(autoplay=true){
     if(nearEnd&&!mediaPlayerState.loading){
       const before=mediaPlayerState.library.length
       try{
-        await loadMediaLibrary('radio',mediaPlayerState.query||'ambient',100,{
+        await loadMediaLibrary('radio',mediaPlayerState.query,100,{
           preserveCurrent:true,
           append:true,
-          random:true
+          random:mediaPlayerState.radioSort==='random',
+          countrycode:mediaPlayerState.radioCountry,
+          sort:mediaPlayerState.radioSort
         })
       }catch{}
       if(mediaPlayerState.library.length===before&&mediaPlayerState.library.length>1){
@@ -3851,6 +3908,7 @@ async function settings(){
 }
 
 async function bootstrapSignedIn(){
+  removeStrayEscapedNewline()
   await loadExperiencePreferences()
   stopAmbient()
   ensureMediaPlayer()
@@ -3870,7 +3928,11 @@ async function bootstrapSignedIn(){
   else await initializeNavigation()
 }
 
+removeStrayEscapedNewline()
 setupAtmosphere()
+
+const strayTextObserver=new MutationObserver(()=>removeStrayEscapedNewline())
+strayTextObserver.observe(document.body,{childList:true,subtree:false})
 
 const session=await supabase.auth.getSession()
 user=session.data.session?.user||null
