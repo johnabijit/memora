@@ -1526,6 +1526,97 @@ async function setAmbientEnabled(enabled){
   refreshMediaPlayerUI()
 }
 
+async function loadMusicCollections(query='',{append=false}={}){
+  const safeQuery=String(query||'').trim()
+  const sameQuery=mediaPlayerState.musicQuery===safeQuery
+  const offset=append&&sameQuery?mediaPlayerState.musicCollectionOffset:0
+  const params=new URLSearchParams({
+    mode:'collections',
+    q:safeQuery,
+    limit:'30',
+    offset:String(offset),
+    nonce:String(Date.now())
+  })
+  const response=await fetch(`/api/open-music?${params.toString()}`,{cache:'no-store'})
+  const data=await response.json()
+  if(!response.ok) throw new Error(data?.error||'Albums and playlists are temporarily unavailable')
+  const incoming=Array.isArray(data.items)?data.items:[]
+  if(append&&sameQuery){
+    const seen=new Set(mediaPlayerState.musicCollections.map(item=>item.id))
+    mediaPlayerState.musicCollections=[...mediaPlayerState.musicCollections,...incoming.filter(item=>!seen.has(item.id))]
+  }else{
+    mediaPlayerState.musicCollections=incoming
+  }
+  mediaPlayerState.musicQuery=safeQuery
+  mediaPlayerState.musicCollectionOffset=Number(data.nextOffset||mediaPlayerState.musicCollections.length)
+  mediaPlayerState.musicCollectionHasMore=data.hasMore!==false
+  mediaPlayerState.activeCollection=null
+  return mediaPlayerState.musicCollections
+}
+
+function musicCollectionCard(item,index){
+  const artwork=item.artwork
+    ?`<span class="collection-art"><img src="${esc(item.artwork)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`
+    :'<span class="collection-art fallback"></span>'
+  return `
+    <button class="music-collection-card" data-collection-index="${index}">
+      ${artwork}
+      <span class="collection-copy">
+        <small>${esc(item.kind==='album'?'Album':'Playlist')}</small>
+        <b>${esc(item.title||'Untitled collection')}</b>
+        <span>${esc(item.artist||'Audius creator')}${item.trackCount?` · ${item.trackCount} tracks`:''}</span>
+      </span>
+      <span class="collection-arrow">›</span>
+    </button>
+  `
+}
+
+function renderMusicCollections(box){
+  const target=box.querySelector('#audioLibraryResults')
+  const count=box.querySelector('#audioLibraryCount')
+  const note=box.querySelector('#audioSourceNote')
+  if(!target) return
+  if(count) count.textContent=`${mediaPlayerState.musicCollections.length} albums and playlists loaded`
+  target.innerHTML=mediaPlayerState.musicCollections.length
+    ?`<div class="music-collection-grid">${mediaPlayerState.musicCollections.map(musicCollectionCard).join('')}</div>`
+    :'<div class="empty compact-empty"><strong>No collections found</strong>Try another artist, album or playlist search.</div>'
+  if(note) note.innerHTML='Albums and playlists are discovered from the open <a href="https://audius.co" target="_blank" rel="noopener">Audius</a> catalog.'
+  target.querySelectorAll('[data-collection-index]').forEach(button=>button.onclick=async()=>{
+    const item=mediaPlayerState.musicCollections[Number(button.dataset.collectionIndex)]
+    if(!item) return
+    await openMusicCollection(item,box)
+  })
+}
+
+async function openMusicCollection(collection,box){
+  const target=box.querySelector('#audioLibraryResults')
+  const count=box.querySelector('#audioLibraryCount')
+  if(!target) return
+  target.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Opening collection...</div>'
+  const response=await fetch(`/api/open-music?mode=collection_tracks&id=${encodeURIComponent(collection.collectionId)}&limit=100`,{cache:'no-store'})
+  const data=await response.json()
+  if(!response.ok) throw new Error(data?.error||'Could not open this collection')
+  mediaPlayerState.activeCollection=collection
+  mediaPlayerState.library=Array.isArray(data.items)?data.items:[]
+  mediaPlayerState.mode='music'
+  mediaPlayerState.audioView='music'
+  if(count) count.textContent=`${mediaPlayerState.library.length} tracks · ${collection.title}`
+  target.innerHTML=`
+    <div class="collection-open-head">
+      <button class="btn compact" id="collectionBack">‹ Albums & playlists</button>
+      <div><small>${esc(collection.kind==='album'?'Album':'Playlist')} · ${esc(collection.artist||'Audius')}</small><strong>${esc(collection.title)}</strong></div>
+      ${collection.sourcePage?`<a class="btn compact" href="${esc(collection.sourcePage)}" target="_blank" rel="noopener">Audius</a>`:''}
+    </div>
+    ${mediaPlayerState.library.length?mediaPlayerState.library.map(audioLibraryCard).join(''):'<div class="empty compact-empty"><strong>No playable tracks</strong>This collection does not currently expose playable tracks.</div>'}
+  `
+  target.querySelector('#collectionBack').onclick=()=>renderMusicCollections(box)
+  target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
+    const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
+    await selectMediaTrack(item,true)
+    openMusicCollection(collection,box).catch(()=>{})
+  })
+}
+
 function audioLibraryCard(item,index){
   const meta=item.type==='radio'
     ?[item.devotional?item.traditionLabel:null,item.devotionalLanguage||item.language,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
