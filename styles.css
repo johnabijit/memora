@@ -686,7 +686,7 @@ html[data-audio-playing="true"][data-audio-scene="radio"] .scene-layer:before{
 
 
 /* Devotional and spiritual audio v26 */
-.audio-mode-tabs.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.audio-mode-tabs.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .devotional-panel{
   display:grid;
   gap:12px;
