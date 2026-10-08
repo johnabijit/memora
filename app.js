@@ -593,7 +593,8 @@ function setPlayerStatus(message){
 function updateAudioVisualScene(item,playing){
   const text=(String(item?.title||'')+' '+String(item?.category||'')).toLowerCase()
   let scene='ambient'
-  if(item?.type==='radio') scene='radio'
+  if(item?.devotional) scene='devotional'
+  else if(item?.type==='radio') scene='radio'
   else if(/rain|storm|thunder/.test(text)) scene='rain'
   else if(/ocean|wave|sea|beach/.test(text)) scene='ocean'
   else if(/forest|bird|rainforest|wood/.test(text)) scene='forest'
@@ -890,7 +891,7 @@ async function setAmbientEnabled(enabled){
 
 function audioLibraryCard(item,index){
   const meta=item.type==='radio'
-    ?[item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
+    ?[item.devotional?item.traditionLabel:null,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
     :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
   return `
     <button class="audio-library-card ${mediaPlayerState.current?.id===item.id?'selected':''}" data-audio-index="${index}">
@@ -1109,7 +1110,7 @@ async function openSoundscapePicker(){
     }
   }
 
-  if(!mediaPlayerState.library.length) await runLoad(currentMode,mediaPlayerState.query)
+  if(!mediaPlayerState.library.length) await runLoad(currentMode,currentMode==='devotional'?'':mediaPlayerState.query)
   else renderAudioLibraryResults(box)
 
   discoverMore.onclick=async()=>{
@@ -3974,7 +3975,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.25</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.26</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4126,5 +4127,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=25').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=26').then(reg=>reg.update()).catch(()=>{})
 }
