@@ -617,7 +617,7 @@ function refreshMediaPlayerUI(){
   const current=mediaPlayerState.current||defaultNaturalTrack
   const playing=!audio.paused&&!audio.ended
   player.classList.toggle('playing',playing)
-  player.dataset.mode=current.type||mediaPlayerState.mode
+  player.dataset.mode=current.devotional?'devotional':(current.type||mediaPlayerState.mode)
 
   const title=document.getElementById('playerTitle')
   const source=document.getElementById('playerSource')
@@ -629,7 +629,7 @@ function refreshMediaPlayerUI(){
   if(source){
     if(current.type==='radio'){
       source.textContent=current.devotional
-        ?`${current.traditionLabel||'Devotional'} · Live radio · ${current.country||current.countrycode||'Worldwide'}`
+        ?[`${current.traditionLabel||'Devotional'} · Live radio`,current.devotionalLanguage||current.language,current.country||current.countrycode||'Worldwide'].filter(Boolean).join(' · ')
         :`Live radio · ${current.country||current.countrycode||'Worldwide'}`
     }else{
       const attribution=[current.artist,current.license].filter(Boolean).join(' · ')
@@ -861,7 +861,7 @@ async function nextMediaTrack(autoplay=true){
     try{
       await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{
         preserveCurrent:true,
-        random:mediaPlayerState.mode==='radio'&&mediaPlayerState.radioSort==='random',
+        random:['radio','devotional'].includes(mediaPlayerState.mode)&&mediaPlayerState.radioSort==='random',
         countrycode:mediaPlayerState.radioCountry,
         sort:mediaPlayerState.radioSort,
         language:mediaPlayerState.mode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
@@ -927,7 +927,7 @@ async function setAmbientEnabled(enabled){
 
 function audioLibraryCard(item,index){
   const meta=item.type==='radio'
-    ?[item.devotional?item.traditionLabel:null,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
+    ?[item.devotional?item.traditionLabel:null,item.devotionalLanguage||item.language,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
     :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
   const artwork=item.favicon
     ?`<span class="audio-card-art"><img src="${esc(item.favicon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`
