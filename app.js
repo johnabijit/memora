@@ -790,6 +790,17 @@ function renderAudioLibraryResults(box){
     await selectMediaTrack(item,true)
     renderAudioLibraryResults(box)
   })
+  const note=box.querySelector('#audioSourceNote')
+  if(note){
+    const current=mediaPlayerState.current
+    if(current?.type==='nature'&&current.sourcePage){
+      note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
+    }else if(current?.type==='radio'){
+      note.innerHTML=`Live station stream${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
+    }else{
+      note.textContent=''
+    }
+  }
 }
 
 async function openSoundscapePicker(){
@@ -824,6 +835,7 @@ async function openSoundscapePicker(){
 
     <div class="audio-library-toolbar"><b id="audioLibraryCount">${mediaPlayerState.library.length} available</b><span class="muted small">Tap any item to play it immediately.</span></div>
     <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
+    <div class="audio-source-note" id="audioSourceNote"></div>
 
     <div class="audio-library-footer">
       <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
