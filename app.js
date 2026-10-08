@@ -1819,8 +1819,12 @@ async function openSoundscapePicker(){
 
       <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
         <div class="audio-section-intro">
-          <div><span class="eyebrow">Open catalog</span><strong>Full tracks, not radio stations.</strong><small>Search full tracks across Audius plus open music recordings from Wikimedia Commons.</small></div>
+          <div><span class="eyebrow">Open catalog</span><strong>Tracks, albums and playlists.</strong><small>Stream full tracks and browse open Audius albums/playlists, with Wikimedia Commons as an open-recording source.</small></div>
           <span class="source-pill">Audius + Commons</span>
+        </div>
+        <div class="music-kind-switch" role="group" aria-label="Music browsing">
+          <button class="music-kind-btn ${mediaPlayerState.musicBrowseKind==='tracks'?'active':''}" data-music-kind="tracks">Tracks</button>
+          <button class="music-kind-btn ${mediaPlayerState.musicBrowseKind==='collections'?'active':''}" data-music-kind="collections">Albums & playlists</button>
         </div>
         <div class="audio-search-row">
           <input class="input" id="musicSearch" value="${esc(mediaPlayerState.musicQuery)}" placeholder="Search song, artist, genre, language or devotional style">
@@ -2015,7 +2019,9 @@ async function openSoundscapePicker(){
 
   const syncToolbar=mode=>{
     discoverMore.hidden=mode==='nature'
-    discoverMore.textContent=mode==='music'?'Load more tracks':mode==='devotional'?'Load more devotionals':'Load more stations'
+    discoverMore.textContent=mode==='music'
+      ?(mediaPlayerState.musicBrowseKind==='collections'?'Load more albums':'Load more tracks')
+      :mode==='devotional'?'Load more devotionals':'Load more stations'
     hint.textContent=mode==='music'
       ?'Full tracks from the open Audius catalog.'
       :mode==='radio'
@@ -2059,15 +2065,19 @@ async function openSoundscapePicker(){
       if(mode==='music'){
         const query=box.querySelector('#musicSearch')?.value.trim()||''
         mediaPlayerState.musicQuery=query
-        mediaPlayerState.musicSort=activeMusicSort()
         localStorage.setItem('memora-music-query',query)
-        localStorage.setItem('memora-music-sort',mediaPlayerState.musicSort)
-        await loadMediaLibrary('music',query,50,{
-          preserveCurrent:true,
-          append,
-          sort:mediaPlayerState.musicSort,
-          genre:mediaPlayerState.musicGenre
-        })
+        if(mediaPlayerState.musicBrowseKind==='collections'){
+          await loadMusicCollections(query,{append})
+        }else{
+          mediaPlayerState.musicSort=activeMusicSort()
+          localStorage.setItem('memora-music-sort',mediaPlayerState.musicSort)
+          await loadMediaLibrary('music',query,50,{
+            preserveCurrent:true,
+            append,
+            sort:mediaPlayerState.musicSort,
+            genre:mediaPlayerState.musicGenre
+          })
+        }
       }else if(mode==='radio'){
         const query=box.querySelector('#radioSearch')?.value.trim()||''
         mediaPlayerState.radioCountry=radioCountry?.value||''
@@ -2109,7 +2119,8 @@ async function openSoundscapePicker(){
       }
 
       setMode(mode)
-      renderAudioLibraryResults(box)
+      if(mode==='music'&&mediaPlayerState.musicBrowseKind==='collections') renderMusicCollections(box)
+      else renderAudioLibraryResults(box)
       if(append) results.scrollTop=results.scrollHeight
     }catch(error){
       if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>Audio is temporarily unavailable</strong>${esc(error.message)}</div>`
@@ -2117,7 +2128,7 @@ async function openSoundscapePicker(){
     }finally{
       const modeNow=activeMode()
       discoverMore.disabled=modeNow==='music'
-        ?!mediaPlayerState.musicHasMore
+        ?(mediaPlayerState.musicBrowseKind==='collections'?!mediaPlayerState.musicCollectionHasMore:!mediaPlayerState.musicHasMore)
         :['radio','devotional'].includes(modeNow)
           ?!mediaPlayerState.radioHasMore&&mediaPlayerState.radioSort!=='random'
           :true
@@ -2136,6 +2147,12 @@ async function openSoundscapePicker(){
     await runLoad(mode)
   })
 
+  box.querySelectorAll('[data-music-kind]').forEach(button=>button.onclick=async()=>{
+    box.querySelectorAll('[data-music-kind]').forEach(item=>item.classList.toggle('active',item===button))
+    mediaPlayerState.musicBrowseKind=button.dataset.musicKind
+    localStorage.setItem('memora-music-browse-kind',mediaPlayerState.musicBrowseKind)
+    await runLoad('music')
+  })
   box.querySelector('#musicSearchButton').onclick=()=>runLoad('music')
   box.querySelector('#musicSearch').onkeydown=e=>{if(e.key==='Enter') runLoad('music')}
   box.querySelectorAll('[data-music-sort]').forEach(button=>button.onclick=async()=>{
