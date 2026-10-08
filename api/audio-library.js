@@ -391,16 +391,14 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     const term=String(value||'').trim()
     if(term&&!searchTerms.some(existing=>existing.toLowerCase()===term.toLowerCase())) searchTerms.push(term)
   }
-  if(q){
-    pushTerm(q)
-    for(const base of entry.terms.slice(0,6)) pushTerm(`${base} ${q}`)
-  }
+  if(q) pushTerm(q)
   for(const base of entry.terms) pushTerm(base)
 
-  const maxTerms=key==='all_faiths'?10:8
+  const maxTerms=key==='all_faiths'?14:10
   const selectedTerms=searchTerms.slice(0,maxTerms)
-  const perTerm=Math.max(12,Math.min(34,Math.ceil((Math.min(100,limit||60)*2.1)/Math.max(1,selectedTerms.length))+8))
-  const batches=await Promise.allSettled(
+  const perTerm=Math.max(14,Math.min(38,Math.ceil((Math.min(100,limit||60)*2.4)/Math.max(1,selectedTerms.length))+8))
+
+  const strictBatches=await Promise.allSettled(
     selectedTerms.map(term=>radioLibrary(term,perTerm,{
       random,
       offset:0,
@@ -410,9 +408,32 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     }))
   )
 
-  const allTerms=[...entry.terms,q].filter(Boolean).map(term=>String(term).toLowerCase())
+  const fuzzyBatches=lang
+    ?await Promise.allSettled(
+        selectedTerms.slice(0,7).flatMap(term=>[
+          radioLibrary(`${term} ${lang}`,Math.max(12,Math.floor(perTerm*.8)),{
+            random,
+            offset:0,
+            countrycode,
+            sort,
+            language:''
+          }),
+          radioLibrary(`${lang} ${term}`,Math.max(12,Math.floor(perTerm*.8)),{
+            random,
+            offset:0,
+            countrycode,
+            sort,
+            language:''
+          })
+        ])
+      )
+    :[]
+
+  const batches=[...strictBatches,...fuzzyBatches]
+  const allTerms=[...entry.terms,q,lang].filter(Boolean).map(term=>String(term).toLowerCase())
   const seen=new Set()
   const merged=[]
+
   for(const batch of batches){
     if(batch.status!=='fulfilled') continue
     for(const item of batch.value?.items||[]){
@@ -430,14 +451,20 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
       let relevance=0
       for(const term of allTerms){
         if(!term) continue
-        if(haystack.includes(term)) relevance+=term===q&&q?9:4
-        const pieces=term.split(/\s+/).filter(piece=>piece.length>3)
-        for(const piece of pieces) if(haystack.includes(piece)) relevance+=1
+        if(haystack.includes(term)) relevance+=term===q&&q?10:5
+        const pieces=term.split(/\s+/).filter(piece=>piece.length>2)
+        for(const piece of pieces) if(haystack.includes(piece)) relevance+=1.25
       }
-      if(lang&&String(item.language||'').toLowerCase().includes(lang.toLowerCase())) relevance+=7
+      if(lang){
+        const lowerLang=lang.toLowerCase()
+        if(String(item.language||'').toLowerCase().includes(lowerLang)) relevance+=10
+        if(haystack.includes(lowerLang)) relevance+=5
+      }
+      if(countrycode&&String(item.countrycode||'').toUpperCase()===String(countrycode).toUpperCase()) relevance+=4
       relevance+=Math.log10(Math.max(1,item.clickcount||0)+1)*1.8
       relevance+=Math.log10(Math.max(1,item.votes||0)+1)*1.2
       if((item.bitrate||0)>=128) relevance+=1
+      if((item.bitrate||0)>=192) relevance+=.7
 
       merged.push({
         ...item,
@@ -477,7 +504,8 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     label:entry.label,
     description:entry.description,
     query:q,
-    language:lang
+    language:lang,
+    discoveryPasses:lang?2:1
   }
 }
 
