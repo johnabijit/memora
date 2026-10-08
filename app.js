@@ -4072,8 +4072,8 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
-        <div class="eyebrow">Audio</div><h3>Natural sound and radio</h3>
-        <p class="muted">Play real rain, forest, ocean, night and other nature recordings, or browse live internet radio. The player stays visible above the navigation so you always know what is playing.</p>
+        <div class="eyebrow">Audio</div><h3>Nature, world radio and devotionals</h3>
+        <p class="muted">Play open nature recordings, browse live radio from around the world, or discover devotional and spiritual stations across many traditions including extensive Christian music, Gospel, worship, ghazal, bhajan, Gurbani, Quran, nasheed, Sufi, Buddhist and other spiritual programming.</p>
         <div class="setting-row"><span>Sound</span><b>${ambientPreferences.enabled?'On':'Silent'}</b></div>
         <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
         <div class="setting-row"><span>Volume</span><b>${Math.round(ambientPreferences.volume*100)}%</b></div>
@@ -4204,7 +4204,7 @@ async function bootstrapSignedIn(){
     if(audio) audio.muted=true
   }
   const preferredMode=['radio','devotional'].includes(mediaPlayerState.mode)?mediaPlayerState.mode:'nature'
-  const preferredQuery=mediaPlayerState.query||(preferredMode==='radio'?'ambient':'rain')
+  const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
   loadMediaLibrary(preferredMode,preferredQuery,100,{
     preserveCurrent:preferredMode==='nature',
     countrycode:mediaPlayerState.radioCountry,
