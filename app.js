@@ -289,6 +289,7 @@ async function loadChatThread(threadId){
     text:redactSecrets(row.content),
     source:row.source||null,
     ai:Boolean(row.metadata?.ai),
+    action:row.metadata?.action||null,
     created_at:row.created_at
   }))
   return thread.data
@@ -320,7 +321,8 @@ async function saveChatMessage(role,text,extra={}){
     metadata:{
       ai:Boolean(extra.ai),
       imageUsed:Boolean(extra.imageUrl||extra.imageUsed),
-      structured:Boolean(extra.structured)
+      structured:Boolean(extra.structured),
+      action:extra.action||null
     }
   }).select().single()
   if(error) throw error
@@ -4072,7 +4074,10 @@ function renderChatMessage(message,index){
     return `<div class="bubble assistant thinking-bubble" data-thinking-index="${index}">${thinkingMarkup()}</div>`
   }
   const classes=`bubble ${message.role==='user'?'user':'assistant'} ${message.fresh?'fresh':''}`
-  return `<div class="${classes}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
+  const action=message.action?.type
+    ?`<div class="chat-action-row"><button class="chat-action" data-chat-action="${esc(message.action.type)}" data-chat-mood="${esc(message.action.mood||'')}" data-chat-query="${esc(message.action.query||'')}">${esc(message.action.label||'Open')}</button></div>`
+    :''
+  return `<div class="${classes}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
 }
 
 function startThinkingAnimation(){
