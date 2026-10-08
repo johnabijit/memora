@@ -42,7 +42,8 @@ let mediaPlayerState={
   current:null,
   index:0,
   loading:false,
-  unlocked:false
+  unlocked:false,
+  radioBatches:0
 }
 
 const defaultNaturalTrack={
@@ -618,17 +619,42 @@ function refreshMediaPlayerUI(){
   updateSoundButton()
 }
 
-async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false}={}){
+async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=true}={}){
   mediaPlayerState.loading=true
   const safeMode=mode==='radio'?'radio':'nature'
   const safeQuery=String(query||'').trim()
+  const previousMode=mediaPlayerState.mode
+  const previousQuery=mediaPlayerState.query
+  const shouldAppend=append&&safeMode==='radio'&&previousMode==='radio'&&previousQuery===safeQuery
   try{
-    const response=await fetch(`/api/audio-library?mode=${encodeURIComponent(safeMode)}&q=${encodeURIComponent(safeQuery)}&limit=${Math.min(100,limit)}`,{cache:'no-store'})
+    const params=new URLSearchParams({
+      mode:safeMode,
+      q:safeQuery,
+      limit:String(Math.min(100,limit))
+    })
+    if(safeMode==='radio'){
+      params.set('random',random?'1':'0')
+      params.set('nonce',String(Date.now()))
+    }
+    const response=await fetch(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
     const data=await response.json()
     if(!response.ok) throw new Error(data?.error||'Audio library failed')
+
     mediaPlayerState.mode=safeMode
     mediaPlayerState.query=safeQuery||(safeMode==='radio'?'ambient':'')
-    mediaPlayerState.library=Array.isArray(data.items)?data.items:[]
+    const incoming=Array.isArray(data.items)?data.items:[]
+
+    if(shouldAppend){
+      const existingIds=new Set(mediaPlayerState.library.map(item=>item.id))
+      const fresh=incoming.filter(item=>!existingIds.has(item.id))
+      mediaPlayerState.library=[...mediaPlayerState.library,...fresh]
+      if(fresh.length) mediaPlayerState.radioBatches+=1
+    }else{
+      mediaPlayerState.library=incoming
+      mediaPlayerState.index=0
+      mediaPlayerState.radioBatches=safeMode==='radio'&&incoming.length?1:0
+    }
+
     localStorage.setItem('memora-player-mode',safeMode)
     localStorage.setItem('memora-player-query',mediaPlayerState.query)
 
@@ -643,7 +669,7 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
         const audio=mediaAudio()
         const wasPlaying=audio&&!audio.paused
         mediaPlayerState.current=refreshed
-        if(audio&&!wasPlaying){
+        if(audio&&!wasPlaying&&audio.src!==refreshed.url){
           audio.src=refreshed.url
           audio.load()
         }
@@ -728,14 +754,37 @@ function stopMediaPlayback(){
 
 async function nextMediaTrack(autoplay=true){
   ensureMediaPlayer()
+
   if(!mediaPlayerState.library.length){
     try{
-      await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{preserveCurrent:true})
+      await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{preserveCurrent:true,random:true})
     }catch{
-      mediaPlayerState.library=[defaultNaturalTrack]
+      if(mediaPlayerState.mode==='nature') mediaPlayerState.library=[defaultNaturalTrack]
     }
   }
   if(!mediaPlayerState.library.length) return
+
+  if(mediaPlayerState.mode==='radio'){
+    const nearEnd=mediaPlayerState.index>=Math.max(0,mediaPlayerState.library.length-4)
+    if(nearEnd&&!mediaPlayerState.loading){
+      const before=mediaPlayerState.library.length
+      try{
+        await loadMediaLibrary('radio',mediaPlayerState.query||'ambient',100,{
+          preserveCurrent:true,
+          append:true,
+          random:true
+        })
+      }catch{}
+      if(mediaPlayerState.library.length===before&&mediaPlayerState.library.length>1){
+        let randomIndex=Math.floor(Math.random()*mediaPlayerState.library.length)
+        if(randomIndex===mediaPlayerState.index) randomIndex=(randomIndex+1)%mediaPlayerState.library.length
+        mediaPlayerState.index=randomIndex
+        await selectMediaTrack(mediaPlayerState.library[randomIndex],autoplay)
+        return
+      }
+    }
+  }
+
   mediaPlayerState.index=(mediaPlayerState.index+1)%mediaPlayerState.library.length
   await selectMediaTrack(mediaPlayerState.library[mediaPlayerState.index],autoplay)
 }
@@ -781,7 +830,9 @@ function renderAudioLibraryResults(box){
   const target=box.querySelector('#audioLibraryResults')
   const count=box.querySelector('#audioLibraryCount')
   if(!target) return
-  if(count) count.textContent=`${mediaPlayerState.library.length} available`
+  if(count) count.textContent=mediaPlayerState.mode==='radio'
+    ?`${mediaPlayerState.library.length} live stations loaded this session`
+    :`${mediaPlayerState.library.length} nature recordings found`
   target.innerHTML=mediaPlayerState.library.length
     ?mediaPlayerState.library.map(audioLibraryCard).join('')
     :'<div class="empty compact-empty"><strong>No audio found</strong>Try another category or search.</div>'
@@ -796,7 +847,7 @@ function renderAudioLibraryResults(box){
     if(current?.type==='nature'&&current.sourcePage){
       note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
     }else if(current?.type==='radio'){
-      note.innerHTML=`Live station stream${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
+      note.innerHTML=`Real live internet-radio stream. The station provides the audio, Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
     }else{
       note.textContent=''
     }
@@ -811,7 +862,7 @@ async function openSoundscapePicker(){
       <div>
         <div class="eyebrow">Natural sound and live radio</div>
         <h3>Sound that feels alive.</h3>
-        <p class="muted">Play real nature recordings from Wikimedia Commons or browse live internet radio. Up to 100 results can be loaded at once.</p>
+        <p class="muted">Nature audio is streamed on demand from Wikimedia Commons, not pre-downloaded into Memora. Live Radio plays real station streams. Radio loads 100 random stations per discovery batch and can keep adding fresh batches as you continue listening.</p>
       </div>
       <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute audio':'Enable audio'}</button>
     </div>
@@ -833,7 +884,13 @@ async function openSoundscapePicker(){
       ).map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')}
     </div>
 
-    <div class="audio-library-toolbar"><b id="audioLibraryCount">${mediaPlayerState.library.length} available</b><span class="muted small">Tap any item to play it immediately.</span></div>
+    <div class="audio-library-toolbar">
+      <b id="audioLibraryCount">${mediaPlayerState.library.length} available</b>
+      <div class="audio-library-actions">
+        <span class="muted small">Tap any item to play it immediately.</span>
+        <button class="btn compact" id="audioDiscoverMore" ${currentMode==='radio'?'':'hidden'}>Discover 100 more</button>
+      </div>
+    </div>
     <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
     <div class="audio-source-note" id="audioSourceNote"></div>
 
@@ -846,18 +903,32 @@ async function openSoundscapePicker(){
   const modeTabs=box.querySelectorAll('[data-audio-mode]')
   const search=box.querySelector('#audioLibrarySearch')
 
-  const runLoad=async(mode,query)=>{
-    box.querySelector('#audioLibraryResults').innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Loading up to 100 sounds...</div>'
+  const runLoad=async(mode,query,{append=false}={})=>{
+    const results=box.querySelector('#audioLibraryResults')
+    if(!append) results.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Loading live audio...</div>'
+    const discover=box.querySelector('#audioDiscoverMore')
+    if(discover) discover.disabled=true
     try{
-      await loadMediaLibrary(mode,query,100,{preserveCurrent:true})
+      await loadMediaLibrary(mode,query,100,{preserveCurrent:true,append,random:mode==='radio'})
       renderAudioLibraryResults(box)
+      if(append) results.scrollTop=results.scrollHeight
     }catch(error){
-      box.querySelector('#audioLibraryResults').innerHTML=`<div class="empty compact-empty"><strong>Audio directory unavailable</strong>${esc(error.message)}</div>`
+      if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>Audio directory unavailable</strong>${esc(error.message)}</div>`
+      else toast('Could not discover another radio batch just now')
+    }finally{
+      if(discover) discover.disabled=false
     }
   }
 
   if(!mediaPlayerState.library.length) await runLoad(currentMode,mediaPlayerState.query)
   else renderAudioLibraryResults(box)
+
+  const discoverMore=box.querySelector('#audioDiscoverMore')
+  discoverMore.onclick=async()=>{
+    const mode=[...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
+    if(mode!=='radio') return
+    await runLoad('radio',search.value.trim()||mediaPlayerState.query||'ambient',{append:true})
+  }
 
   box.querySelector('#libraryMute').onclick=async()=>{
     await setAmbientEnabled(!ambientPreferences.enabled)
@@ -870,6 +941,7 @@ async function openSoundscapePicker(){
     modeTabs.forEach(tab=>tab.classList.toggle('active',tab===button))
     search.placeholder=mode==='radio'?'Search ambient, chill, jazz, Tamil...':'Search rain, forest, night, ocean...'
     search.value=mode==='radio'?'ambient':'rain'
+    discoverMore.hidden=mode!=='radio'
     const presets=mode==='radio'
       ?['ambient','relax','chillout','lofi','jazz','classical','sleep','meditation','Tamil','world']
       :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
@@ -3673,7 +3745,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.22</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.23</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -3815,5 +3887,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=22').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=23').then(reg=>reg.update()).catch(()=>{})
 }
