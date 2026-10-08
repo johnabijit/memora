@@ -984,15 +984,15 @@ async function openSoundscapePicker(){
         <h4>Christian</h4>
         <div class="devotional-grid">
           <button class="devotional-chip" data-devotional="christian">Christian music</button>
-          <button class="devotional-chip" data-devotional="christian">Worship and praise</button>
-          <button class="devotional-chip" data-devotional="christian">Gospel</button>
-          <button class="devotional-chip" data-devotional="christian">Hymns</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="worship">Worship and praise</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="gospel">Gospel</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="hymn">Hymns</button>
           <button class="devotional-chip" data-devotional="catholic">Catholic</button>
           <button class="devotional-chip" data-devotional="orthodox">Orthodox Christian</button>
-          <button class="devotional-chip" data-devotional="christian">Christian Tamil</button>
-          <button class="devotional-chip" data-devotional="christian">Christian Hindi</button>
-          <button class="devotional-chip" data-devotional="christian">Christian Malayalam</button>
-          <button class="devotional-chip" data-devotional="christian">Christian Telugu</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="christian tamil">Christian Tamil</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="christian hindi">Christian Hindi</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="christian malayalam">Christian Malayalam</button>
+          <button class="devotional-chip" data-devotional="christian" data-devotional-query="christian telugu">Christian Telugu</button>
         </div>
       </section>
 
@@ -1000,10 +1000,10 @@ async function openSoundscapePicker(){
         <h4>Islamic and Sufi</h4>
         <div class="devotional-grid">
           <button class="devotional-chip" data-devotional="islamic">Islamic</button>
-          <button class="devotional-chip" data-devotional="islamic">Quran</button>
-          <button class="devotional-chip" data-devotional="islamic">Nasheed</button>
+          <button class="devotional-chip" data-devotional="islamic" data-devotional-query="quran">Quran</button>
+          <button class="devotional-chip" data-devotional="islamic" data-devotional-query="nasheed">Nasheed</button>
           <button class="devotional-chip" data-devotional="sufi">Sufi</button>
-          <button class="devotional-chip" data-devotional="sufi">Qawwali</button>
+          <button class="devotional-chip" data-devotional="sufi" data-devotional-query="qawwali">Qawwali</button>
           <button class="devotional-chip" data-devotional="ghazal">Ghazal</button>
         </div>
       </section>
@@ -1012,14 +1012,14 @@ async function openSoundscapePicker(){
         <h4>Hindu traditions</h4>
         <div class="devotional-grid">
           <button class="devotional-chip" data-devotional="hindu">Hindu devotional</button>
-          <button class="devotional-chip" data-devotional="hindu">Bhajan</button>
-          <button class="devotional-chip" data-devotional="hindu">Kirtan</button>
-          <button class="devotional-chip" data-devotional="hindu">Mantra</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="bhajan">Bhajan</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="kirtan">Kirtan</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="mantra">Mantra</button>
           <button class="devotional-chip" data-devotional="carnatic_devotional">Carnatic devotional</button>
-          <button class="devotional-chip" data-devotional="hindu">Krishna</button>
-          <button class="devotional-chip" data-devotional="hindu">Shiva</button>
-          <button class="devotional-chip" data-devotional="hindu">Murugan</button>
-          <button class="devotional-chip" data-devotional="hindu">Ayyappa</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="krishna devotional">Krishna</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="shiva devotional">Shiva</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="murugan devotional">Murugan</button>
+          <button class="devotional-chip" data-devotional="hindu" data-devotional-query="ayyappa devotional">Ayyappa</button>
         </div>
       </section>
 
@@ -1032,7 +1032,7 @@ async function openSoundscapePicker(){
           <button class="devotional-chip" data-devotional="jain">Jain</button>
           <button class="devotional-chip" data-devotional="bahai">Baha'i</button>
           <button class="devotional-chip" data-devotional="spiritual">Interfaith</button>
-          <button class="devotional-chip" data-devotional="spiritual">Meditation</button>
+          <button class="devotional-chip" data-devotional="spiritual" data-devotional-query="meditation">Meditation</button>
         </div>
       </section>
     </div>
@@ -1190,8 +1190,10 @@ async function openSoundscapePicker(){
     box.querySelectorAll('[data-devotional]').forEach(item=>item.classList.toggle('selected',item===button))
     mediaPlayerState.devotionalTradition=button.dataset.devotional
     localStorage.setItem('memora-devotional-tradition',mediaPlayerState.devotionalTradition)
-    search.value=button.textContent.trim()
-    await runLoad('devotional','',{tradition:mediaPlayerState.devotionalTradition})
+    const specificQuery=button.dataset.devotionalQuery||''
+    search.value=specificQuery||button.textContent.trim()
+    if(specificQuery) await runLoad('devotional',specificQuery)
+    else await runLoad('devotional','',{tradition:mediaPlayerState.devotionalTradition})
   })
   bindPresets()
 
