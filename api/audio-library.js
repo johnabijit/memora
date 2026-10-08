@@ -167,14 +167,15 @@ async function natureLibrary(query,limit){
   return items
 }
 
-async function radioLibrary(query,limit){
+async function radioLibrary(query,limit,{random=true,offset=0}={}){
   const target=Math.min(100,Math.max(10,limit||60))
   const q=(query||'ambient').trim()
   const params=new URLSearchParams({
     tag:q,
     hidebroken:'true',
-    order:'clickcount',
-    reverse:'true',
+    order:random?'random':'clickcount',
+    reverse:random?'false':'true',
+    offset:String(Math.max(0,Number(offset)||0)),
     limit:String(target*2)
   })
   const response=await fetch(RADIO_API+'?'+params.toString(),{
@@ -219,10 +220,21 @@ module.exports=async function handler(req,res){
   const mode=String(req.query?.mode||'nature').toLowerCase()
   const query=String(req.query?.q||'').slice(0,80).trim()
   const limit=Math.min(100,Math.max(8,Number(req.query?.limit)||60))
+  const random=String(req.query?.random??'1')!=='0'
+  const offset=Math.max(0,Number(req.query?.offset)||0)
   try{
     if(mode==='radio'){
-      const items=await radioLibrary(query,limit)
-      return json(res,200,{mode:'radio',query:query||'ambient',count:items.length,items})
+      const items=await radioLibrary(query,limit,{random,offset})
+      return json(res,200,{
+        mode:'radio',
+        query:query||'ambient',
+        count:items.length,
+        items,
+        random,
+        offset,
+        liveDirectory:true,
+        batchSize:limit
+      },'no-store')
     }
     const items=await natureLibrary(query,limit)
     return json(res,200,{mode:'nature',query,count:items.length,items})
