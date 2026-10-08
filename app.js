@@ -49,8 +49,11 @@ let mediaPlayerState={
   radioOffset:0,
   radioHasMore:true,
   countries:[],
+  languages:[],
   audioView:localStorage.getItem('memora-audio-view')||'nature',
-  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all'
+  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all_faiths',
+  devotionalLanguage:localStorage.getItem('memora-devotional-language')||'',
+  devotionalQuery:localStorage.getItem('memora-devotional-query')||''
 }
 
 const defaultNaturalTrack={
@@ -650,6 +653,15 @@ async function loadRadioCountries(){
   if(!response.ok) throw new Error(data?.error||'Country list failed')
   mediaPlayerState.countries=Array.isArray(data.countries)?data.countries:[]
   return mediaPlayerState.countries
+}
+
+async function loadRadioLanguages(){
+  if(mediaPlayerState.languages.length) return mediaPlayerState.languages
+  const response=await fetch('/api/audio-library?mode=languages',{cache:'no-store'})
+  const data=await response.json()
+  if(!response.ok) throw new Error(data?.error||'Language list failed')
+  mediaPlayerState.languages=Array.isArray(data.languages)?data.languages:[]
+  return mediaPlayerState.languages
 }
 
 async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null,tradition=null}={}){
