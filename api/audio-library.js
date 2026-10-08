@@ -234,10 +234,25 @@ async function radioCountries(){
 }
 
 const DEVOTIONAL_LIBRARY={
+  all:{
+    label:'All traditions',
+    terms:['devotional','sacred music','spiritual','christian','gospel','worship','bhajan','gurbani','quran','nasheed','sufi','qawwali','buddhist chant','jewish music'],
+    description:'A broad interfaith discovery mix across devotional and spiritual traditions'
+  },
   christian:{
     label:'Christian',
-    terms:['christian','gospel','worship','hymn','praise','jesus'],
-    description:'Christian music, worship, praise, gospel and hymns'
+    terms:['christian','christian music','gospel','worship','praise','hymn','bible','christian contemporary','jesus'],
+    description:'Christian music, contemporary worship, praise, gospel, hymns and Bible programming'
+  },
+  christian_prayer:{
+    label:'Christian prayer and scripture',
+    terms:['christian prayer','bible','scripture','sermon','christian talk','prayer'],
+    description:'Prayer, Bible reading, sermons and Christian teaching'
+  },
+  gregorian:{
+    label:'Gregorian and sacred chant',
+    terms:['gregorian chant','sacred chant','latin mass','gregorian'],
+    description:'Gregorian chant and sacred Christian choral programming'
   },
   catholic:{
     label:'Catholic',
@@ -294,6 +309,21 @@ const DEVOTIONAL_LIBRARY={
     terms:['bahai',"baha'i"],
     description:"Baha'i spiritual and community programming"
   },
+  zoroastrian:{
+    label:'Zoroastrian',
+    terms:['zoroastrian','zoroastrianism','avesta'],
+    description:'Zoroastrian spiritual programming where available'
+  },
+  taoist:{
+    label:'Taoist',
+    terms:['taoist','taoism','daoist','daoism'],
+    description:'Taoist spiritual programming where available'
+  },
+  shinto:{
+    label:'Shinto',
+    terms:['shinto','shinto music','japanese sacred'],
+    description:'Shinto and Japanese sacred programming where available'
+  },
   spiritual:{
     label:'Spiritual and meditation',
     terms:['spiritual','meditation','devotional','sacred'],
@@ -306,18 +336,25 @@ const DEVOTIONAL_LIBRARY={
   }
 }
 
-async function devotionalLibrary(tradition,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
-  const key=String(tradition||'christian').toLowerCase()
+async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
+  const key=String(tradition||'all').toLowerCase()
   const entry=DEVOTIONAL_LIBRARY[key]||{
     label:key||'Devotional',
     terms:[key||'devotional'],
     description:'Devotional and spiritual radio'
   }
+  const q=String(query||'').trim()
 
-  const perTerm=Math.max(12,Math.ceil(Math.min(100,limit||60)/Math.max(1,entry.terms.length))+10)
+  const terms=q
+    ?[q,`${entry.label} ${q}`,...entry.terms.slice(0,4)]
+    :entry.terms
+
+  const uniqueTerms=[...new Set(terms.map(term=>String(term||'').trim()).filter(Boolean))]
+  const perTerm=Math.max(14,Math.ceil(Math.min(100,limit||60)/Math.max(1,uniqueTerms.length))+12)
   const batches=await Promise.allSettled(
-    entry.terms.map(term=>radioLibrary(term,perTerm,{random,offset:0,countrycode,sort}))
+    uniqueTerms.map(term=>radioLibrary(term,perTerm,{random,offset:0,countrycode,sort}))
   )
+
   const seen=new Set()
   const merged=[]
   for(const batch of batches){
@@ -334,6 +371,12 @@ async function devotionalLibrary(tradition,limit,{random=false,offset=0,countryc
       const j=Math.floor(Math.random()*(i+1))
       ;[merged[i],merged[j]]=[merged[j],merged[i]]
     }
+  }else if(sort==='quality'){
+    merged.sort((a,b)=>
+      (Math.min(b.bitrate||0,512)-Math.min(a.bitrate||0,512))||
+      ((b.votes||0)-(a.votes||0))||
+      ((b.clickcount||0)-(a.clickcount||0))
+    )
   }else{
     merged.sort((a,b)=>(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
   }
@@ -354,7 +397,7 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
   const target=Math.min(100,Math.max(10,limit||60))
   const q=String(query||'').trim()
   const country=String(countrycode||'').trim().toUpperCase()
-  const order=random||sort==='random'?'random':'clickcount'
+  const order=random||sort==='random'?'random':sort==='quality'?'bitrate':'clickcount'
   const reverse=order==='random'?'false':'true'
   const base={
     hidebroken:'true',
@@ -396,7 +439,13 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
     }
   }
 
-  if(order!=='random'){
+  if(sort==='quality'){
+    items.sort((a,b)=>
+      (Math.min(b.bitrate||0,512)-Math.min(a.bitrate||0,512))||
+      ((b.votes||0)-(a.votes||0))||
+      ((b.clickcount||0)-(a.clickcount||0))
+    )
+  }else if(order!=='random'){
     items.sort((a,b)=>(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
   }else{
     for(let i=items.length-1;i>0;i--){
@@ -409,7 +458,7 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
     items:items.slice(0,target),
     hasMore:items.length>=target,
     countrycode:country,
-    sort:order==='random'?'random':'popular',
+    sort:order==='random'?'random':sort==='quality'?'quality':'popular',
     offset:Math.max(0,Number(offset)||0)
   }
 }
@@ -422,7 +471,8 @@ module.exports=async function handler(req,res){
   const random=String(req.query?.random??'0')==='1'
   const offset=Math.max(0,Number(req.query?.offset)||0)
   const countrycode=String(req.query?.countrycode||'').slice(0,2).toUpperCase()
-  const sort=String(req.query?.sort||'popular').toLowerCase()==='random'?'random':'popular'
+  const requestedSort=String(req.query?.sort||'popular').toLowerCase()
+  const sort=['popular','random','quality'].includes(requestedSort)?requestedSort:'popular'
   try{
     if(mode==='countries'){
       const countries=await radioCountries()
@@ -447,7 +497,7 @@ module.exports=async function handler(req,res){
     }
     if(mode==='devotional'){
       const tradition=String(req.query?.tradition||'christian').slice(0,48).toLowerCase()
-      const result=await devotionalLibrary(tradition,limit,{random,offset,countrycode,sort})
+      const result=await devotionalLibrary(tradition,query,limit,{random,offset,countrycode,sort})
       return json(res,200,{
         mode:'devotional',
         tradition:result.tradition,
