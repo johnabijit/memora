@@ -822,6 +822,7 @@ async function startAmbient(sceneId=resolveAmbientScene()){
     addAmbientNoise('pink',{gain:.025,highpass:800,lowpass:5000})
   }
   updateSoundButton()
+  renderSceneCredit()
 }
 
 function stopAmbient(){
@@ -1049,6 +1050,10 @@ function updateAudioVisualScene(item,playing){
   else if(/wind/.test(text)) scene='wind'
   document.documentElement.dataset.audioScene=scene
   document.documentElement.dataset.audioPlaying=playing?'true':'false'
+  if(playing){
+    const query=scene==='radio'?'city night':scene==='devotional'?'sacred peaceful architecture':scene==='ambient'?'abstract calm landscape':scene
+    loadSceneBackdrop(query)
+  }
 }
 
 function refreshMediaPlayerUI(){
@@ -2056,6 +2061,7 @@ function adaptiveTheme(){
   const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
   applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
   updateVisualScene()
+  if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(theme.id.split('-')[0])
   lastThemeHour=hour
 }
 
@@ -2065,6 +2071,7 @@ function updateTheme(){
   else {
     const theme=manualThemes[mode]||themeCatalog[0]
     applyTheme(theme,theme.label)
+    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(String(theme.id||mode).split('-')[0])
   }
 }
 
@@ -2274,6 +2281,7 @@ function shell(content,title,subtitle=''){
   return `
   <div class="app">
     <a class="skip-link" href="#mainContent">Skip to content</a>
+    <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left">
@@ -2294,7 +2302,10 @@ function shell(content,title,subtitle=''){
           <strong>Memora</strong>
           <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
         </div>
-        <button class="footer-help" data-nav="help">Help & feedback</button>
+        <div class="footer-actions">
+          <a class="scene-credit hidden" id="sceneCredit" target="_blank" rel="noopener">Scene: Wikimedia Commons</a>
+          <button class="footer-help" data-nav="help">Help & feedback</button>
+        </div>
       </footer>
     </main>
     <nav class="dock" aria-label="Primary navigation">
