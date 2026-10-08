@@ -1683,3 +1683,111 @@ html[data-audio-playing="true"][data-audio-scene="music"] .scene-layer:before{
   .audio-mode-panel{padding:10px}
   .audio-card-play{min-width:38px;padding-inline:6px}
 }
+
+
+/* Memora companion experience */
+.scene-photo-layer{
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background-image:
+    linear-gradient(180deg,rgba(4,7,14,.46),rgba(4,7,14,.76) 55%,rgba(4,7,14,.94)),
+    var(--scene-photo);
+  background-size:cover;
+  background-position:center;
+  opacity:0;
+  transform:scale(1.025);
+  filter:saturate(.84) contrast(1.04);
+  transition:opacity 1.2s ease,filter 1.2s ease,transform 10s ease;
+}
+html[data-scene-photo="on"][data-dynamic-background="on"] .scene-photo-layer{opacity:.58;transform:scale(1.045)}
+html[data-daypart="night"] .scene-photo-layer{filter:saturate(.72) brightness(.66) contrast(1.08)}
+html[data-high-contrast="on"] .scene-photo-layer{opacity:.3!important}
+.footer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.scene-credit{font-size:9px;color:var(--muted);text-decoration:none;border-bottom:1px dotted rgba(255,255,255,.18)}
+.scene-credit:hover{color:#fff}
+
+/* Compact mood memory */
+.mood-checkin{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns:minmax(190px,.9fr) minmax(0,1.7fr);
+  gap:12px 18px;
+  align-items:center;
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.065);
+  background:linear-gradient(135deg,rgba(255,255,255,.025),color-mix(in srgb,var(--c1) 5%,transparent));
+}
+.mood-copy strong,.mood-copy small{display:block}.mood-copy strong{font-size:14px;margin-top:3px}.mood-copy small{font-size:9px;color:var(--muted);margin-top:4px;line-height:1.45}
+.mood-pills{display:flex;gap:6px;overflow:auto;scrollbar-width:none;padding:2px}.mood-pills::-webkit-scrollbar{display:none}
+.mood-pill{flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.035);color:#dce5f1;padding:8px 11px;border-radius:999px;font-size:10px;cursor:pointer;transition:.2s}
+.mood-pill:hover,.mood-pill.selected{background:color-mix(in srgb,var(--c1) 14%,rgba(255,255,255,.04));border-color:color-mix(in srgb,var(--c1) 36%,rgba(255,255,255,.14));transform:translateY(-1px)}
+.mood-response{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.055);font-size:10px;color:var(--muted)}
+.mood-response.hidden{display:none}
+
+/* Chat action and voice */
+.chat-action-row{margin-top:10px}
+.chat-action{border:1px solid color-mix(in srgb,var(--c1) 35%,var(--line));background:color-mix(in srgb,var(--c1) 10%,rgba(255,255,255,.04));color:#fff;padding:8px 11px;border-radius:11px;font-size:10px;cursor:pointer;transition:.2s}
+.chat-action:hover{transform:translateY(-1px);background:color-mix(in srgb,var(--c1) 18%,rgba(255,255,255,.05))}
+.voice-btn{min-width:52px}
+.voice-btn.listening{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;animation:voicePulse 1.1s ease-in-out infinite}
+@keyframes voicePulse{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--c1) 0%,transparent),0 0 28px color-mix(in srgb,var(--c1) 28%,transparent)}}
+
+/* First-run tour */
+.tour-backdrop{backdrop-filter:blur(24px) saturate(130%)}
+.tour-modal{width:min(620px,calc(100vw - 26px));padding:28px!important;text-align:center;overflow:hidden}
+.tour-modal .modal-head{position:absolute;right:14px;top:14px;z-index:4}.tour-modal .modal-head h3{display:none}
+.tour-progress{display:flex;gap:6px;justify-content:center;margin-bottom:24px}.tour-progress span{width:34px;height:4px;border-radius:999px;background:rgba(255,255,255,.09);transition:.3s}.tour-progress span.active{background:linear-gradient(90deg,var(--c1),var(--c2))}
+.tour-visual{width:122px;height:122px;margin:0 auto 20px;border-radius:38px;display:grid;place-items:center;position:relative;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c3) 44%,transparent),color-mix(in srgb,var(--c1) 12%,rgba(255,255,255,.02)) 60%,transparent);border:1px solid var(--line);box-shadow:0 24px 70px color-mix(in srgb,var(--c1) 14%,transparent)}
+.tour-orb{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 33% 28%,#fff 0 4%,var(--c3) 12%,var(--c1) 48%,var(--c2));box-shadow:0 0 32px color-mix(in srgb,var(--c1) 48%,transparent);animation:tourFloat 4.4s ease-in-out infinite}.tour-orb span{display:block;width:100%;height:100%;border-radius:inherit;border:1px solid rgba(255,255,255,.18);animation:orbRing 2.8s ease-in-out infinite}
+.tour-visual small{position:absolute;bottom:9px;font-size:8px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.tour-modal h2{font-size:clamp(30px,6vw,48px);letter-spacing:-1.7px;line-height:1.04;margin:0 auto 12px;max-width:520px}.tour-modal p{color:var(--muted);line-height:1.65;max-width:520px;margin:0 auto}
+.tour-actions{display:flex;gap:8px;justify-content:center;margin-top:24px}.tour-actions .btn{min-width:130px}
+@keyframes tourFloat{50%{transform:translateY(-7px) scale(1.035)}}
+
+/* Audio simplicity by default */
+.audio-filter-toggle{
+  width:max-content;
+  margin-top:9px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.035);
+  color:var(--muted);
+  padding:7px 11px;
+  border-radius:999px;
+  font-size:9px;
+  cursor:pointer;
+}
+.audio-filter-toggle:hover{color:#fff;background:rgba(255,255,255,.065)}
+.audio-mode-panel[data-audio-panel="radio"]:not(.filters-open) .world-filter-grid,
+.audio-mode-panel[data-audio-panel="radio"]:not(.filters-open) .radio-sort-switch,
+.audio-mode-panel[data-audio-panel="radio"]:not(.filters-open) .radio-country-quick{display:none}
+.audio-mode-panel[data-audio-panel="devotional"]:not(.filters-open) .world-filter-grid,
+.audio-mode-panel[data-audio-panel="devotional"]:not(.filters-open) .radio-sort-switch,
+.audio-mode-panel[data-audio-panel="devotional"]:not(.filters-open) .regional-devotional,
+.audio-mode-panel[data-audio-panel="devotional"]:not(.filters-open) .devotional-language-quick,
+.audio-mode-panel[data-audio-panel="devotional"]:not(.filters-open) .audio-disclosure{display:none}
+.audio-mode-panel[data-audio-panel="music"]:not(.filters-open) .music-sort,
+.audio-mode-panel[data-audio-panel="music"]:not(.filters-open) .audio-disclosure{display:none}
+.audio-mode-panel[data-audio-panel="music"]:not(.filters-open) .music-presets .chip:nth-child(n+9){display:none}
+.audio-for-you{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 13px;margin:10px 0 12px;border-radius:17px;border:1px solid color-mix(in srgb,var(--c2) 18%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--c1) 8%,rgba(255,255,255,.025)),color-mix(in srgb,var(--c2) 5%,transparent))}
+.audio-for-you strong,.audio-for-you small{display:block}.audio-for-you strong{font-size:11px;margin-top:2px}.audio-for-you small{font-size:9px;color:var(--muted);margin-top:3px}
+
+/* Devotional reactive backdrop */
+html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:before{
+  opacity:.24;
+  background:
+    radial-gradient(circle at 50% 20%,color-mix(in srgb,var(--c3) 19%,transparent),transparent 25%),
+    radial-gradient(circle at 20% 80%,color-mix(in srgb,var(--c1) 13%,transparent),transparent 26%),
+    radial-gradient(circle at 80% 70%,color-mix(in srgb,var(--c2) 12%,transparent),transparent 28%);
+  animation:devotionalGlow 11s ease-in-out infinite;
+}
+@keyframes devotionalGlow{50%{transform:scale(1.08);filter:brightness(1.18)}}
+
+@media(max-width:760px){
+  .mood-checkin{grid-template-columns:1fr;padding:12px}.mood-response{grid-column:auto;align-items:flex-start;flex-direction:column}.mood-response .btn{width:100%}
+  .tour-modal{padding:24px 17px!important}.tour-visual{width:104px;height:104px}.tour-actions{flex-direction:column-reverse}.tour-actions .btn{width:100%}
+  .audio-for-you{align-items:flex-start;flex-direction:column}.audio-for-you .btn{width:100%}
+  .footer-actions{justify-content:flex-start}
+}
