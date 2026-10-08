@@ -1,6 +1,7 @@
 const {Readable}=require('stream')
 
 const AUDIUS_API='https://api.audius.co/v1'
+const COMMONS_API='https://commons.wikimedia.org/w/api.php'
 
 function json(res,status,body,cache='public, s-maxage=120, stale-while-revalidate=600'){
   res.statusCode=status
@@ -94,8 +95,102 @@ function normalizeTrack(track){
     source:'Audius open music',
     sourcePage:permalink,
     description:String(track?.description||'').trim().slice(0,500),
-    openCatalog:true
+    openCatalog:true,
+    provider:'audius',
+    license:'Streamed through Audius'
   }
+}
+
+function stripHtml(value=''){
+  return String(value||'')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/&amp;/g,'&')
+    .replace(/&quot;/g,'"')
+    .replace(/&#39;/g,"'")
+    .replace(/\s+/g,' ')
+    .trim()
+}
+
+function commonsPlayable(info){
+  const derivatives=Array.isArray(info?.derivatives)?info.derivatives:[]
+  const mp3=derivatives.find(item=>String(item.type||'').includes('mpeg'))
+  const ogg=derivatives.find(item=>String(item.type||'').includes('ogg'))
+  return mp3?.src||ogg?.src||info?.url||''
+}
+
+async function commonsMusicSearch(query,{limit=12,offset=0}={}){
+  const term=String(query||'').trim()
+  if(!term) return []
+  const params=new URLSearchParams({
+    action:'query',
+    generator:'search',
+    gsrsearch:`${term} filetype:audio`,
+    gsrnamespace:'6',
+    gsrlimit:String(Math.min(24,Math.max(4,limit))),
+    gsroffset:String(Math.max(0,offset)),
+    prop:'imageinfo',
+    iiprop:'url|mime|extmetadata|derivatives',
+    format:'json',
+    formatversion:'2',
+    origin:'*'
+  })
+  const response=await fetch(COMMONS_API+'?'+params.toString(),{
+    headers:{'User-Agent':'Memora/1.0 (worldwide goodwill personal memory app)'}
+  })
+  if(!response.ok) throw new Error('Commons '+response.status)
+  const data=await response.json()
+  return (data?.query?.pages||[]).flatMap(page=>{
+    const info=page?.imageinfo?.[0]
+    const mime=String(info?.mime||'')
+    const url=commonsPlayable(info)
+    if(!url||(!mime.startsWith('audio/')&&!/\.(mp3|ogg|oga|wav|flac)(\?|$)/i.test(url))) return []
+    const meta=info?.extmetadata||{}
+    const title=String(page.title||'')
+      .replace(/^File:/,'')
+      .replace(/_/g,' ')
+      .replace(/\.(mp3|ogg|oga|wav|flac)$/i,'')
+      .trim()
+    const artist=stripHtml(meta.Artist?.value||meta.Credit?.value||'Wikimedia Commons contributor')
+    const license=stripHtml(meta.LicenseShortName?.value||meta.UsageTerms?.value||'Open license')
+    return [{
+      id:'music-commons-'+page.pageid,
+      type:'music',
+      title,
+      artist,
+      genre:'Open archive',
+      mood:'',
+      duration:0,
+      plays:0,
+      favorites:0,
+      reposts:0,
+      artwork:'',
+      url,
+      source:'Wikimedia Commons',
+      sourcePage:'https://commons.wikimedia.org/wiki/'+encodeURIComponent(String(page.title||'').replace(/ /g,'_')),
+      description:stripHtml(meta.ImageDescription?.value||'').slice(0,500),
+      license,
+      openCatalog:true,
+      provider:'commons'
+    }]
+  })
+}
+
+function mergeMusicProviders(primary,secondary,limit){
+  const out=[]
+  const seen=new Set()
+  let a=0,b=0
+  while(out.length<limit&&(a<primary.length||b<secondary.length)){
+    for(let i=0;i<2&&a<primary.length&&out.length<limit;i++){
+      const item=primary[a++]
+      if(seen.has(item.id)) continue
+      seen.add(item.id);out.push(item)
+    }
+    if(b<secondary.length&&out.length<limit){
+      const item=secondary[b++]
+      if(!seen.has(item.id)){seen.add(item.id);out.push(item)}
+    }
+  }
+  return out
 }
 
 function normalizeTracks(rows){
@@ -119,8 +214,22 @@ async function searchTracks({query,limit,offset,sort,genre}){
     filter_tracks:'public'
   }
   if(genre) params.genre=genre
-  const data=await audiusFetch('/tracks/search',params)
-  return normalizeTracks(data?.data||data?.results||[])
+
+  const [audiusResult,commonsResult]=await Promise.allSettled([
+    audiusFetch('/tracks/search',params),
+    commonsMusicSearch(query,{limit:Math.min(16,Math.ceil(limit/2)),offset:Math.floor(offset/2)})
+  ])
+
+  const audiusItems=audiusResult.status==='fulfilled'
+    ?normalizeTracks(audiusResult.value?.data||audiusResult.value?.results||[])
+    :[]
+  const commonsItems=commonsResult.status==='fulfilled'?commonsResult.value:[]
+
+  if(!audiusItems.length&&!commonsItems.length){
+    const reason=audiusResult.status==='rejected'?audiusResult.reason:commonsResult.reason
+    throw reason||new Error('No open music providers responded')
+  }
+  return mergeMusicProviders(audiusItems,commonsItems,limit)
 }
 
 async function trendingTracks({limit,offset,genre,time='week'}){
@@ -203,7 +312,7 @@ module.exports=async function handler(req,res){
 
     return json(res,200,{
       mode:actualMode,
-      provider:'Audius',
+      provider:actualMode==='trending'?'Audius':'Audius + Wikimedia Commons',
       query,
       genre,
       sort,
