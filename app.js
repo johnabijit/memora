@@ -50,7 +50,7 @@ let mediaPlayerState={
   radioHasMore:true,
   countries:[],
   audioView:localStorage.getItem('memora-audio-view')||'nature',
-  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'christian'
+  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all'
 }
 
 const defaultNaturalTrack={
@@ -663,8 +663,9 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
   const previousQuery=mediaPlayerState.query
   const previousCountry=mediaPlayerState.radioCountry
   const previousSort=mediaPlayerState.radioSort
-  const requestedTradition=tradition||mediaPlayerState.devotionalTradition||'christian'
-  const sameRadioSelection=['radio','devotional'].includes(previousMode)&&previousMode===safeMode&&previousQuery===safeQuery&&previousCountry===requestedCountry&&previousSort===requestedSort
+  const previousTradition=mediaPlayerState.devotionalTradition
+  const requestedTradition=tradition||mediaPlayerState.devotionalTradition||'all'
+  const sameRadioSelection=['radio','devotional'].includes(previousMode)&&previousMode===safeMode&&previousQuery===safeQuery&&previousCountry===requestedCountry&&previousSort===requestedSort&&(safeMode!=='devotional'||previousTradition===requestedTradition)
   const shouldAppend=append&&['radio','devotional'].includes(safeMode)&&sameRadioSelection
 
   try{
@@ -893,9 +894,12 @@ function audioLibraryCard(item,index){
   const meta=item.type==='radio'
     ?[item.devotional?item.traditionLabel:null,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
     :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
+  const artwork=item.favicon
+    ?`<span class="audio-card-art"><img src="${esc(item.favicon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`
+    :'<span class="audio-card-art fallback"></span>'
   return `
     <button class="audio-library-card ${mediaPlayerState.current?.id===item.id?'selected':''}" data-audio-index="${index}">
-      <span class="audio-card-orb"></span>
+      ${artwork}
       <span class="audio-card-copy"><b>${esc(item.title||'Untitled audio')}</b><small>${esc(meta||'Audio')}</small></span>
       <span class="audio-card-play">${mediaPlayerState.current?.id===item.id&&!mediaAudio()?.paused?'Playing':'Play'}</span>
     </button>
@@ -906,12 +910,16 @@ function renderAudioLibraryResults(box){
   const target=box.querySelector('#audioLibraryResults')
   const count=box.querySelector('#audioLibraryCount')
   if(!target) return
-  if(count) count.textContent=mediaPlayerState.mode==='radio'
-    ?`${mediaPlayerState.library.length} live stations loaded this session`
-    :`${mediaPlayerState.library.length} nature recordings found`
+  if(count){
+    count.textContent=mediaPlayerState.mode==='devotional'
+      ?`${mediaPlayerState.library.length} devotional stations loaded`
+      :mediaPlayerState.mode==='radio'
+        ?`${mediaPlayerState.library.length} live stations loaded this session`
+        :`${mediaPlayerState.library.length} nature recordings found`
+  }
   target.innerHTML=mediaPlayerState.library.length
     ?mediaPlayerState.library.map(audioLibraryCard).join('')
-    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another category or search.</div>'
+    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another tradition, country or search term.</div>'
   target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
     await selectMediaTrack(item,true)
@@ -922,8 +930,10 @@ function renderAudioLibraryResults(box){
     const current=mediaPlayerState.current
     if(current?.type==='nature'&&current.sourcePage){
       note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
+    }else if(current?.devotional){
+      note.innerHTML=`Live ${esc(current.traditionLabel||'devotional')} station stream${current.country?` from ${esc(current.country)}`:''}. The broadcaster provides the audio and Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
     }else if(current?.type==='radio'){
-      note.innerHTML=`Real live internet-radio stream. The station provides the audio, Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
+      note.innerHTML=`Real live internet-radio stream. The station provides the audio and Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
     }else{
       note.textContent=''
     }
