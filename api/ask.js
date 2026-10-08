@@ -181,7 +181,7 @@ module.exports=async function handler(req,res){
         })).filter(item=>item.text)
       :[]
 
-    const [search,recent,facts,people,places,things,documents,profiles]=await Promise.all([
+    const [search,recent,facts,people,places,things,documents,profiles,moods]=await Promise.all([
       supabaseFetch('/rest/v1/rpc/search_memory_universe',token,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -193,7 +193,8 @@ module.exports=async function handler(req,res){
       supabaseFetch('/rest/v1/places?select=name,address,category,notes,last_visited_at&order=last_visited_at.desc.nullslast&limit=40',token).catch(()=>[]),
       supabaseFetch('/rest/v1/things?select=name,description,current_location,updated_at&order=updated_at.desc&limit=40',token).catch(()=>[]),
       supabaseFetch('/rest/v1/documents?select=file_name,description,extracted_text,created_at&order=created_at.desc&limit=12',token).catch(()=>[]),
-      supabaseFetch('/rest/v1/profiles?select=display_name,timezone&limit=1',token).catch(()=>[])
+      supabaseFetch('/rest/v1/profiles?select=display_name,timezone&limit=1',token).catch(()=>[]),
+      supabaseFetch('/rest/v1/mood_logs?select=mood,intensity,note,created_at&order=created_at.desc&limit=5',token).catch(()=>[])
     ])
 
     const evidence=[]
@@ -267,10 +268,15 @@ module.exports=async function handler(req,res){
       .map(d=>`${d.file_name}: ${cleanEvidenceText(d.description||d.extracted_text,1000)}`)
       .join('\n')
 
+    const moodText=(moods||[]).map(m=>`${m.created_at||''}: ${m.mood}${m.note?` | ${cleanEvidenceText(m.note,300)}`:''}`).join('\n')
     const profile=profiles?.[0]
     const system=[
-      'You are Memora, a private personal memory assistant.',
-      'Answer like a strong conversational assistant with memory: understand typos, incomplete grammar, pronouns, short follow-ups, and implied context.',
+      'You are Memora, a warm, capable conversational companion with a private personal memory vault.',
+      'You can have ordinary conversations, answer general questions, help the user think, explain things, brainstorm, and respond naturally even when no stored memory is relevant.',
+      'When the question is about the user personally, ground personal claims only in the supplied Memora facts, memories, mood history, documents, images and conversation context. Never invent personal facts.',
+      'Answer like a strong conversational assistant with memory: understand typos, incomplete grammar, pronouns, short follow-ups, implied context, emotion and intent.',
+      'If the user shares a feeling or difficult day, respond naturally and supportively without diagnosing them. Do not turn every emotional message into clinical or crisis language.',
+      'If recent mood context is supplied, use it gently when relevant, but do not repeatedly mention or overstate it.',
       'PERSONAL FACTS are the highest-priority structured evidence. Use them before raw memories or OCR.',
       'For family facts, ordinal preserves the order explicitly stated by the user. If two brothers are marked elder, ordinal 1 is the eldest brother and ordinal 2 is the younger of those two brothers. If two sisters are marked younger, ordinal 1 is the first younger sister and ordinal 2 is the youngest sister.',
       'For work questions, answer from work.* facts such as employer, manager, business title, job profile, management level and location.',
@@ -289,6 +295,7 @@ module.exports=async function handler(req,res){
       historyText?`RECENT CONVERSATION:\n${historyText}`:'',
       factText?`PERSONAL FACTS:\n${factText}`:'',
       profile?`PROFILE: ${profile.display_name||''} | timezone ${profile.timezone||''}`:'',
+      moodText?`RECENT MOOD CHECK-INS:\n${moodText}`:'',
       peopleText?`PEOPLE:\n${peopleText}`:'',
       thingsText?`THINGS:\n${thingsText}`:'',
       placesText?`PLACES:\n${placesText}`:'',
@@ -296,7 +303,7 @@ module.exports=async function handler(req,res){
       documentText?`DOCUMENTS:\n${documentText}`:'',
       image.media?.extracted_text?`LATEST IMAGE OCR SUPPORTING TEXT:\n${cleanEvidenceText(image.media.extracted_text,2600)}`:'',
       image.media?`LATEST SAVED IMAGE: ${image.media.file_name||'saved image'} from ${image.media.created_at||'unknown date'}`:'',
-      'Answer the current question directly and cleanly.'
+      'Answer the current question directly and cleanly. If it is ordinary conversation rather than a memory lookup, respond conversationally instead of saying that no relevant memory exists.'
     ].filter(Boolean).join('\n\n')
 
     const gatewayToken=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN
