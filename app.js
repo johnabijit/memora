@@ -2461,11 +2461,9 @@ async function authScreen(mode='login'){
 
 const dockItems=[
   ['home','⌂','Home'],
-  ['memories','✦','Memories'],
   ['ask','◎','Ask'],
   ['capture','＋',''],
   ['timeline','◷','Timeline'],
-  ['sources','◉','Sources'],
   ['vault','◇','Vault']
 ]
 
@@ -4490,7 +4488,12 @@ async function ask({reload=true}={}){
       let action=response.action||null
       if(detectedMood){
         const label=moodCatalog[detectedMood]?.label||detectedMood
-        if(!/saved|remembered|mood check-in/i.test(responseText)) responseText+=` I’ve also saved this as your ${label.toLowerCase()} mood check-in.`
+        if(/don't have a relevant|do not have a relevant|nothing matched/i.test(responseText)){
+          responseText=`I hear you. I’ve saved this as your ${label.toLowerCase()} mood check-in. Would you like me to play something that fits how you’re feeling?`
+        }else{
+          if(!/saved|remembered|mood check-in/i.test(responseText)) responseText+=` I’ve also saved this as your ${label.toLowerCase()} mood check-in.`
+          if(!/music|audio|play something|listen/i.test(responseText)) responseText+=' If you want, I can play something that fits this mood.'
+        }
         action={type:'mood_audio',mood:detectedMood,label:'Play something for this mood'}
       }
       const finalMessage={role:'assistant',...response,text:responseText,action,fresh:true,created_at:new Date().toISOString()}
