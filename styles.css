@@ -532,3 +532,71 @@ body.has-memora-player .chat-panel{scroll-padding-bottom:calc(var(--player-h) + 
   .audio-search-row{grid-template-columns:1fr}
   .audio-library-toolbar{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Audio reactive living background */
+.scene-layer:before{
+  content:"";
+  position:absolute;
+  inset:-15%;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .8s ease,filter .8s ease;
+}
+html[data-audio-playing="true"][data-audio-scene="rain"] .scene-layer:before{
+  opacity:.26;
+  background:repeating-linear-gradient(102deg,transparent 0 17px,rgba(205,230,255,.32) 18px,transparent 20px 38px);
+  background-size:170px 220px;
+  animation:memoraRain 1.2s linear infinite;
+  filter:blur(.25px);
+}
+html[data-audio-playing="true"][data-audio-scene="ocean"] .scene-layer:before,
+html[data-audio-playing="true"][data-audio-scene="water"] .scene-layer:before{
+  opacity:.32;
+  background:
+    radial-gradient(ellipse at 18% 100%,color-mix(in srgb,var(--c2) 34%,transparent),transparent 38%),
+    radial-gradient(ellipse at 62% 115%,color-mix(in srgb,var(--c1) 23%,transparent),transparent 42%),
+    radial-gradient(ellipse at 92% 105%,rgba(110,210,255,.13),transparent 36%);
+  animation:memoraWave 7s ease-in-out infinite;
+}
+html[data-audio-playing="true"][data-audio-scene="forest"] .scene-layer:before{
+  opacity:.34;
+  background:
+    radial-gradient(circle at 12% 70%,rgba(130,255,174,.18) 0 2px,transparent 3px),
+    radial-gradient(circle at 35% 54%,rgba(220,255,164,.14) 0 1.5px,transparent 3px),
+    radial-gradient(circle at 68% 78%,rgba(136,255,202,.16) 0 2px,transparent 3px),
+    radial-gradient(circle at 87% 42%,rgba(235,255,171,.13) 0 1.5px,transparent 3px);
+  background-size:160px 180px,210px 240px,250px 210px,190px 230px;
+  animation:forestFireflies 13s ease-in-out infinite;
+}
+html[data-audio-playing="true"][data-audio-scene="night"] .scene-layer:before{
+  opacity:.3;
+  background:
+    radial-gradient(circle at 20% 22%,rgba(225,236,255,.28) 0 1px,transparent 2px),
+    radial-gradient(circle at 72% 18%,rgba(206,225,255,.18) 0 1px,transparent 2px),
+    radial-gradient(circle at 48% 68%,rgba(185,212,255,.16) 0 1px,transparent 2px);
+  background-size:110px 130px,170px 190px,230px 260px;
+  animation:nightDrift 24s linear infinite;
+}
+html[data-audio-playing="true"][data-audio-scene="wind"] .scene-layer:before{
+  opacity:.22;
+  background:repeating-linear-gradient(170deg,transparent 0 38px,rgba(255,255,255,.08) 40px,transparent 44px 90px);
+  animation:windSweep 9s linear infinite;
+}
+html[data-audio-playing="true"][data-audio-scene="radio"] .scene-layer:before{
+  opacity:.22;
+  background:
+    radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--c1) 25%,transparent),transparent 23%),
+    conic-gradient(from 0deg at 50% 50%,transparent,color-mix(in srgb,var(--c2) 12%,transparent),transparent,color-mix(in srgb,var(--c3) 10%,transparent),transparent);
+  animation:radioPulse 9s linear infinite;
+}
+@keyframes memoraRain{to{background-position:-42px 220px}}
+@keyframes memoraWave{0%,100%{transform:translate3d(-3%,2%,0) scale(1)}50%{transform:translate3d(4%,-2%,0) scale(1.06)}}
+@keyframes forestFireflies{0%,100%{transform:translate3d(0,0,0);filter:brightness(.8)}50%{transform:translate3d(20px,-25px,0);filter:brightness(1.4)}}
+@keyframes nightDrift{to{background-position:80px -180px,-120px -210px,90px -240px}}
+@keyframes windSweep{to{background-position:420px -90px}}
+@keyframes radioPulse{50%{transform:scale(1.08) rotate(180deg)}100%{transform:scale(1) rotate(360deg)}}
+
+@media(prefers-reduced-motion:reduce){
+  .scene-layer:before{animation:none!important}
+}
