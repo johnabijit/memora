@@ -674,7 +674,7 @@ function openNowPlayingSheet(){
   const audio=mediaAudio()
   const artwork=nowPlayingArtwork(current)
   const source=current.type==='music'
-    ?'Open Music · Audius'
+    ?`Open Music · ${current.provider==='commons'?'Wikimedia Commons':'Audius'}`
     :current.devotional
       ?`Devotional · ${current.traditionLabel||'Spiritual'}`
       :current.type==='radio'
@@ -707,7 +707,7 @@ function openNowPlayingSheet(){
       </div>
       <label class="now-volume"><span>Volume</span><input id="nowVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b>${Math.round(ambientPreferences.volume*100)}%</b></label>
       <div class="now-playing-meta">
-        ${current.type==='music'?'<span>Full track from the Audius open music catalog</span>':''}
+        ${current.type==='music'?`<span>Full track from ${esc(current.provider==='commons'?'Wikimedia Commons open media':'the Audius open music catalog')}</span>`:''}
         ${current.type==='radio'?'<span>Live station stream supplied by the broadcaster</span>':''}
         ${current.type==='nature'?'<span>Open nature recording streamed from Wikimedia Commons</span>':''}
         ${current.sourcePage?`<a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Open source page ↗</a>`:''}
@@ -1196,9 +1196,12 @@ async function setAmbientEnabled(enabled){
 function audioLibraryCard(item,index){
   const meta=item.type==='radio'
     ?[item.devotional?item.traditionLabel:null,item.devotionalLanguage||item.language,item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
-    :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
-  const artwork=item.favicon
-    ?`<span class="audio-card-art"><img src="${esc(item.favicon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`
+    :item.type==='music'
+      ?[item.artist,item.genre,item.provider==='commons'?'Wikimedia Commons':'Audius',item.license].filter(Boolean).join(' · ')
+      :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
+  const artUrl=item.artwork||item.favicon||''
+  const artwork=artUrl
+    ?`<span class="audio-card-art"><img src="${esc(artUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('fallback');this.remove()"></span>`
     :'<span class="audio-card-art fallback"></span>'
   return `
     <button class="audio-library-card ${mediaPlayerState.current?.id===item.id?'selected':''}" data-audio-index="${index}">
@@ -1238,7 +1241,9 @@ function renderAudioLibraryResults(box){
   if(note){
     const current=mediaPlayerState.current
     if(current?.type==='music'){
-      note.innerHTML=`Open Music track from <a href="${esc(current.sourcePage||'https://audius.co')}" target="_blank" rel="noopener">Audius</a>${current.artist?` · ${esc(current.artist)}`:''}. Memora does not copy or re-host the commercial music catalogs of Spotify or Apple Music.`
+      const providerName=current.provider==='commons'?'Wikimedia Commons':'Audius'
+      const providerHome=current.provider==='commons'?'https://commons.wikimedia.org':'https://audius.co'
+      note.innerHTML=`Open Music track from <a href="${esc(current.sourcePage||providerHome)}" target="_blank" rel="noopener">${providerName}</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}. Memora streams from the source and does not copy Spotify, Apple Music or Amazon Music catalogs.`
     }else if(current?.type==='nature'&&current.sourcePage){
       note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
     }else if(current?.devotional){
@@ -1381,8 +1386,8 @@ async function openSoundscapePicker(){
 
       <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
         <div class="audio-section-intro">
-          <div><span class="eyebrow">Open catalog</span><strong>Full tracks, not radio stations.</strong><small>Search and stream public tracks from Audius, an open music network.</small></div>
-          <span class="source-pill">Audius</span>
+          <div><span class="eyebrow">Open catalog</span><strong>Full tracks, not radio stations.</strong><small>Search full tracks across Audius plus open music recordings from Wikimedia Commons.</small></div>
+          <span class="source-pill">Audius + Commons</span>
         </div>
         <div class="audio-search-row">
           <input class="input" id="musicSearch" value="${esc(mediaPlayerState.musicQuery)}" placeholder="Search song, artist, genre, language or devotional style">
@@ -1394,8 +1399,20 @@ async function openSoundscapePicker(){
           <button class="radio-sort-btn ${mediaPlayerState.musicSort==='recent'?'active':''}" data-music-sort="recent">Recent</button>
         </div>
         <div class="audio-presets music-presets">
-          ${['Trending','Pop','Rock','Electronic','Hip-Hop','R&B','Jazz','Classical','Ambient','Afrobeats','Latin','Arabic','Indian','Tamil','Malayalam','Korean','Japanese','Gospel','Christian','Qawwali','Bhajan','Ghazal'].map(label=>`<button class="chip" data-music-query="${label==='Trending'?'':esc(label)}">${esc(label)}</button>`).join('')}
+          ${['Trending','Pop','Rock','Electronic','Hip-Hop','R&B','Jazz','Classical','Ambient','Afrobeats','Latin','Arabic','Indian','Tamil','Malayalam','Hindi','Telugu','Kannada','Punjabi','Bengali','Korean','Japanese','Gospel','Christian','Worship','Qawwali','Bhajan','Ghazal','Nasheed','Gurbani'].map(label=>`<button class="chip" data-music-query="${label==='Trending'?'':esc(label)}">${esc(label)}</button>`).join('')}
         </div>
+        <details class="audio-disclosure">
+          <summary>Browse music by region and language</summary>
+          <div class="music-world-grid">
+            ${[
+              ['South Asia',['Tamil','Malayalam','Hindi','Telugu','Kannada','Punjabi','Bengali','Marathi','Gujarati','Urdu','Sinhala','Nepali']],
+              ['Middle East',['Arabic','Persian','Turkish','Hebrew']],
+              ['Europe',['English','Spanish','Portuguese','French','German','Italian','Greek','Russian','Ukrainian']],
+              ['Africa',['Afrobeats','Swahili','Gospel Africa','Amapiano','Highlife']],
+              ['East & Southeast Asia',['Korean','Japanese','Chinese','Indonesian','Malay','Tagalog','Vietnamese']]
+            ].map(([group,items])=>`<section><h4>${esc(group)}</h4><div>${items.map(item=>`<button class="chip" data-music-query="${esc(item)}">${esc(item)}</button>`).join('')}</div></section>`).join('')}
+          </div>
+        </details>
         <div class="open-music-note">Commercial catalogs such as Spotify and Apple Music are not copied into Memora. Their playback requires each provider's own account, licensing and authorization.</div>
       </section>
 
@@ -1437,14 +1454,24 @@ async function openSoundscapePicker(){
         </div>
 
         <div class="regional-devotional">
-          <span>Christian by language</span>
+          <span>Christian music by language</span>
           <div>
             ${[
-              ['English','christian','christian music'],['Tamil','christian','christian tamil'],['Malayalam','christian','christian malayalam'],
-              ['Hindi','christian','christian hindi'],['Telugu','christian','christian telugu'],['Kannada','christian','christian kannada'],
-              ['Punjabi','christian','christian punjabi'],['Arabic','christian','arabic christian'],['Spanish','christian','christian spanish'],
-              ['Portuguese','christian','christian portuguese'],['Korean','christian','korean christian'],['Indonesian','christian','indonesian christian']
-            ].map(([language,tradition,query])=>`<button class="chip" data-regional-language="${esc(language)}" data-devotional="${tradition}" data-devotional-query="${esc(query)}">${esc(language)}</button>`).join('')}
+              'English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati',
+              'Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Russian','Ukrainian','Korean',
+              'Japanese','Chinese','Tagalog','Indonesian','Malay','Swahili','Sinhala','Nepali'
+            ].map(language=>`<button class="chip" data-regional-language="${esc(language)}" data-devotional="christian" data-devotional-query="">${esc(language)}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="devotional-language-quick">
+          <span>Apply language to the selected tradition</span>
+          <div>
+            ${[
+              'All languages','English','Tamil','Malayalam','Hindi','Telugu','Kannada','Punjabi','Urdu','Arabic',
+              'Spanish','Portuguese','French','German','Russian','Hebrew','Persian','Turkish','Indonesian','Malay',
+              'Swahili','Sinhala','Nepali','Korean','Japanese','Chinese','Tagalog'
+            ].map(language=>`<button class="chip ${(language==='All languages'&&!mediaPlayerState.devotionalLanguage)||mediaPlayerState.devotionalLanguage===language?'active':''}" data-devotional-language-quick="${language==='All languages'?'':esc(language)}">${esc(language)}</button>`).join('')}
           </div>
         </div>
 
@@ -1491,6 +1518,8 @@ async function openSoundscapePicker(){
     </div>
   `)
 
+  box.classList.add('audio-hub-backdrop')
+  box.querySelector('.modal')?.classList.add('audio-hub-modal')
   const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
   const panels=[...box.querySelectorAll('[data-audio-panel]')]
   const discoverMore=box.querySelector('#audioDiscoverMore')
@@ -1668,8 +1697,15 @@ async function openSoundscapePicker(){
   devotionalCountry.onchange=()=>runLoad('devotional')
   devotionalLanguage.onchange=async()=>{
     mediaPlayerState.devotionalLanguage=devotionalLanguage.value
+    box.querySelectorAll('[data-devotional-language-quick]').forEach(item=>item.classList.toggle('active',item.dataset.devotionalLanguageQuick===mediaPlayerState.devotionalLanguage))
     await runLoad('devotional')
   }
+  box.querySelectorAll('[data-devotional-language-quick]').forEach(button=>button.onclick=async()=>{
+    mediaPlayerState.devotionalLanguage=button.dataset.devotionalLanguageQuick||''
+    devotionalLanguage.value=mediaPlayerState.devotionalLanguage
+    box.querySelectorAll('[data-devotional-language-quick]').forEach(item=>item.classList.toggle('active',item===button))
+    await runLoad('devotional')
+  })
   box.querySelectorAll('[data-devotional]').forEach(button=>button.onclick=async()=>{
     const language=button.dataset.regionalLanguage??null
     setDevotional(button.dataset.devotional||'all_faiths',button.dataset.devotionalQuery||'',language)
@@ -4562,7 +4598,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.33</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.09.34</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4750,5 +4786,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=33').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=34').then(reg=>reg.update()).catch(()=>{})
 }
