@@ -1104,18 +1104,41 @@ async function nextMediaTrack(autoplay=true){
 
   if(!mediaPlayerState.library.length){
     try{
-      await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{
-        preserveCurrent:true,
-        random:['radio','devotional'].includes(mediaPlayerState.mode)&&mediaPlayerState.radioSort==='random',
-        countrycode:mediaPlayerState.radioCountry,
-        sort:mediaPlayerState.radioSort,
-        language:mediaPlayerState.mode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
-      })
+      if(mediaPlayerState.mode==='music'){
+        await loadMediaLibrary('music',mediaPlayerState.musicQuery,50,{
+          preserveCurrent:true,
+          sort:mediaPlayerState.musicSort,
+          genre:mediaPlayerState.musicGenre
+        })
+      }else{
+        await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{
+          preserveCurrent:true,
+          random:['radio','devotional'].includes(mediaPlayerState.mode)&&mediaPlayerState.radioSort==='random',
+          countrycode:mediaPlayerState.radioCountry,
+          sort:mediaPlayerState.radioSort,
+          tradition:mediaPlayerState.devotionalTradition,
+          language:mediaPlayerState.mode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
+        })
+      }
     }catch{
       if(mediaPlayerState.mode==='nature') mediaPlayerState.library=[defaultNaturalTrack]
     }
   }
   if(!mediaPlayerState.library.length) return
+
+  if(mediaPlayerState.mode==='music'){
+    const nearEnd=mediaPlayerState.index>=Math.max(0,mediaPlayerState.library.length-4)
+    if(nearEnd&&mediaPlayerState.musicHasMore&&!mediaPlayerState.loading){
+      try{
+        await loadMediaLibrary('music',mediaPlayerState.musicQuery,50,{
+          preserveCurrent:true,
+          append:true,
+          sort:mediaPlayerState.musicSort,
+          genre:mediaPlayerState.musicGenre
+        })
+      }catch{}
+    }
+  }
 
   if(['radio','devotional'].includes(mediaPlayerState.mode)){
     const nearEnd=mediaPlayerState.index>=Math.max(0,mediaPlayerState.library.length-4)
@@ -1190,30 +1213,38 @@ function renderAudioLibraryResults(box){
   const target=box.querySelector('#audioLibraryResults')
   const count=box.querySelector('#audioLibraryCount')
   if(!target) return
+
   if(count){
-    count.textContent=mediaPlayerState.mode==='devotional'
-      ?`${mediaPlayerState.library.length} devotional stations loaded`
-      :mediaPlayerState.mode==='radio'
-        ?`${mediaPlayerState.library.length} live stations loaded this session`
-        :`${mediaPlayerState.library.length} nature recordings found`
+    count.textContent=mediaPlayerState.mode==='music'
+      ?`${mediaPlayerState.library.length} open tracks loaded`
+      :mediaPlayerState.mode==='devotional'
+        ?`${mediaPlayerState.library.length} devotional stations loaded`
+        :mediaPlayerState.mode==='radio'
+          ?`${mediaPlayerState.library.length} live stations loaded`
+          :`${mediaPlayerState.library.length} nature recordings found`
   }
+
   target.innerHTML=mediaPlayerState.library.length
     ?mediaPlayerState.library.map(audioLibraryCard).join('')
-    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another tradition, country or search term.</div>'
+    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another search, language, tradition, country or genre.</div>'
+
   target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
     await selectMediaTrack(item,true)
     renderAudioLibraryResults(box)
   })
+
   const note=box.querySelector('#audioSourceNote')
   if(note){
     const current=mediaPlayerState.current
-    if(current?.type==='nature'&&current.sourcePage){
+    if(current?.type==='music'){
+      note.innerHTML=`Open Music track from <a href="${esc(current.sourcePage||'https://audius.co')}" target="_blank" rel="noopener">Audius</a>${current.artist?` · ${esc(current.artist)}`:''}. Memora does not copy or re-host the commercial music catalogs of Spotify or Apple Music.`
+    }else if(current?.type==='nature'&&current.sourcePage){
       note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
     }else if(current?.devotional){
-      note.innerHTML=`Live ${esc(current.traditionLabel||'devotional')} station stream${current.country?` from ${esc(current.country)}`:''}. The broadcaster provides the audio and Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
+      note.innerHTML=`Live ${esc(current.traditionLabel||'devotional')} station stream${current.country?` from ${esc(current.country)}`:''}. The broadcaster supplies the stream and Radio Browser supplies discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
     }else if(current?.type==='radio'){
-      note.innerHTML=`Real live internet-radio stream. The station provides the audio and Radio Browser provides discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
+      note.innerHTML=`Real live internet-radio stream. The station supplies the audio and Radio Browser supplies discovery${current.homepage?` · <a href="${esc(current.homepage)}" target="_blank" rel="noopener">station website</a>`:''}`
     }else{
       note.textContent=''
     }
@@ -4693,18 +4724,31 @@ async function bootstrapSignedIn(){
     const audio=mediaAudio()
     if(audio) audio.muted=true
   }
-  const preferredMode=['radio','devotional'].includes(mediaPlayerState.mode)?mediaPlayerState.mode:'nature'
-  const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
-  loadMediaLibrary(preferredMode,preferredQuery,100,{
-    preserveCurrent:preferredMode==='nature',
-    countrycode:mediaPlayerState.radioCountry,
-    sort:mediaPlayerState.radioSort,
-    tradition:mediaPlayerState.devotionalTradition
-  })
-    .then(items=>{
-      if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[0],false)
+
+  const preferredMode=['radio','devotional','music'].includes(mediaPlayerState.mode)?mediaPlayerState.mode:'nature'
+  if(preferredMode==='music'){
+    loadMediaLibrary('music',mediaPlayerState.musicQuery,50,{
+      preserveCurrent:false,
+      sort:mediaPlayerState.musicSort,
+      genre:mediaPlayerState.musicGenre
+    }).then(items=>{
+      if(items?.length) selectMediaTrack(items[0],false)
+    }).catch(()=>{})
+  }else{
+    const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
+    loadMediaLibrary(preferredMode,preferredQuery,100,{
+      preserveCurrent:preferredMode==='nature',
+      countrycode:mediaPlayerState.radioCountry,
+      sort:mediaPlayerState.radioSort,
+      tradition:mediaPlayerState.devotionalTradition,
+      language:preferredMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
     })
-    .catch(()=>{})
+      .then(items=>{
+        if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[0],false)
+      })
+      .catch(()=>{})
+  }
+
   await migrateLegacyChat()
   if(navigationInitialized) await renderRoute(view)
   else await initializeNavigation()
