@@ -395,6 +395,249 @@ function resolveAmbientScene(){
   return 'night'
 }
 
+function sceneQueryFromText(value){
+  const text=String(value||'').toLowerCase()
+  const map=[
+    [/rain|storm|thunder/,'rain landscape'],
+    [/forest|woods|jungle|rainforest/,'forest landscape'],
+    [/ocean|sea|beach|coast|shore/,'ocean coast'],
+    [/mountain|hill|hiking|trek/,'mountain landscape'],
+    [/night|stars|moon/,'night sky landscape'],
+    [/sunset|evening|golden hour/,'sunset landscape'],
+    [/church|cathedral|chapel/,'church architecture'],
+    [/temple/,'temple architecture'],
+    [/mosque/,'mosque architecture'],
+    [/city|downtown|street/,'city skyline'],
+    [/park|garden/,'garden park'],
+    [/village|countryside/,'countryside landscape'],
+    [/snow|winter/,'snow landscape'],
+    [/river|waterfall|lake/,'water landscape']
+  ]
+  for(const [pattern,query] of map) if(pattern.test(text)) return query
+  return ''
+}
+
+function renderSceneCredit(){
+  const credit=document.getElementById('sceneCredit')
+  if(!credit) return
+  if(!sceneBackdropState.sourcePage){
+    credit.classList.add('hidden')
+    credit.removeAttribute('href')
+    return
+  }
+  credit.href=sceneBackdropState.sourcePage
+  credit.textContent='Scene: Wikimedia Commons'
+  credit.title=[sceneBackdropState.artist,sceneBackdropState.license].filter(Boolean).join(' · ')
+  credit.classList.remove('hidden')
+}
+
+async function loadSceneBackdrop(query,{force=false}={}){
+  if(!experiencePreferences.contextualScenery||!ambientPreferences.dynamicBackground) return
+  const clean=String(query||'').trim().slice(0,80)
+  if(!clean||sceneBackdropState.loading) return
+  const bucket=new Date().toISOString().slice(0,13)
+  const cacheKey=`memora-scene:${clean.toLowerCase()}:${bucket}`
+  if(!force){
+    try{
+      const cached=JSON.parse(sessionStorage.getItem(cacheKey)||'null')
+      if(cached?.url){
+        sceneBackdropState={...sceneBackdropState,...cached,query:clean,loading:false}
+        document.documentElement.style.setProperty('--scene-photo',`url("${cached.url.replace(/"/g,'%22')}")`)
+        document.documentElement.dataset.scenePhoto='on'
+        renderSceneCredit()
+        return
+      }
+    }catch{}
+  }
+
+  sceneBackdropState.loading=true
+  try{
+    const response=await fetch(`/api/scene-background?q=${encodeURIComponent(clean)}&bucket=${encodeURIComponent(bucket)}`)
+    const data=await response.json()
+    if(!response.ok||!data?.item?.url) return
+    sceneBackdropState={query:clean,loading:false,...data.item}
+    document.documentElement.style.setProperty('--scene-photo',`url("${String(data.item.url).replace(/"/g,'%22')}")`)
+    document.documentElement.dataset.scenePhoto='on'
+    try{sessionStorage.setItem(cacheKey,JSON.stringify(data.item))}catch{}
+    renderSceneCredit()
+  }catch{
+    sceneBackdropState.loading=false
+  }finally{
+    sceneBackdropState.loading=false
+  }
+}
+
+async function maybeApplyContextScene(text){
+  if(!experiencePreferences.contextualScenery) return
+  const keyword=sceneQueryFromText(text)
+  if(keyword) return loadSceneBackdrop(keyword)
+
+  if(user){
+    try{
+      const {data:places}=await supabase.from('places').select('name,address').order('last_visited_at',{ascending:false}).limit(20)
+      const lower=String(text||'').toLowerCase()
+      const place=(places||[]).find(item=>{
+        const name=String(item.name||'').trim().toLowerCase()
+        return name.length>2&&lower.includes(name)
+      })
+      if(place) return loadSceneBackdrop(place.name||place.address)
+    }catch{}
+  }
+}
+
+function detectMoodStatement(value){
+  const text=normalizeQuestion(String(value||'')).toLowerCase()
+  if(/\b(?:do not|don't|dont)\s+(?:save|remember|store)\b/.test(text)) return null
+  const explicit=/\b(?:i feel|i'm feeling|i am feeling|my mood is|today i feel|today i'm|today i am)\b/.test(text)
+  if(!explicit) return null
+  const tests=[
+    ['prayerful',/prayerful|spiritual|want to pray|need prayer/],
+    ['stressed',/stressed|overwhelmed|pressure|burned out|burnt out/],
+    ['anxious',/anxious|nervous|worried|uneasy/],
+    ['sad',/sad|down|unhappy|heartbroken|upset/],
+    ['low',/low|not great|not good|rough/],
+    ['tired',/tired|exhausted|sleepy|drained/],
+    ['great',/great|amazing|fantastic|wonderful/],
+    ['happy',/happy|good|excited|cheerful|joyful/],
+    ['grateful',/grateful|thankful|blessed/],
+    ['focused',/focused|productive|motivated/],
+    ['calm',/calm|peaceful|relaxed|fine/],
+    ['okay',/okay|ok|alright|so so/]
+  ]
+  for(const [mood,pattern] of tests) if(pattern.test(text)) return mood
+  return null
+}
+
+async function recordMood(mood,note='',source='chat'){
+  if(!user||!experiencePreferences.moodCheckinsEnabled||!moodCatalog[mood]) return null
+  const now=new Date().toISOString()
+  const label=moodCatalog[mood].label
+  const {data:memory,error:memoryError}=await supabase.from('memories').insert({
+    user_id:user.id,
+    original_text:note||`Mood check-in: ${label}`,
+    summary:`Mood check-in: ${label}`,
+    memory_type:'event',
+    state:'historical',
+    occurred_at:now,
+    source_type:'manual',
+    provenance_kind:'user_stated',
+    confidence:1,
+    interpreted_data:{mood,source}
+  }).select().single()
+  if(memoryError) throw memoryError
+  const {data,error}=await supabase.from('mood_logs').insert({
+    user_id:user.id,
+    mood,
+    note:note||null,
+    source,
+    memory_id:memory.id,
+    created_at:now
+  }).select().single()
+  if(error) throw error
+  latestMood=data
+  maybeApplyContextScene(mood)
+  return data
+}
+
+async function playForMood(mood){
+  const plan=moodCatalog[mood]?.audio||moodCatalog.calm.audio
+  mediaPlayerState.audioView=plan.mode
+  if(plan.mode==='devotional'){
+    mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
+    mediaPlayerState.devotionalQuery=plan.query||''
+    const items=await loadMediaLibrary('devotional',plan.query||'',100,{
+      preserveCurrent:false,
+      tradition:mediaPlayerState.devotionalTradition,
+      language:mediaPlayerState.devotionalLanguage,
+      countrycode:mediaPlayerState.radioCountry,
+      sort:'popular'
+    })
+    if(items?.length) await selectMediaTrack(items[0],true)
+  }else if(plan.mode==='music'){
+    const items=await loadMediaLibrary('music',plan.query||'',50,{preserveCurrent:false,sort:'relevant'})
+    if(items?.length) await selectMediaTrack(items[0],true)
+  }else{
+    const items=await loadMediaLibrary('nature',plan.query||'rain',100,{preserveCurrent:false})
+    if(items?.length) await selectMediaTrack(items[0],true)
+  }
+}
+
+async function completeOnboarding(skipped=false){
+  experiencePreferences.onboardingCompleted=true
+  await supabase.from('user_settings').upsert({
+    user_id:user.id,
+    onboarding_completed:true,
+    onboarding_skipped_at:skipped?new Date().toISOString():null,
+    mood_checkins_enabled:experiencePreferences.moodCheckinsEnabled,
+    contextual_scenery:experiencePreferences.contextualScenery
+  })
+}
+
+async function showOnboardingTour({force=false}={}){
+  if(!user||(!force&&experiencePreferences.onboardingCompleted)) return
+  const steps=[
+    {
+      eyebrow:'Welcome to Memora',
+      title:'A memory companion, not just a storage app.',
+      body:'Talk naturally, save moments, photos, places and files, then ask about them later. Memora can also chat with you normally when you just want to talk.',
+      action:'Begin tour'
+    },
+    {
+      eyebrow:'Remember',
+      title:'Tell Memora what matters.',
+      body:'Type or speak a memory, attach a photo or file, capture a place, or simply say something like “I kept my keys in the top drawer.” Memora keeps the source and context with it.'
+    },
+    {
+      eyebrow:'Talk and check in',
+      title:'Your mood can be part of your story.',
+      body:'Tell Memora “I feel stressed today” or use the mood check-in on Home. Memora can remember the check-in, respond naturally, and offer audio that fits the moment.'
+    },
+    {
+      eyebrow:'Listen',
+      title:'Music, worldwide radio, devotionals and nature.',
+      body:'Use one compact player for open music tracks, real live radio, devotional discovery across traditions and languages, and real nature recordings. Advanced filters stay tucked away until you need them.'
+    },
+    {
+      eyebrow:'Private and yours',
+      title:'One shared memory vault, separate conversations.',
+      body:'Create different chats for work, family or anything else. They keep separate conversational context while still using the same private memory vault. You can export or delete your data from Settings.',
+      action:'Enter Memora'
+    }
+  ]
+  let index=0
+  const box=modal('Welcome to Memora','<div id="tourBody"></div>')
+  box.classList.add('tour-backdrop')
+  box.querySelector('.modal')?.classList.add('tour-modal')
+  const renderStep=()=>{
+    const step=steps[index]
+    const body=box.querySelector('#tourBody')
+    body.innerHTML=`
+      <div class="tour-progress">${steps.map((_,i)=>`<span class="${i<=index?'active':''}"></span>`).join('')}</div>
+      <div class="tour-visual"><div class="tour-orb"><span></span></div><small>${esc(step.eyebrow)}</small></div>
+      <h2>${esc(step.title)}</h2>
+      <p>${esc(step.body)}</p>
+      <div class="tour-actions">
+        <button class="btn ghost" id="tourSkip">${index===steps.length-1?'Close':'Skip tour'}</button>
+        <button class="btn primary" id="tourNext">${esc(step.action||(index===steps.length-1?'Enter Memora':'Next'))}</button>
+      </div>`
+    body.querySelector('#tourSkip').onclick=async()=>{
+      await completeOnboarding(true)
+      box.remove()
+    }
+    body.querySelector('#tourNext').onclick=async()=>{
+      if(index<steps.length-1){
+        index++
+        renderStep()
+      }else{
+        await completeOnboarding(false)
+        box.remove()
+        setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
+      }
+    }
+  }
+  renderStep()
+}
+
 function updateVisualScene(){
   const now=new Date()
   const hour=now.getHours()
