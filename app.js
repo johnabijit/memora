@@ -1253,69 +1253,59 @@ function renderAudioLibraryResults(box){
 
 async function openSoundscapePicker(){
   ensureMediaPlayer()
-  const currentMode=mediaPlayerState.audioView||mediaPlayerState.mode||'nature'
+
+  const currentMode=['music','radio','devotional','nature'].includes(mediaPlayerState.audioView)
+    ?mediaPlayerState.audioView
+    :(['music','radio','devotional','nature'].includes(mediaPlayerState.mode)?mediaPlayerState.mode:'music')
+
   let countries=[]
   let languages=[]
   try{
     [countries,languages]=await Promise.all([loadRadioCountries(),loadRadioLanguages()])
   }catch{}
 
-  const countryOptions=[
-    '<option value="">Worldwide</option>',
-    ...countries.map(country=>`<option value="${esc(country.code)}" ${mediaPlayerState.radioCountry===country.code?'selected':''}>${esc(country.name)} (${country.stationcount.toLocaleString()} stations)</option>`)
-  ].join('')
-
-  const preferredLanguages=['English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati','Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Latin','Greek','Russian','Hebrew','Persian','Turkish','Indonesian','Malay','Sinhala','Nepali','Japanese','Korean','Chinese']
+  const preferredLanguages=[
+    'English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati',
+    'Urdu','Arabic','Spanish','Portuguese','French','German','Italian','Latin','Greek','Russian',
+    'Hebrew','Persian','Turkish','Indonesian','Malay','Sinhala','Nepali','Japanese','Korean','Chinese'
+  ]
   const languageRows=[...languages].sort((a,b)=>{
-    const ai=preferredLanguages.findIndex(x=>x.toLowerCase()===a.name.toLowerCase())
-    const bi=preferredLanguages.findIndex(x=>x.toLowerCase()===b.name.toLowerCase())
+    const ai=preferredLanguages.findIndex(x=>x.toLowerCase()===String(a.name||'').toLowerCase())
+    const bi=preferredLanguages.findIndex(x=>x.toLowerCase()===String(b.name||'').toLowerCase())
     if(ai>=0||bi>=0){
       if(ai<0) return 1
       if(bi<0) return -1
       return ai-bi
     }
-    return b.stationcount-a.stationcount
+    return Number(b.stationcount||0)-Number(a.stationcount||0)
   })
-  const selectedAudioLanguage=currentMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
-  const languageOptions=[
-    '<option value="">All languages</option>',
-    ...languageRows.map(language=>`<option value="${esc(language.name)}" ${selectedAudioLanguage.toLowerCase()===language.name.toLowerCase()?'selected':''}>${esc(language.name)} (${language.stationcount.toLocaleString()})</option>`)
+
+  const countryOptions=[
+    '<option value="">Worldwide</option>',
+    ...countries.map(country=>`<option value="${esc(country.code)}" ${mediaPlayerState.radioCountry===country.code?'selected':''}>${esc(country.name)} · ${Number(country.stationcount||0).toLocaleString()} stations</option>`)
   ].join('')
 
-  const faithGroups=[
+  const selectedLanguage=currentMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
+  const languageOptions=[
+    '<option value="">All languages</option>',
+    ...languageRows.map(language=>`<option value="${esc(language.name)}" ${selectedLanguage.toLowerCase()===String(language.name||'').toLowerCase()?'selected':''}>${esc(language.name)} · ${Number(language.stationcount||0).toLocaleString()}</option>`)
+  ].join('')
+
+  const devotionalGroups=[
     {
-      title:'Christian music and worship',
+      title:'Christian',
       items:[
         ['christian','','Christian music'],
-        ['christian','christian contemporary','Contemporary Christian'],
         ['christian','worship','Worship and praise'],
         ['christian','gospel','Gospel'],
         ['christian','hymn','Hymns'],
-        ['christian_prayer','','Prayer, Bible and sermons'],
-        ['christian','christian choir','Christian choir'],
+        ['christian_prayer','','Prayer and Scripture'],
         ['catholic','','Catholic'],
+        ['orthodox','','Orthodox'],
         ['gregorian','','Gregorian chant'],
-        ['orthodox','','Orthodox Christian'],
         ['protestant','','Protestant'],
         ['pentecostal','','Pentecostal'],
-        ['adventist','','Adventist'],
-        ['christian','african gospel','African Gospel'],
-        ['christian','christian tamil','Tamil Christian'],
-        ['christian','christian malayalam','Malayalam Christian'],
-        ['christian','christian hindi','Hindi Christian'],
-        ['christian','christian telugu','Telugu Christian'],
-        ['christian','christian kannada','Kannada Christian'],
-        ['christian','christian marathi','Marathi Christian'],
-        ['christian','christian bengali','Bengali Christian'],
-        ['christian','christian punjabi','Punjabi Christian'],
-        ['christian','christian sinhala','Sinhala Christian'],
-        ['christian','arabic christian','Arabic Christian'],
-        ['christian','korean christian','Korean Christian'],
-        ['christian','indonesian christian','Indonesian Christian'],
-        ['christian','filipino christian','Filipino Christian'],
-        ['christian','african gospel','African Gospel'],
-        ['christian','christian spanish','Spanish Christian'],
-        ['christian','christian portuguese','Portuguese Christian']
+        ['adventist','','Adventist']
       ]
     },
     {
@@ -1332,398 +1322,383 @@ async function openSoundscapePicker(){
       ]
     },
     {
-      title:'Hindu devotional',
+      title:'Hindu and Sikh',
       items:[
         ['hindu','','Hindu devotional'],
         ['hindu','bhajan','Bhajan'],
         ['hindu','kirtan','Kirtan'],
         ['hindu','mantra','Mantra'],
         ['carnatic_devotional','','Carnatic devotional'],
-        ['hindu','krishna devotional','Krishna'],
-        ['hindu','shiva devotional','Shiva'],
-        ['hindu','murugan devotional','Murugan'],
-        ['hindu','ayyappa devotional','Ayyappa'],
-        ['hindu','devi devotional','Devi'],
-        ['hindu','hanuman devotional','Hanuman']
+        ['sikh','','Sikh and Gurbani'],
+        ['sikh','shabad','Shabad Kirtan']
       ]
     },
     {
-      title:'Other faith traditions and spiritual',
+      title:'Other traditions',
       items:[
-        ['sikh','','Sikh and Gurbani'],
-        ['sikh','shabad','Shabad'],
         ['buddhist','','Buddhist'],
         ['buddhist','tibetan buddhist','Tibetan Buddhist'],
-        ['buddhist','zen','Zen'],
-        ['jewish','','Jewish and Hebrew'],
+        ['jewish','','Jewish'],
         ['jain','','Jain'],
         ['bahai','','Baha\'i'],
         ['zoroastrian','','Zoroastrian'],
         ['taoist','','Taoist / Daoist'],
         ['shinto','','Shinto'],
-        ['spiritual','','Interfaith / Spiritual'],
-        ['spiritual','meditation','Meditation'],
-        ['spiritual','sacred chant','Sacred chant']
+        ['spiritual','','Interfaith and spiritual'],
+        ['spiritual','meditation','Meditation']
       ]
     }
   ]
 
-  const devotionalGroupsHtml=faithGroups.map(group=>`
+  const devotionalDirectory=devotionalGroups.map(group=>`
     <section class="devotional-group">
       <h4>${esc(group.title)}</h4>
       <div class="devotional-grid">
         ${group.items.map(([tradition,query,label])=>`
-          <button class="devotional-chip ${mediaPlayerState.devotionalTradition===tradition&&mediaPlayerState.devotionalQuery===query?'selected':''}"
-            data-devotional="${esc(tradition)}"
-            data-devotional-query="${esc(query)}">${esc(label)}</button>
+          <button class="devotional-chip" data-devotional="${esc(tradition)}" data-devotional-query="${esc(query)}">${esc(label)}</button>
         `).join('')}
       </div>
     </section>
   `).join('')
 
   const box=modal('Memora Audio',`
-    <div class="audio-library-head">
-      <div>
-        <div class="eyebrow">Nature · World radio · Faith and spiritual</div>
-        <h3>Listen around the world.</h3>
-        <p class="muted">Play real nature recordings, real live internet-radio streams, or discover devotional and spiritual stations by tradition, country, language and style. Results depend on stations that publish working internet streams.</p>
-      </div>
-      <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute audio':'Enable audio'}</button>
-    </div>
-
-    <div class="audio-mode-tabs three">
-      <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
-      <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">World radio</button>
-      <button class="audio-mode-tab ${currentMode==='devotional'?'active':''}" data-audio-mode="devotional">Devotional & spiritual</button>
-    </div>
-
-    <div class="radio-world-controls ${['radio','devotional'].includes(currentMode)?'':'hidden'}" id="radioWorldControls">
-      <div class="world-filter-grid">
-        <label class="radio-country-field">
-          <span>Country</span>
-          <select class="input" id="radioCountry">${countryOptions}</select>
-        </label>
-        <label class="radio-country-field ${['radio','devotional'].includes(currentMode)?'':'hidden'}" id="devotionalLanguageField">
-          <span>Language</span>
-          <select class="input" id="devotionalLanguage">${languageOptions}</select>
-        </label>
-      </div>
-
-      <div class="radio-sort-switch three" role="group" aria-label="Audio discovery mode">
-        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-radio-sort="popular">Popular</button>
-        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='quality'?'active':''}" data-radio-sort="quality">Best quality</button>
-        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-radio-sort="random">Random</button>
-      </div>
-
-      <div class="radio-country-quick">
-        ${[
-          ['','Worldwide'],['IN','India'],['US','USA'],['GB','UK'],['CA','Canada'],
-          ['AU','Australia'],['BR','Brazil'],['MX','Mexico'],['DE','Germany'],['FR','France'],
-          ['IT','Italy'],['ES','Spain'],['ZA','South Africa'],['NG','Nigeria'],['PH','Philippines'],
-          ['JP','Japan'],['SG','Singapore'],['AE','UAE']
-        ].map(([code,label])=>`<button class="chip" data-radio-country-quick="${code}">${label}</button>`).join('')}
-      </div>
-    </div>
-
-    <div class="devotional-panel ${currentMode==='devotional'?'':'hidden'}" id="devotionalPanel">
-      <div class="devotional-intro">
+    <div class="audio-hub">
+      <div class="audio-library-head compact-head">
         <div>
-          <span class="eyebrow">Faith and spiritual audio</span>
-          <strong>Worldwide devotional discovery</strong><small>Christian, Gospel, worship, Catholic, Orthodox, Islamic, Sufi, Hindu, Sikh, Buddhist, Jewish, Jain, Baháʼí and more</small>
+          <div class="eyebrow">Music · Radio · Devotional · Nature</div>
+          <h3>Your world of sound.</h3>
+          <p class="muted">A compact audio hub for open music tracks, real live radio, worldwide devotional discovery and open nature recordings.</p>
         </div>
-        <span class="muted small">Broad coverage across major traditions plus free search. Ghazal can be secular or spiritual, so it is kept as its own music category.</span>
+        <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute':'Enable audio'}</button>
       </div>
 
-      <div class="devotional-feature-row">
-        <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='all_faiths'?'selected':''}" data-devotional="all_faiths" data-devotional-query="">
-          <span>✦</span><div><b>Across traditions</b><small>Mixed global spiritual discovery</small></div>
-        </button>
-        <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='christian'&&mediaPlayerState.devotionalQuery===''?'selected':''}" data-devotional="christian" data-devotional-query="">
-          <span>♫</span><div><b>Christian music</b><small>Worship, gospel, praise and hymns</small></div>
-        </button>
-        <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='ghazal'?'selected':''}" data-devotional="ghazal" data-devotional-query="">
-          <span>♪</span><div><b>Ghazal</b><small>Worldwide ghazal stations</small></div>
-        </button>
+      <div class="audio-mode-tabs four" role="tablist" aria-label="Audio type">
+        <button class="audio-mode-tab ${currentMode==='music'?'active':''}" data-audio-mode="music">Open Music</button>
+        <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">World Radio</button>
+        <button class="audio-mode-tab ${currentMode==='devotional'?'active':''}" data-audio-mode="devotional">Devotional</button>
+        <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
       </div>
 
-      <div class="devotional-language-quick">
-        <span>Quick languages</span>
-        <div>
-          ${['English','Tamil','Malayalam','Hindi','Telugu','Kannada','Bengali','Marathi','Punjabi','Urdu','Arabic','Spanish','Portuguese','French','Korean','Indonesian'].map(label=>`<button class="chip ${mediaPlayerState.devotionalLanguage.toLowerCase()===label.toLowerCase()?'active':''}" data-devotional-language="${esc(label)}">${esc(label)}</button>`).join('')}
-          <button class="chip ${!mediaPlayerState.devotionalLanguage?'active':''}" data-devotional-language="">All</button>
+      <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
+        <div class="audio-section-intro">
+          <div><span class="eyebrow">Open catalog</span><strong>Full tracks, not radio stations.</strong><small>Search and stream public tracks from Audius, an open music network.</small></div>
+          <span class="source-pill">Audius</span>
         </div>
+        <div class="audio-search-row">
+          <input class="input" id="musicSearch" value="${esc(mediaPlayerState.musicQuery)}" placeholder="Search song, artist, genre, language or devotional style">
+          <button class="btn primary" id="musicSearchButton">Search</button>
+        </div>
+        <div class="radio-sort-switch three music-sort" role="group" aria-label="Open music sorting">
+          <button class="radio-sort-btn ${mediaPlayerState.musicSort==='relevant'?'active':''}" data-music-sort="relevant">Relevant</button>
+          <button class="radio-sort-btn ${mediaPlayerState.musicSort==='popular'?'active':''}" data-music-sort="popular">Popular</button>
+          <button class="radio-sort-btn ${mediaPlayerState.musicSort==='recent'?'active':''}" data-music-sort="recent">Recent</button>
+        </div>
+        <div class="audio-presets music-presets">
+          ${['Trending','Pop','Rock','Electronic','Hip-Hop','R&B','Jazz','Classical','Ambient','Afrobeats','Latin','Arabic','Indian','Tamil','Malayalam','Korean','Japanese','Gospel','Christian','Qawwali','Bhajan','Ghazal'].map(label=>`<button class="chip" data-music-query="${label==='Trending'?'':esc(label)}">${esc(label)}</button>`).join('')}
+        </div>
+        <div class="open-music-note">Commercial catalogs such as Spotify and Apple Music are not copied into Memora. Their playback requires each provider's own account, licensing and authorization.</div>
+      </section>
+
+      <section class="audio-mode-panel ${currentMode==='radio'?'active':''}" data-audio-panel="radio">
+        <div class="world-filter-grid">
+          <label class="radio-country-field"><span>Country</span><select class="input" id="radioCountry">${countryOptions}</select></label>
+          <label class="radio-country-field"><span>Language</span><select class="input" id="radioLanguage">${languageOptions}</select></label>
+        </div>
+        <div class="radio-sort-switch three" role="group" aria-label="Radio sorting">
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-radio-sort="popular">Popular / major</button>
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='quality'?'active':''}" data-radio-sort="quality">Best quality</button>
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-radio-sort="random">Random</button>
+        </div>
+        <div class="radio-country-quick">
+          ${[['','Worldwide'],['IN','India'],['US','USA'],['GB','UK'],['CA','Canada'],['AU','Australia'],['BR','Brazil'],['DE','Germany'],['FR','France'],['ZA','South Africa'],['NG','Nigeria'],['PH','Philippines'],['JP','Japan'],['SG','Singapore'],['AE','UAE']].map(([code,label])=>`<button class="chip" data-radio-country-quick="${code}">${label}</button>`).join('')}
+        </div>
+        <div class="audio-search-row">
+          <input class="input" id="radioSearch" value="${esc(mediaPlayerState.mode==='radio'?mediaPlayerState.query:'')}" placeholder="Station, FM, genre, language or city">
+          <button class="btn primary" id="radioSearchButton">Find stations</button>
+        </div>
+      </section>
+
+      <section class="audio-mode-panel ${currentMode==='devotional'?'active':''}" data-audio-panel="devotional">
+        <div class="devotional-feature-row compact-features">
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='all_faiths'?'selected':''}" data-devotional="all_faiths" data-devotional-query=""><span>✦</span><div><b>All traditions</b><small>Worldwide spiritual discovery</small></div></button>
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='christian'?'selected':''}" data-devotional="christian" data-devotional-query=""><span>♫</span><div><b>Christian</b><small>Worship, Gospel, hymns and more</small></div></button>
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='ghazal'?'selected':''}" data-devotional="ghazal" data-devotional-query=""><span>♪</span><div><b>Ghazal</b><small>Ghazal and related stations</small></div></button>
+        </div>
+
+        <div class="world-filter-grid">
+          <label class="radio-country-field"><span>Country</span><select class="input" id="devotionalCountry">${countryOptions}</select></label>
+          <label class="radio-country-field"><span>Language</span><select class="input" id="devotionalLanguage">${languageOptions}</select></label>
+        </div>
+
+        <div class="radio-sort-switch three" role="group" aria-label="Devotional sorting">
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-devotional-sort="popular">Popular</button>
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='quality'?'active':''}" data-devotional-sort="quality">Best quality</button>
+          <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-devotional-sort="random">Random</button>
+        </div>
+
+        <div class="regional-devotional">
+          <span>Christian by language</span>
+          <div>
+            ${[
+              ['English','christian','christian music'],['Tamil','christian','christian tamil'],['Malayalam','christian','christian malayalam'],
+              ['Hindi','christian','christian hindi'],['Telugu','christian','christian telugu'],['Kannada','christian','christian kannada'],
+              ['Punjabi','christian','christian punjabi'],['Arabic','christian','arabic christian'],['Spanish','christian','christian spanish'],
+              ['Portuguese','christian','christian portuguese'],['Korean','christian','korean christian'],['Indonesian','christian','indonesian christian']
+            ].map(([language,tradition,query])=>`<button class="chip" data-regional-language="${esc(language)}" data-devotional="${tradition}" data-devotional-query="${esc(query)}">${esc(language)}</button>`).join('')}
+          </div>
+        </div>
+
+        <details class="audio-disclosure">
+          <summary>Browse more traditions and styles</summary>
+          <div class="devotional-directory">${devotionalDirectory}</div>
+        </details>
+
+        <div class="audio-search-row">
+          <input class="input" id="devotionalSearch" value="${esc(mediaPlayerState.devotionalQuery)}" placeholder="Worship, Gospel, qawwali, bhajan, Gurbani, Quran, chant...">
+          <button class="btn primary" id="devotionalSearchButton">Search devotionals</button>
+        </div>
+      </section>
+
+      <section class="audio-mode-panel ${currentMode==='nature'?'active':''}" data-audio-panel="nature">
+        <div class="audio-section-intro">
+          <div><span class="eyebrow">Open recordings</span><strong>Natural soundscapes.</strong><small>Real recordings streamed on demand from Wikimedia Commons.</small></div>
+          <span class="source-pill">Commons</span>
+        </div>
+        <div class="audio-search-row">
+          <input class="input" id="natureSearch" value="${esc(mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain')}" placeholder="Rain, forest, ocean, night, river...">
+          <button class="btn primary" id="natureSearchButton">Search</button>
+        </div>
+        <div class="audio-presets">
+          ${['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach'].map(label=>`<button class="chip" data-nature-query="${label}">${label}</button>`).join('')}
+        </div>
+      </section>
+
+      <div class="audio-library-toolbar">
+        <div><b id="audioLibraryCount">Loading...</b><span class="muted small" id="audioLibraryHint"></span></div>
+        <button class="btn compact" id="audioDiscoverMore">Load more</button>
       </div>
 
-      ${devotionalGroupsHtml}
-    </div>
+      <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Finding audio...</div></div>
+      <div class="audio-source-note" id="audioSourceNote"></div>
 
-    <div class="audio-search-row">
-      <input class="input" id="audioLibrarySearch" value="${esc(currentMode==='devotional'?mediaPlayerState.devotionalQuery:mediaPlayerState.query||'')}" placeholder="${currentMode==='devotional'?'Optional style or keyword, for example worship, gospel, qawwali, bhajan...':currentMode==='radio'?'Optional: station, genre or language':'Search rain, forest, night, ocean...'}">
-      <button class="btn primary" id="audioLibrarySearchButton">Search</button>
-    </div>
-
-    <div class="audio-presets" id="audioPresets">
-      ${(currentMode==='radio'
-        ?['FM','Tamil','Malayalam','Hindi','Arabic','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
-        :currentMode==='devotional'
-          ?['Christian','Worship','Gospel','Catholic','Hymn','Quran','Nasheed','Sufi','Qawwali','Bhajan','Gurbani','Ghazal']
-          :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
-      ).map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')}
-    </div>
-
-    <div class="audio-library-toolbar">
-      <b id="audioLibraryCount">${mediaPlayerState.library.length} available</b>
-      <div class="audio-library-actions">
-        <span class="muted small" id="radioModeHint">${currentMode==='devotional'?'Live devotional and spiritual stations from around the world.':currentMode==='radio'?'Live stations, not songs.':'Real recordings streamed on demand.'}</span>
-        <button class="btn compact" id="audioDiscoverMore" ${['radio','devotional'].includes(currentMode)?'':'hidden'}>Load 100 more</button>
-      </div>
-    </div>
-
-    <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
-    <div class="audio-source-note" id="audioSourceNote"></div>
-
-    <div class="audio-library-footer">
-      <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-      <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly, seasonal and audio-reactive background motion</span></label>
+      <details class="audio-settings-disclosure">
+        <summary>Playback and visual settings</summary>
+        <div class="audio-library-footer">
+          <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
+          <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
+        </div>
+      </details>
     </div>
   `)
 
   const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
-  const search=box.querySelector('#audioLibrarySearch')
+  const panels=[...box.querySelectorAll('[data-audio-panel]')]
   const discoverMore=box.querySelector('#audioDiscoverMore')
-  const worldControls=box.querySelector('#radioWorldControls')
-  const countrySelect=box.querySelector('#radioCountry')
-  const languageField=box.querySelector('#devotionalLanguageField')
-  const languageSelect=box.querySelector('#devotionalLanguage')
-  const modeHint=box.querySelector('#radioModeHint')
-  const devotionalPanel=box.querySelector('#devotionalPanel')
+  const count=box.querySelector('#audioLibraryCount')
+  const hint=box.querySelector('#audioLibraryHint')
+  const radioCountry=box.querySelector('#radioCountry')
+  const radioLanguage=box.querySelector('#radioLanguage')
+  const devotionalCountry=box.querySelector('#devotionalCountry')
+  const devotionalLanguage=box.querySelector('#devotionalLanguage')
 
-  const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
-  const activeSort=()=>box.querySelector('[data-radio-sort].active')?.dataset.radioSort||mediaPlayerState.radioSort||'popular'
+  const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'music'
+  const activeRadioSort=()=>box.querySelector('[data-radio-sort].active')?.dataset.radioSort||'popular'
+  const activeDevotionalSort=()=>box.querySelector('[data-devotional-sort].active')?.dataset.devotionalSort||'popular'
+  const activeMusicSort=()=>box.querySelector('[data-music-sort].active')?.dataset.musicSort||'relevant'
 
-  const setSelectedDevotional=(tradition,query)=>{
+  const syncToolbar=mode=>{
+    discoverMore.hidden=mode==='nature'
+    discoverMore.textContent=mode==='music'?'Load more tracks':mode==='devotional'?'Load more devotionals':'Load more stations'
+    hint.textContent=mode==='music'
+      ?'Full tracks from the open Audius catalog.'
+      :mode==='radio'
+        ?'Real live station streams. 100 is only a discovery batch.'
+        :mode==='devotional'
+          ?'Live spiritual and devotional stations. Availability depends on broadcaster metadata.'
+          :'Open recordings streamed from Wikimedia Commons.'
+  }
+
+  const setMode=mode=>{
+    modeTabs.forEach(tab=>tab.classList.toggle('active',tab.dataset.audioMode===mode))
+    panels.forEach(panel=>panel.classList.toggle('active',panel.dataset.audioPanel===mode))
+    mediaPlayerState.audioView=mode
+    localStorage.setItem('memora-audio-view',mode)
+    syncToolbar(mode)
+  }
+
+  const setDevotional=(tradition,query='',language=null)=>{
     mediaPlayerState.devotionalTradition=tradition||'all_faiths'
     mediaPlayerState.devotionalQuery=String(query||'').trim()
+    if(language!==null){
+      mediaPlayerState.devotionalLanguage=String(language||'')
+      if(devotionalLanguage) devotionalLanguage.value=mediaPlayerState.devotionalLanguage
+    }
     localStorage.setItem('memora-devotional-tradition',mediaPlayerState.devotionalTradition)
     localStorage.setItem('memora-devotional-query',mediaPlayerState.devotionalQuery)
-    box.querySelectorAll('[data-devotional]').forEach(item=>{
-      item.classList.toggle('selected',
-        item.dataset.devotional===mediaPlayerState.devotionalTradition
-        &&String(item.dataset.devotionalQuery||'')===mediaPlayerState.devotionalQuery
-      )
+    localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
+    box.querySelectorAll('[data-devotional]').forEach(button=>{
+      const sameTradition=button.dataset.devotional===mediaPlayerState.devotionalTradition
+      const sameQuery=String(button.dataset.devotionalQuery||'')===mediaPlayerState.devotionalQuery
+      button.classList.toggle('selected',sameTradition&&sameQuery)
     })
   }
 
-  const runLoad=async(mode,query,{append=false,tradition=null}={})=>{
+  const runLoad=async(mode,{append=false}={})=>{
     const results=box.querySelector('#audioLibraryResults')
-    if(!append) results.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Finding the best available streams...</div>'
+    if(!append) results.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Finding the best available audio...</div>'
     discoverMore.disabled=true
 
     try{
-      const sort=activeSort()
-      const countrycode=countrySelect?.value||''
-      const selectedTradition=mode==='devotional'
-        ?(tradition||mediaPlayerState.devotionalTradition||'all_faiths')
-        :null
-      const devotionalQuery=mode==='devotional'?String(query||'').trim():query
-      const selectedLanguage=['radio','devotional'].includes(mode)?(languageSelect?.value||''):''
-
-      await loadMediaLibrary(mode,devotionalQuery,100,{
-        preserveCurrent:true,
-        append,
-        random:['radio','devotional'].includes(mode)&&sort==='random',
-        countrycode,
-        sort,
-        tradition:selectedTradition,
-        language:selectedLanguage
-      })
-
-      mediaPlayerState.audioView=mode
-      localStorage.setItem('memora-audio-view',mode)
-      renderAudioLibraryResults(box)
-
-      if(append) results.scrollTop=results.scrollHeight
-      discoverMore.textContent=mediaPlayerState.radioHasMore||sort==='random'?'Load 100 more':'No more stations'
-      discoverMore.disabled=!['radio','devotional'].includes(mode)||(!mediaPlayerState.radioHasMore&&sort!=='random')
-
-      if(mode==='devotional'){
-        const pieces=[
-          selectedTradition==='all_faiths'?'Across traditions':(mediaPlayerState.library[0]?.traditionLabel||selectedTradition.replaceAll('_',' ')),
-          devotionalQuery||null,
-          selectedLanguage||null,
-          countrycode||'Worldwide'
-        ].filter(Boolean)
-        modeHint.textContent=pieces.join(' · ')
+      if(mode==='music'){
+        const query=box.querySelector('#musicSearch')?.value.trim()||''
+        mediaPlayerState.musicQuery=query
+        mediaPlayerState.musicSort=activeMusicSort()
+        localStorage.setItem('memora-music-query',query)
+        localStorage.setItem('memora-music-sort',mediaPlayerState.musicSort)
+        await loadMediaLibrary('music',query,50,{
+          preserveCurrent:true,
+          append,
+          sort:mediaPlayerState.musicSort,
+          genre:mediaPlayerState.musicGenre
+        })
+      }else if(mode==='radio'){
+        const query=box.querySelector('#radioSearch')?.value.trim()||''
+        mediaPlayerState.radioCountry=radioCountry?.value||''
+        mediaPlayerState.radioLanguage=radioLanguage?.value||''
+        mediaPlayerState.radioSort=activeRadioSort()
+        localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
+        localStorage.setItem('memora-radio-language',mediaPlayerState.radioLanguage)
+        localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
+        await loadMediaLibrary('radio',query,100,{
+          preserveCurrent:true,
+          append,
+          random:mediaPlayerState.radioSort==='random',
+          countrycode:mediaPlayerState.radioCountry,
+          language:mediaPlayerState.radioLanguage,
+          sort:mediaPlayerState.radioSort
+        })
+      }else if(mode==='devotional'){
+        const query=box.querySelector('#devotionalSearch')?.value.trim()||mediaPlayerState.devotionalQuery||''
+        mediaPlayerState.devotionalQuery=query
+        mediaPlayerState.radioCountry=devotionalCountry?.value||''
+        mediaPlayerState.devotionalLanguage=devotionalLanguage?.value||''
+        mediaPlayerState.radioSort=activeDevotionalSort()
+        localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
+        localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
+        localStorage.setItem('memora-devotional-query',query)
+        localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
+        await loadMediaLibrary('devotional',query,100,{
+          preserveCurrent:true,
+          append,
+          random:mediaPlayerState.radioSort==='random',
+          countrycode:mediaPlayerState.radioCountry,
+          language:mediaPlayerState.devotionalLanguage,
+          sort:mediaPlayerState.radioSort,
+          tradition:mediaPlayerState.devotionalTradition
+        })
+      }else{
+        const query=box.querySelector('#natureSearch')?.value.trim()||'rain'
+        await loadMediaLibrary('nature',query,100,{preserveCurrent:true})
       }
+
+      setMode(mode)
+      renderAudioLibraryResults(box)
+      if(append) results.scrollTop=results.scrollHeight
     }catch(error){
-      if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>No stream results available</strong>${esc(error.message)}</div>`
-      else toast('Could not load another station batch just now')
+      if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>Audio is temporarily unavailable</strong>${esc(error.message)}</div>`
+      else toast('Could not load another batch just now')
     }finally{
-      if(['radio','devotional'].includes(activeMode())&&(mediaPlayerState.radioHasMore||activeSort()==='random')) discoverMore.disabled=false
+      const modeNow=activeMode()
+      discoverMore.disabled=modeNow==='music'
+        ?!mediaPlayerState.musicHasMore
+        :['radio','devotional'].includes(modeNow)
+          ?!mediaPlayerState.radioHasMore&&mediaPlayerState.radioSort!=='random'
+          :true
     }
-  }
-
-  if(!mediaPlayerState.library.length){
-    await runLoad(currentMode,currentMode==='devotional'?mediaPlayerState.devotionalQuery:mediaPlayerState.query)
-  }else{
-    renderAudioLibraryResults(box)
-  }
-
-  discoverMore.onclick=async()=>{
-    const mode=activeMode()
-    if(!['radio','devotional'].includes(mode)) return
-    await runLoad(mode,mode==='devotional'?mediaPlayerState.devotionalQuery:search.value.trim(),{append:true})
   }
 
   box.querySelector('#libraryMute').onclick=async()=>{
     await setAmbientEnabled(!ambientPreferences.enabled)
-    box.querySelector('#libraryMute').textContent=ambientPreferences.enabled?'Mute audio':'Enable audio'
+    box.querySelector('#libraryMute').textContent=ambientPreferences.enabled?'Mute':'Enable audio'
     box.querySelector('#libraryMute').classList.toggle('primary',ambientPreferences.enabled)
   }
 
+  modeTabs.forEach(tab=>tab.onclick=async()=>{
+    const mode=tab.dataset.audioMode
+    setMode(mode)
+    await runLoad(mode)
+  })
+
+  box.querySelector('#musicSearchButton').onclick=()=>runLoad('music')
+  box.querySelector('#musicSearch').onkeydown=e=>{if(e.key==='Enter') runLoad('music')}
+  box.querySelectorAll('[data-music-sort]').forEach(button=>button.onclick=async()=>{
+    box.querySelectorAll('[data-music-sort]').forEach(item=>item.classList.toggle('active',item===button))
+    mediaPlayerState.musicSort=button.dataset.musicSort
+    await runLoad('music')
+  })
+  box.querySelectorAll('[data-music-query]').forEach(button=>button.onclick=async()=>{
+    const value=button.dataset.musicQuery
+    box.querySelector('#musicSearch').value=value
+    mediaPlayerState.musicQuery=value
+    await runLoad('music')
+  })
+
+  box.querySelector('#radioSearchButton').onclick=()=>runLoad('radio')
+  box.querySelector('#radioSearch').onkeydown=e=>{if(e.key==='Enter') runLoad('radio')}
   box.querySelectorAll('[data-radio-sort]').forEach(button=>button.onclick=async()=>{
-    box.querySelectorAll('[data-radio-sort]').forEach(x=>x.classList.toggle('active',x===button))
-    mediaPlayerState.radioSort=button.dataset.radioSort
-    localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
-    const mode=activeMode()
-    await runLoad(mode,mode==='devotional'?mediaPlayerState.devotionalQuery:search.value.trim())
+    box.querySelectorAll('[data-radio-sort]').forEach(item=>item.classList.toggle('active',item===button))
+    await runLoad('radio')
   })
-
-  countrySelect.onchange=async()=>{
-    mediaPlayerState.radioCountry=countrySelect.value
-    localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
-    const mode=activeMode()
-    await runLoad(mode,mode==='devotional'?mediaPlayerState.devotionalQuery:search.value.trim())
-  }
-
+  radioCountry.onchange=()=>runLoad('radio')
+  radioLanguage.onchange=()=>runLoad('radio')
   box.querySelectorAll('[data-radio-country-quick]').forEach(button=>button.onclick=async()=>{
-    countrySelect.value=button.dataset.radioCountryQuick
-    countrySelect.dispatchEvent(new Event('change'))
+    radioCountry.value=button.dataset.radioCountryQuick
+    await runLoad('radio')
   })
 
-  if(languageSelect){
-    languageSelect.onchange=async()=>{
-      const mode=activeMode()
-      if(mode==='devotional'){
-        mediaPlayerState.devotionalLanguage=languageSelect.value
-        localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
-        box.querySelectorAll('[data-devotional-language]').forEach(button=>button.classList.toggle('active',button.dataset.devotionalLanguage===mediaPlayerState.devotionalLanguage))
-        await runLoad('devotional',mediaPlayerState.devotionalQuery)
-      }else if(mode==='radio'){
-        mediaPlayerState.radioLanguage=languageSelect.value
-        localStorage.setItem('memora-radio-language',mediaPlayerState.radioLanguage)
-        await runLoad('radio',search.value.trim())
-      }
-    }
+  box.querySelector('#devotionalSearchButton').onclick=()=>{
+    mediaPlayerState.devotionalQuery=box.querySelector('#devotionalSearch').value.trim()
+    runLoad('devotional')
   }
-
-  box.querySelectorAll('[data-devotional-language]').forEach(button=>button.onclick=async()=>{
-    const language=button.dataset.devotionalLanguage
-    if(languageSelect) languageSelect.value=language
-    mediaPlayerState.devotionalLanguage=language
-    localStorage.setItem('memora-devotional-language',language)
-    box.querySelectorAll('[data-devotional-language]').forEach(item=>item.classList.toggle('active',item===button))
-    await runLoad('devotional',mediaPlayerState.devotionalQuery)
+  box.querySelector('#devotionalSearch').onkeydown=e=>{if(e.key==='Enter') box.querySelector('#devotionalSearchButton').click()}
+  box.querySelectorAll('[data-devotional-sort]').forEach(button=>button.onclick=async()=>{
+    box.querySelectorAll('[data-devotional-sort]').forEach(item=>item.classList.toggle('active',item===button))
+    await runLoad('devotional')
   })
-
-  modeTabs.forEach(button=>button.onclick=async()=>{
-    const mode=button.dataset.audioMode
-    modeTabs.forEach(tab=>tab.classList.toggle('active',tab===button))
-    const radioLike=['radio','devotional'].includes(mode)
-    worldControls.classList.toggle('hidden',!radioLike)
-    devotionalPanel.classList.toggle('hidden',mode!=='devotional')
-    languageField?.classList.toggle('hidden',!radioLike)
-    if(languageSelect){
-      languageSelect.value=mode==='devotional'?mediaPlayerState.devotionalLanguage:mode==='radio'?mediaPlayerState.radioLanguage:''
-    }
-    discoverMore.hidden=!radioLike
-
-    modeHint.textContent=mode==='devotional'
-      ?'Choose a tradition, language and country, or search a specific devotional style.'
-      :mode==='radio'
-        ?'Real live station streams. Popular mode surfaces major stations in the selected country, while FM search finds stations indexed with FM in their name or tags.'
-        :'Real recordings streamed on demand from Wikimedia Commons.'
-
-    search.placeholder=mode==='devotional'
-      ?'Optional style or keyword, for example worship, gospel, qawwali, bhajan...'
-      :mode==='radio'
-        ?'Optional: station, genre or language'
-        :'Search rain, forest, night, ocean...'
-
-    search.value=mode==='nature'?'rain':mode==='devotional'?mediaPlayerState.devotionalQuery:''
-    const presets=mode==='radio'
-      ?['Tamil','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
-      :mode==='devotional'
-        ?['Christian','Worship','Gospel','Catholic','Hymn','Quran','Nasheed','Sufi','Qawwali','Bhajan','Gurbani','Ghazal']
-        :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
-    box.querySelector('#audioPresets').innerHTML=presets.map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')
-
-    mediaPlayerState.audioView=mode
-    localStorage.setItem('memora-audio-view',mode)
-    bindPresets()
-    await runLoad(mode,search.value)
-  })
-
-  box.querySelector('#audioLibrarySearchButton').onclick=async()=>{
-    const mode=activeMode()
-    const query=search.value.trim()
-    if(mode==='devotional'){
-      mediaPlayerState.devotionalQuery=query
-      localStorage.setItem('memora-devotional-query',query)
-    }
-    await runLoad(mode,query)
+  devotionalCountry.onchange=()=>runLoad('devotional')
+  devotionalLanguage.onchange=async()=>{
+    mediaPlayerState.devotionalLanguage=devotionalLanguage.value
+    await runLoad('devotional')
   }
-  search.onkeydown=e=>{if(e.key==='Enter') box.querySelector('#audioLibrarySearchButton').click()}
-
-  const devotionalPresetMap={
-    christian:['christian',''],
-    worship:['christian','worship'],
-    gospel:['christian','gospel'],
-    catholic:['catholic',''],
-    hymn:['christian','hymn'],
-    quran:['islamic','quran'],
-    nasheed:['islamic','nasheed'],
-    sufi:['sufi',''],
-    qawwali:['sufi','qawwali'],
-    bhajan:['hindu','bhajan'],
-    gurbani:['sikh','gurbani'],
-    ghazal:['ghazal','']
-  }
-
-  const bindPresets=()=>{
-    box.querySelectorAll('[data-audio-preset]').forEach(button=>button.onclick=async()=>{
-      const value=button.dataset.audioPreset
-      const mode=activeMode()
-      if(mode==='devotional'){
-        const mapped=devotionalPresetMap[value.toLowerCase()]||[mediaPlayerState.devotionalTradition,value]
-        setSelectedDevotional(mapped[0],mapped[1])
-        search.value=mapped[1]
-        await runLoad('devotional',mapped[1],{tradition:mapped[0]})
-      }else{
-        search.value=value
-        await runLoad(mode,value)
-      }
-    })
-  }
-
   box.querySelectorAll('[data-devotional]').forEach(button=>button.onclick=async()=>{
-    const tradition=button.dataset.devotional||'all_faiths'
-    const query=button.dataset.devotionalQuery||''
-    setSelectedDevotional(tradition,query)
-    search.value=query
-    await runLoad('devotional',query,{tradition})
+    const language=button.dataset.regionalLanguage??null
+    setDevotional(button.dataset.devotional||'all_faiths',button.dataset.devotionalQuery||'',language)
+    box.querySelector('#devotionalSearch').value=button.dataset.devotionalQuery||''
+    await runLoad('devotional')
   })
-  bindPresets()
 
-  box.querySelector('#libraryVolume').oninput=event=>{
+  box.querySelector('#natureSearchButton').onclick=()=>runLoad('nature')
+  box.querySelector('#natureSearch').onkeydown=e=>{if(e.key==='Enter') runLoad('nature')}
+  box.querySelectorAll('[data-nature-query]').forEach(button=>button.onclick=async()=>{
+    box.querySelector('#natureSearch').value=button.dataset.natureQuery
+    await runLoad('nature')
+  })
+
+  discoverMore.onclick=()=>runLoad(activeMode(),{append:true})
+
+  const volume=box.querySelector('#libraryVolume')
+  volume.oninput=event=>{
     const value=Number(event.target.value)
     ambientPreferences.volume=value
     const audio=mediaAudio()
     if(audio) audio.volume=value
     box.querySelector('#libraryVolumeLabel').textContent=`${Math.round(value*100)}%`
   }
-  box.querySelector('#libraryVolume').onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
+  volume.onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
   box.querySelector('#dynamicBackgroundToggle').onchange=event=>saveExperiencePreferences({dynamicBackground:event.target.checked})
+
+  syncToolbar(currentMode)
+  await runLoad(currentMode)
 }
 
 function setupAmbientUnlock(){
