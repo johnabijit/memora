@@ -1674,6 +1674,12 @@ async function openSoundscapePicker(){
         <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
       </div>
 
+      ${latestMood&&moodCatalog[latestMood.mood]?`
+        <div class="audio-for-you">
+          <div><span class="eyebrow">For you</span><strong>Based on your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in</strong><small>One tap starts a gentle suggestion. You can change it anytime.</small></div>
+          <button class="btn primary compact" id="audioMoodForYou">Play suggestion</button>
+        </div>`:''}
+
       <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
         <div class="audio-section-intro">
           <div><span class="eyebrow">Open catalog</span><strong>Full tracks, not radio stations.</strong><small>Search full tracks across Audius plus open music recordings from Wikimedia Commons.</small></div>
@@ -1822,6 +1828,36 @@ async function openSoundscapePicker(){
   const radioLanguage=box.querySelector('#radioLanguage')
   const devotionalCountry=box.querySelector('#devotionalCountry')
   const devotionalLanguage=box.querySelector('#devotionalLanguage')
+
+  for(const name of ['music','radio','devotional']){
+    const panel=box.querySelector(`[data-audio-panel="${name}"]`)
+    const searchRow=panel?.querySelector('.audio-search-row')
+    if(!panel||!searchRow) continue
+    const toggle=document.createElement('button')
+    toggle.type='button'
+    toggle.className='audio-filter-toggle'
+    toggle.textContent='Filters'
+    toggle.setAttribute('aria-expanded','false')
+    searchRow.insertAdjacentElement('afterend',toggle)
+    toggle.onclick=()=>{
+      const open=panel.classList.toggle('filters-open')
+      toggle.textContent=open?'Hide filters':'Filters'
+      toggle.setAttribute('aria-expanded',open?'true':'false')
+    }
+  }
+
+  box.querySelector('#audioMoodForYou')?.addEventListener('click',async event=>{
+    const button=event.currentTarget
+    button.disabled=true
+    button.textContent='Finding something...'
+    try{
+      await playForMood(latestMood?.mood||'calm')
+      button.textContent='Playing'
+    }catch{
+      button.disabled=false
+      button.textContent='Try again'
+    }
+  })
 
   const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'music'
   const activeRadioSort=()=>box.querySelector('[data-radio-sort].active')?.dataset.radioSort||'popular'
