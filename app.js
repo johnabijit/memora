@@ -4215,6 +4215,58 @@ async function sources(){
     }catch(error){msg.textContent=error.message}
   }
 }
+async function help(){
+  const whatsappText=encodeURIComponent('Hello John, I am contacting you from Memora.')
+  const feedbackSubject=encodeURIComponent('Memora feedback')
+  app.innerHTML=shell(`
+    <section class="glass support-hero">
+      <div class="support-hero-copy">
+        <div class="eyebrow">Support · Accessibility · Feedback</div>
+        <h3>Memora is being built for everyone.</h3>
+        <p>Questions, ideas, bug reports and accessibility feedback are welcome. Choose the easiest way to reach the creator.</p>
+      </div>
+      <div class="support-status"><span></span><b>Community feedback welcome</b></div>
+    </section>
+
+    <section class="contact-grid" aria-label="Contact options">
+      <a class="glass contact-card" href="mailto:johnabijit@gmail.com?subject=${feedbackSubject}">
+        <span class="contact-icon email-icon" aria-hidden="true">✉</span>
+        <div><small>Email</small><strong>johnabijit@gmail.com</strong><p>Best for detailed feedback, bug reports and suggestions.</p></div>
+        <span class="contact-arrow" aria-hidden="true">↗</span>
+      </a>
+
+      <a class="glass contact-card whatsapp-card" href="https://wa.me/919633589699?text=${whatsappText}" target="_blank" rel="noopener">
+        <span class="contact-icon whatsapp-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M12 2a9.6 9.6 0 0 0-8.2 14.6L2.5 21.5l5-1.3A9.7 9.7 0 1 0 12 2Zm0 17.5a7.8 7.8 0 0 1-4-1.1l-.3-.2-3 .8.8-2.9-.2-.3A7.8 7.8 0 1 1 12 19.5Zm4.4-5.8c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1-.2.3-.6.8-.8.9-.1.2-.3.2-.5.1-1.3-.6-2.3-1.4-3.2-2.8-.2-.3.2-.4.6-1 .1-.2.1-.3 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 5 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.4-.6 1.6-1.1.2-.5.2-1 .2-1.1-.1-.2-.3-.3-.5-.4Z"/></svg>
+        </span>
+        <div><small>WhatsApp</small><strong>Message on WhatsApp</strong><p>Opens a conversation with +91 96335 89699.</p></div>
+        <span class="contact-arrow" aria-hidden="true">↗</span>
+      </a>
+
+      <a class="glass contact-card" href="tel:+919633589699">
+        <span class="contact-icon phone-icon" aria-hidden="true">☎</span>
+        <div><small>Call</small><strong>+91 96335 89699</strong><p>On a phone, this opens the dialer with the number filled in.</p></div>
+        <span class="contact-arrow" aria-hidden="true">↗</span>
+      </a>
+    </section>
+
+    <section class="glass accessibility-card">
+      <div>
+        <div class="eyebrow">Accessibility</div>
+        <h3>Designed to remain usable, not just beautiful.</h3>
+        <p class="muted">Memora uses labeled controls, keyboard focus states, reduced-motion support, large touch targets, semantic navigation and responsive layouts. If anything is difficult to read, hear, tap or navigate, please report it through the contact options above.</p>
+      </div>
+      <button class="btn" data-nav="settings">Accessibility and appearance settings</button>
+    </section>
+
+    <section class="glass support-note">
+      <strong>About support</strong>
+      <p class="muted">Memora is offered as a goodwill project. Response times may vary, but useful feedback will help improve the experience for people using different phones, browsers, languages and accessibility tools around the world.</p>
+    </section>
+  `,'Help & Feedback','Contact, accessibility support and product feedback.')
+  wire()
+}
+
 async function settings(){
   const [{data:profile},{data:settingsData}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
