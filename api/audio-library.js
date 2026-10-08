@@ -233,91 +233,126 @@ async function radioCountries(){
     .filter(Boolean)
 }
 
+async function radioLanguages(){
+  const params=new URLSearchParams({
+    hidebroken:'true',
+    order:'stationcount',
+    reverse:'true',
+    limit:'500'
+  })
+  const response=await fetch(RADIO_ROOT+'/json/languages?'+params.toString(),{
+    headers:{
+      'User-Agent':'Memora/1.0 (personal memory app)',
+      'Accept':'application/json'
+    }
+  })
+  if(!response.ok) throw new Error('Radio Browser '+response.status)
+  const rows=await response.json()
+  return (rows||[])
+    .map(row=>({
+      name:String(row.name||'').trim(),
+      stationcount:Number(row.stationcount||0)
+    }))
+    .filter(row=>row.name&&row.stationcount>0)
+    .sort((a,b)=>b.stationcount-a.stationcount||a.name.localeCompare(b.name))
+}
+
+
 const DEVOTIONAL_LIBRARY={
-  all:{
-    label:'All traditions',
-    terms:['devotional','sacred music','spiritual','christian','gospel','worship','bhajan','gurbani','quran','nasheed','sufi','qawwali','buddhist chant','jewish music'],
-    description:'A broad interfaith discovery mix across devotional and spiritual traditions'
+  all_faiths:{
+    label:'All faiths and spiritual',
+    terms:['devotional','spiritual','sacred','religious','faith','meditation'],
+    description:'A mixed worldwide discovery view across faith and spiritual programming'
   },
   christian:{
     label:'Christian',
-    terms:['christian','christian music','gospel','worship','praise','hymn','bible','christian contemporary','jesus'],
-    description:'Christian music, contemporary worship, praise, gospel, hymns and Bible programming'
-  },
-  christian_prayer:{
-    label:'Christian prayer and scripture',
-    terms:['christian prayer','bible','scripture','sermon','christian talk','prayer'],
-    description:'Prayer, Bible reading, sermons and Christian teaching'
-  },
-  gregorian:{
-    label:'Gregorian and sacred chant',
-    terms:['gregorian chant','sacred chant','latin mass','gregorian'],
-    description:'Gregorian chant and sacred Christian choral programming'
+    terms:['christian','gospel','worship','praise','hymn','jesus','christian contemporary','christian music'],
+    description:'Christian music, contemporary worship, praise, gospel, hymns and teaching'
   },
   catholic:{
     label:'Catholic',
-    terms:['catholic','rosary','mass','gregorian','marian'],
-    description:'Catholic radio, hymns, prayer and liturgical music'
+    terms:['catholic','catholic radio','rosary','mass','gregorian','marian','eucharist'],
+    description:'Catholic radio, hymns, prayer, rosary, Mass and liturgical music'
   },
   orthodox:{
     label:'Orthodox Christian',
-    terms:['orthodox christian','orthodox','byzantine chant'],
+    terms:['orthodox christian','orthodox','byzantine chant','orthodox chant'],
     description:'Orthodox Christian radio and sacred chant'
+  },
+  protestant:{
+    label:'Protestant',
+    terms:['protestant','evangelical','christian worship','christian teaching'],
+    description:'Protestant, evangelical, worship and Christian teaching stations'
+  },
+  pentecostal:{
+    label:'Pentecostal',
+    terms:['pentecostal','charismatic christian','gospel worship'],
+    description:'Pentecostal, charismatic and gospel worship programming'
+  },
+  adventist:{
+    label:'Adventist',
+    terms:['adventist','seventh day adventist','sda christian'],
+    description:'Adventist Christian music, teaching and worship'
   },
   islamic:{
     label:'Islamic',
-    terms:['islamic','quran','nasheed','islam','sufi'],
-    description:'Quran, nasheed, Islamic and Sufi radio'
+    terms:['islamic','quran','nasheed','islam','islamic radio'],
+    description:'Quran, nasheed and Islamic religious radio'
   },
   sufi:{
     label:'Sufi and Qawwali',
-    terms:['sufi','qawwali','ghazal'],
-    description:'Sufi, qawwali and ghazal stations'
+    terms:['sufi','qawwali','sufi music','sufi devotional','qawwali radio'],
+    description:'Sufi devotional music and qawwali'
+  },
+  ghazal:{
+    label:'Ghazal',
+    terms:['ghazal','ghazals','urdu ghazal','hindi ghazal'],
+    description:'Ghazal stations and related music, including secular and spiritual programming'
   },
   hindu:{
     label:'Hindu',
-    terms:['hindu','bhajan','kirtan','mantra','devotional'],
-    description:'Bhajans, kirtan, mantra and Hindu devotional music'
+    terms:['hindu','bhajan','kirtan','mantra','bhakti','hindu devotional'],
+    description:'Bhajan, kirtan, mantra, bhakti and Hindu devotional music'
   },
   carnatic_devotional:{
     label:'Carnatic devotional',
-    terms:['carnatic devotional','carnatic','bhakti'],
-    description:'South Indian classical and devotional music'
+    terms:['carnatic devotional','carnatic bhakti','south indian devotional','carnatic spiritual'],
+    description:'South Indian classical devotional and bhakti music'
   },
   sikh:{
     label:'Sikh and Gurbani',
-    terms:['gurbani','sikh','kirtan'],
-    description:'Gurbani, Sikh devotional music and kirtan'
+    terms:['gurbani','sikh','sikh radio','gurbani kirtan','shabad'],
+    description:'Gurbani, shabad and Sikh devotional kirtan'
   },
   buddhist:{
     label:'Buddhist',
-    terms:['buddhist','buddhism','chant','dharma'],
-    description:'Buddhist chants, teachings and meditation radio'
+    terms:['buddhist','buddhism','buddhist chant','dharma','zen','tibetan buddhist'],
+    description:'Buddhist chants, teachings, dharma and meditation programming'
   },
   jewish:{
     label:'Jewish',
-    terms:['jewish','judaism','hebrew','torah'],
-    description:'Jewish music, Hebrew programming and religious radio'
+    terms:['jewish','judaism','hebrew','torah','jewish music','jewish radio'],
+    description:'Jewish music, Hebrew programming, Torah and religious radio'
   },
   jain:{
     label:'Jain',
-    terms:['jain','jainism','navkar'],
-    description:'Jain devotional and spiritual programming'
+    terms:['jain','jainism','navkar','jain devotional'],
+    description:'Jain devotional, spiritual and community programming'
   },
   bahai:{
     label:"Baha'i",
-    terms:['bahai',"baha'i"],
+    terms:['bahai',"baha'i",'bahai radio'],
     description:"Baha'i spiritual and community programming"
   },
   zoroastrian:{
     label:'Zoroastrian',
-    terms:['zoroastrian','zoroastrianism','avesta'],
-    description:'Zoroastrian spiritual programming where available'
+    terms:['zoroastrian','zoroastrianism','avesta','parsi spiritual'],
+    description:'Zoroastrian and Parsi spiritual programming where available'
   },
   taoist:{
     label:'Taoist',
-    terms:['taoist','taoism','daoist','daoism'],
-    description:'Taoist spiritual programming where available'
+    terms:['taoist','taoism','daoist','daoism','tao meditation'],
+    description:'Taoist and Daoist spiritual programming where available'
   },
   shinto:{
     label:'Shinto',
@@ -326,35 +361,44 @@ const DEVOTIONAL_LIBRARY={
   },
   spiritual:{
     label:'Spiritual and meditation',
-    terms:['spiritual','meditation','devotional','sacred'],
-    description:'Interfaith, spiritual and meditation audio'
-  },
-  ghazal:{
-    label:'Ghazal',
-    terms:['ghazal','ghazals'],
-    description:'Ghazal stations and related music'
+    terms:['spiritual','meditation','devotional','sacred','mindfulness','chant'],
+    description:'Interfaith, spiritual, meditation and contemplative audio'
   }
 }
 
-async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
-  const key=String(tradition||'all').toLowerCase()
+async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,countrycode='',sort='popular',language=''}={}){
+  const key=String(tradition||'all_faiths').toLowerCase()
   const entry=DEVOTIONAL_LIBRARY[key]||{
-    label:key||'Devotional',
-    terms:[key||'devotional'],
+    label:String(tradition||'Devotional'),
+    terms:[String(tradition||'devotional')],
     description:'Devotional and spiritual radio'
   }
   const q=String(query||'').trim()
+  const lang=String(language||'').trim()
 
-  const terms=q
-    ?[q,`${entry.label} ${q}`,...entry.terms.slice(0,4)]
-    :entry.terms
+  const searchTerms=[]
+  const pushTerm=value=>{
+    const term=String(value||'').trim()
+    if(term&&!searchTerms.some(existing=>existing.toLowerCase()===term.toLowerCase())) searchTerms.push(term)
+  }
+  if(q){
+    pushTerm(q)
+    for(const base of entry.terms.slice(0,6)) pushTerm(`${base} ${q}`)
+  }
+  for(const base of entry.terms) pushTerm(base)
 
-  const uniqueTerms=[...new Set(terms.map(term=>String(term||'').trim()).filter(Boolean))]
-  const perTerm=Math.max(14,Math.ceil(Math.min(100,limit||60)/Math.max(1,uniqueTerms.length))+12)
+  const perTerm=Math.max(10,Math.min(36,Math.ceil((Math.min(100,limit||60)*2.2)/Math.max(1,searchTerms.length))+8))
   const batches=await Promise.allSettled(
-    uniqueTerms.map(term=>radioLibrary(term,perTerm,{random,offset:0,countrycode,sort}))
+    searchTerms.map(term=>radioLibrary(term,perTerm,{
+      random,
+      offset:0,
+      countrycode,
+      sort,
+      language:lang
+    }))
   )
 
+  const allTerms=[...entry.terms,q].filter(Boolean).map(term=>String(term).toLowerCase())
   const seen=new Set()
   const merged=[]
   for(const batch of batches){
@@ -362,7 +406,36 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     for(const item of batch.value?.items||[]){
       if(seen.has(item.id)) continue
       seen.add(item.id)
-      merged.push({...item,devotional:true,tradition:key,traditionLabel:entry.label})
+
+      const haystack=[
+        item.title,
+        ...(item.tags||[]),
+        item.language,
+        item.country,
+        item.state
+      ].filter(Boolean).join(' ').toLowerCase()
+
+      let relevance=0
+      for(const term of allTerms){
+        if(!term) continue
+        if(haystack.includes(term)) relevance+=term===q&&q?9:4
+        const pieces=term.split(/\s+/).filter(piece=>piece.length>3)
+        for(const piece of pieces) if(haystack.includes(piece)) relevance+=1
+      }
+      if(lang&&String(item.language||'').toLowerCase().includes(lang.toLowerCase())) relevance+=7
+      relevance+=Math.log10(Math.max(1,item.clickcount||0)+1)*1.8
+      relevance+=Math.log10(Math.max(1,item.votes||0)+1)*1.2
+      if((item.bitrate||0)>=128) relevance+=1
+
+      merged.push({
+        ...item,
+        devotional:true,
+        tradition:key,
+        traditionLabel:entry.label,
+        devotionalQuery:q,
+        devotionalLanguage:lang,
+        relevance:Number(relevance.toFixed(2))
+      })
     }
   }
 
@@ -371,14 +444,8 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
       const j=Math.floor(Math.random()*(i+1))
       ;[merged[i],merged[j]]=[merged[j],merged[i]]
     }
-  }else if(sort==='quality'){
-    merged.sort((a,b)=>
-      (Math.min(b.bitrate||0,512)-Math.min(a.bitrate||0,512))||
-      ((b.votes||0)-(a.votes||0))||
-      ((b.clickcount||0)-(a.clickcount||0))
-    )
   }else{
-    merged.sort((a,b)=>(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
+    merged.sort((a,b)=>(b.relevance-a.relevance)||(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
   }
 
   const start=Math.max(0,Number(offset)||0)
@@ -389,14 +456,17 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     hasMore:merged.length>start+size,
     tradition:key,
     label:entry.label,
-    description:entry.description
+    description:entry.description,
+    query:q,
+    language:lang
   }
 }
 
-async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',sort='popular'}={}){
+async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',sort='popular',language=''}={}){
   const target=Math.min(100,Math.max(10,limit||60))
   const q=String(query||'').trim()
   const country=String(countrycode||'').trim().toUpperCase()
+  const lang=String(language||'').trim()
   const order=random||sort==='random'?'random':sort==='quality'?'bitrate':'clickcount'
   const reverse=order==='random'?'false':'true'
   const base={
@@ -410,6 +480,7 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
   const buildParams=extra=>{
     const params=new URLSearchParams(base)
     if(country) params.set('countrycode',country)
+    if(lang) params.set('language',lang)
     for(const [key,value] of Object.entries(extra||{})){
       if(value) params.set(key,String(value))
     }
@@ -421,7 +492,7 @@ async function radioLibrary(query,limit,{random=false,offset=0,countrycode='',so
     batches=await Promise.allSettled([
       fetchRadioRows(buildParams({name:q})),
       fetchRadioRows(buildParams({tag:q})),
-      fetchRadioRows(buildParams({language:q}))
+      ...(lang?[]:[fetchRadioRows(buildParams({language:q}))])
     ])
   }else{
     batches=[{status:'fulfilled',value:await fetchRadioRows(buildParams())}]
@@ -478,6 +549,10 @@ module.exports=async function handler(req,res){
       const countries=await radioCountries()
       return json(res,200,{mode:'countries',count:countries.length,countries},'public, s-maxage=21600, stale-while-revalidate=86400')
     }
+    if(mode==='languages'){
+      const languages=await radioLanguages()
+      return json(res,200,{mode:'languages',count:languages.length,languages},'public, s-maxage=21600, stale-while-revalidate=86400')
+    }
     if(mode==='radio'){
       const result=await radioLibrary(query,limit,{random,offset,countrycode,sort})
       return json(res,200,{
@@ -503,6 +578,8 @@ module.exports=async function handler(req,res){
         tradition:result.tradition,
         label:result.label,
         description:result.description,
+        query:result.query,
+        language:result.language,
         count:result.items.length,
         items:result.items,
         random,
