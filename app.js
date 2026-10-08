@@ -3673,7 +3673,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.21</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.22</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -3786,7 +3786,13 @@ async function bootstrapSignedIn(){
     const audio=mediaAudio()
     if(audio) audio.muted=true
   }
-  loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
+  const preferredMode=mediaPlayerState.mode==='radio'?'radio':'nature'
+  const preferredQuery=mediaPlayerState.query||(preferredMode==='radio'?'ambient':'rain')
+  loadMediaLibrary(preferredMode,preferredQuery,100,{preserveCurrent:preferredMode==='nature'})
+    .then(items=>{
+      if(preferredMode==='radio'&&items?.length) selectMediaTrack(items[0],false)
+    })
+    .catch(()=>{})
   await migrateLegacyChat()
   if(navigationInitialized) await renderRoute(view)
   else await initializeNavigation()
@@ -3809,5 +3815,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=21').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=22').then(reg=>reg.update()).catch(()=>{})
 }
