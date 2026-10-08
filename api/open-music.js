@@ -193,6 +193,74 @@ function mergeMusicProviders(primary,secondary,limit){
   return out
 }
 
+function normalizeCollection(row){
+  const id=String(row?.id||row?.playlist_id||'').trim()
+  if(!id) return null
+  const title=String(row?.playlist_name||row?.name||row?.title||'Untitled collection').trim()
+  const artist=String(row?.user?.name||row?.owner_name||row?.user?.handle||'Audius creator').trim()
+  const handle=String(row?.user?.handle||row?.owner_handle||'').trim()
+  const isAlbum=Boolean(row?.is_album??row?.isAlbum)
+  const art=row?.artwork||row?.cover_art||{}
+  const artwork=art['480x480']||art._480x480||art['1000x1000']||art._1000x1000||art['150x150']||art._150x150||''
+  const permalink=absoluteAudiusUrl(row?.permalink||row?.permalink_url||'')
+  return {
+    id:'collection-'+id,
+    collectionId:id,
+    type:'collection',
+    kind:isAlbum?'album':'playlist',
+    title,
+    artist,
+    handle,
+    artwork,
+    trackCount:Number(row?.track_count??row?.trackCount??row?.playlist_contents?.track_ids?.length??0),
+    totalPlayCount:Number(row?.total_play_count??row?.totalPlayCount??0),
+    description:String(row?.description||'').trim().slice(0,500),
+    source:'Audius open music',
+    sourcePage:permalink,
+    provider:'audius',
+    openCatalog:true
+  }
+}
+
+function normalizeCollections(rows){
+  const seen=new Set()
+  const items=[]
+  for(const row of rows||[]){
+    const item=normalizeCollection(row)
+    if(!item||seen.has(item.id)) continue
+    seen.add(item.id)
+    items.push(item)
+  }
+  return items
+}
+
+async function searchCollections({query,limit,offset}){
+  const data=await audiusFetch('/playlists/search',{
+    query,
+    limit,
+    offset
+  })
+  return normalizeCollections(data?.data||data?.results||[])
+}
+
+async function trendingCollections({limit,offset}){
+  const data=await audiusFetch('/playlists/trending',{
+    limit,
+    offset,
+    time:'week'
+  })
+  return normalizeCollections(data?.data||data?.results||[])
+}
+
+async function collectionTracks(id,{limit=100,offset=0}={}){
+  if(!/^[A-Za-z0-9_-]{2,96}$/.test(String(id||''))) throw new Error('Invalid collection id')
+  const data=await audiusFetch('/playlists/'+encodeURIComponent(id)+'/tracks',{
+    limit:Math.min(100,Math.max(1,limit)),
+    offset:Math.max(0,offset)
+  })
+  return normalizeTracks(data?.data||data?.results||[])
+}
+
 function normalizeTracks(rows){
   const seen=new Set()
   const items=[]
@@ -301,6 +369,37 @@ module.exports=async function handler(req,res){
   const time=String(req.query?.time||'week')
 
   try{
+    if(mode==='collections'){
+      const items=query
+        ?await searchCollections({query,limit,offset})
+        :await trendingCollections({limit,offset})
+      return json(res,200,{
+        mode:'collections',
+        provider:'Audius',
+        query,
+        offset,
+        nextOffset:offset+items.length,
+        hasMore:items.length>=limit,
+        count:items.length,
+        items
+      },'public, s-maxage=90, stale-while-revalidate=300')
+    }
+
+    if(mode==='collection_tracks'){
+      const collectionId=String(req.query?.id||'').trim()
+      const items=await collectionTracks(collectionId,{limit,offset})
+      return json(res,200,{
+        mode:'collection_tracks',
+        provider:'Audius',
+        collectionId,
+        offset,
+        nextOffset:offset+items.length,
+        hasMore:items.length>=limit,
+        count:items.length,
+        items
+      },'public, s-maxage=90, stale-while-revalidate=300')
+    }
+
     let items=[]
     let actualMode=mode
     if(mode==='trending'||!query){
