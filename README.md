@@ -31,6 +31,8 @@ npm run dev
 
 Open the local URL printed by Wrangler. A plain static server cannot run the `/api/` routes. The build bundles the browser dependencies locally, hashes the JavaScript and CSS filenames, and publishes only public assets into `dist/`.
 
+The npm `prepare` lifecycle also creates `dist/` during dependency installation, so a Pages project with an existing empty build command can still prepare the assets. The explicit build settings below are recommended. `.node-version` selects Node.js 22 for Pages.
+
 In the existing Cloudflare Pages project `memora`, use these Git build settings:
 
 | Setting | Value |
