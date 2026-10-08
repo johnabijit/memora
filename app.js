@@ -35,6 +35,29 @@ let ambientPreferences = {
   dynamicBackground: true
 }
 
+let mediaPlayerState={
+  mode:localStorage.getItem('memora-player-mode')||'nature',
+  query:localStorage.getItem('memora-player-query')||'rain',
+  library:[],
+  current:null,
+  index:0,
+  loading:false,
+  unlocked:false
+}
+
+const defaultNaturalTrack={
+  id:'curated-rain-thunder-birds',
+  type:'nature',
+  title:'Rain, thunder and birds',
+  category:'Rain',
+  license:'Public domain',
+  artist:'Wikimedia Commons',
+  url:'https://commons.wikimedia.org/wiki/Special:Redirect/file/Rainthunderandbirds.ogg',
+  sourcePage:'https://commons.wikimedia.org/wiki/File:Rainthunderandbirds.ogg',
+  curated:true
+}
+
+
 function loadConversationContext(threadId=currentThreadId){
   conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
   if(!threadId) return
@@ -474,64 +497,387 @@ function stopAmbient(){
   updateSoundButton()
 }
 
+function mediaAudio(){
+  return document.getElementById('memoraAudio')
+}
+
+function mediaPlayerVisible(){
+  return Boolean(document.getElementById('memoraMediaPlayer'))
+}
+
+function ensureMediaPlayer(){
+  if(!user) return null
+  let player=document.getElementById('memoraMediaPlayer')
+  if(player) return player
+
+  player=document.createElement('section')
+  player.id='memoraMediaPlayer'
+  player.className='memora-player glass'
+  player.innerHTML=`
+    <audio id="memoraAudio" preload="metadata" playsinline></audio>
+    <button class="player-live-orb" id="playerLibraryOrb" aria-label="Open audio library"><span></span><i></i><i></i><i></i></button>
+    <div class="player-track">
+      <small id="playerSource">Natural sound · Wikimedia Commons</small>
+      <strong id="playerTitle">Rain, thunder and birds</strong>
+      <span id="playerStatus">Ready · sound is enabled</span>
+    </div>
+    <div class="player-actions">
+      <button class="player-action primary" id="playerPlay" aria-label="Play">Play</button>
+      <button class="player-action" id="playerNext" aria-label="Next">Next</button>
+      <button class="player-action" id="playerMute" aria-label="Mute">Mute</button>
+      <button class="player-action" id="playerStop" aria-label="Stop">Stop</button>
+      <button class="player-action library" id="playerLibrary" aria-label="Open library">Library</button>
+    </div>
+  `
+  document.body.appendChild(player)
+  document.body.classList.add('has-memora-player')
+
+  const audio=mediaAudio()
+  audio.volume=Math.max(0,Math.min(1,ambientPreferences.volume))
+  audio.muted=!ambientPreferences.enabled
+  audio.src=defaultNaturalTrack.url
+  mediaPlayerState.current=defaultNaturalTrack
+
+  audio.addEventListener('play',()=>{mediaPlayerState.unlocked=true;refreshMediaPlayerUI()})
+  audio.addEventListener('pause',refreshMediaPlayerUI)
+  audio.addEventListener('waiting',()=>setPlayerStatus('Buffering natural audio...'))
+  audio.addEventListener('playing',refreshMediaPlayerUI)
+  audio.addEventListener('error',()=>{
+    setPlayerStatus('This stream could not play. Trying the next one...')
+    setTimeout(()=>nextMediaTrack(true),500)
+  })
+  audio.addEventListener('ended',()=>{
+    if(mediaPlayerState.current?.type==='nature') nextMediaTrack(true)
+    else refreshMediaPlayerUI()
+  })
+
+  document.getElementById('playerPlay').onclick=toggleMediaPlayback
+  document.getElementById('playerNext').onclick=()=>nextMediaTrack(true)
+  document.getElementById('playerMute').onclick=toggleMediaMute
+  document.getElementById('playerStop').onclick=stopMediaPlayback
+  document.getElementById('playerLibrary').onclick=openSoundscapePicker
+  document.getElementById('playerLibraryOrb').onclick=openSoundscapePicker
+
+  refreshMediaPlayerUI()
+  loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
+  return player
+}
+
+function setPlayerStatus(message){
+  const el=document.getElementById('playerStatus')
+  if(el) el.textContent=message
+}
+
+function refreshMediaPlayerUI(){
+  const player=document.getElementById('memoraMediaPlayer')
+  const audio=mediaAudio()
+  if(!player||!audio) return
+
+  const current=mediaPlayerState.current||defaultNaturalTrack
+  const playing=!audio.paused&&!audio.ended
+  player.classList.toggle('playing',playing)
+  player.dataset.mode=current.type||mediaPlayerState.mode
+
+  const title=document.getElementById('playerTitle')
+  const source=document.getElementById('playerSource')
+  const status=document.getElementById('playerStatus')
+  const play=document.getElementById('playerPlay')
+  const mute=document.getElementById('playerMute')
+
+  if(title) title.textContent=current.title||'Memora Audio'
+  if(source){
+    if(current.type==='radio'){
+      source.textContent=`Live radio · ${current.country||current.category||'Worldwide'}`
+    }else{
+      source.textContent=`Natural recording · ${current.category||'Nature'}`
+    }
+  }
+  if(status){
+    if(playing) status.textContent=current.type==='radio'?'Live stream playing':'Natural recording playing'
+    else if(!ambientPreferences.enabled||audio.muted) status.textContent='Muted'
+    else status.textContent='Paused'
+  }
+  if(play) play.textContent=playing?'Pause':'Play'
+  if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
+  updateSoundButton()
+}
+
+async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false}={}){
+  mediaPlayerState.loading=true
+  const safeMode=mode==='radio'?'radio':'nature'
+  const safeQuery=String(query||'').trim()
+  try{
+    const response=await fetch(`/api/audio-library?mode=${encodeURIComponent(safeMode)}&q=${encodeURIComponent(safeQuery)}&limit=${Math.min(100,limit)}`,{cache:'no-store'})
+    const data=await response.json()
+    if(!response.ok) throw new Error(data?.error||'Audio library failed')
+    mediaPlayerState.mode=safeMode
+    mediaPlayerState.query=safeQuery||(safeMode==='radio'?'ambient':'')
+    mediaPlayerState.library=Array.isArray(data.items)?data.items:[]
+    localStorage.setItem('memora-player-mode',safeMode)
+    localStorage.setItem('memora-player-query',mediaPlayerState.query)
+
+    if(!preserveCurrent&&mediaPlayerState.library.length){
+      mediaPlayerState.index=0
+      await selectMediaTrack(mediaPlayerState.library[0],false)
+    }else if(preserveCurrent&&mediaPlayerState.current){
+      const found=mediaPlayerState.library.findIndex(item=>item.id===mediaPlayerState.current.id)
+      if(found>=0) mediaPlayerState.index=found
+    }
+    return mediaPlayerState.library
+  }finally{
+    mediaPlayerState.loading=false
+  }
+}
+
+async function selectMediaTrack(item,autoplay=true){
+  if(!item?.url) return
+  ensureMediaPlayer()
+  const audio=mediaAudio()
+  if(!audio) return
+
+  stopAmbient()
+  mediaPlayerState.current=item
+  const found=mediaPlayerState.library.findIndex(entry=>entry.id===item.id)
+  if(found>=0) mediaPlayerState.index=found
+  mediaPlayerState.mode=item.type==='radio'?'radio':'nature'
+  localStorage.setItem('memora-player-mode',mediaPlayerState.mode)
+  localStorage.setItem('memora-player-query',mediaPlayerState.query||'')
+
+  audio.pause()
+  audio.src=item.url
+  audio.loop=item.type==='nature'
+  audio.volume=Math.max(0,Math.min(1,ambientPreferences.volume))
+  audio.muted=!ambientPreferences.enabled
+  audio.load()
+  refreshMediaPlayerUI()
+
+  if(autoplay&&ambientPreferences.enabled){
+    try{
+      await audio.play()
+    }catch{
+      setPlayerStatus('Tap Play to start audio')
+    }
+  }
+}
+
+async function toggleMediaPlayback(){
+  ensureMediaPlayer()
+  const audio=mediaAudio()
+  if(!audio) return
+
+  if(!ambientPreferences.enabled){
+    await saveExperiencePreferences({enabled:true})
+    audio.muted=false
+  }
+  if(audio.paused){
+    try{
+      await audio.play()
+    }catch{
+      setPlayerStatus('Tap Play again to allow audio in this browser')
+    }
+  }else{
+    audio.pause()
+  }
+  refreshMediaPlayerUI()
+}
+
+async function toggleMediaMute(){
+  ensureMediaPlayer()
+  const audio=mediaAudio()
+  if(!audio) return
+  audio.muted=!audio.muted
+  await saveExperiencePreferences({enabled:!audio.muted})
+  refreshMediaPlayerUI()
+}
+
+function stopMediaPlayback(){
+  const audio=mediaAudio()
+  if(!audio) return
+  audio.pause()
+  try{audio.currentTime=0}catch{}
+  setPlayerStatus('Stopped')
+  refreshMediaPlayerUI()
+}
+
+async function nextMediaTrack(autoplay=true){
+  ensureMediaPlayer()
+  if(!mediaPlayerState.library.length){
+    try{
+      await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{preserveCurrent:true})
+    }catch{
+      mediaPlayerState.library=[defaultNaturalTrack]
+    }
+  }
+  if(!mediaPlayerState.library.length) return
+  mediaPlayerState.index=(mediaPlayerState.index+1)%mediaPlayerState.library.length
+  await selectMediaTrack(mediaPlayerState.library[mediaPlayerState.index],autoplay)
+}
+
 function updateSoundButton(){
   const button=document.getElementById('soundButton')
-  if(!button) return
-  const scene=ambientPreferences.scene==='auto'?resolveAmbientScene():ambientPreferences.scene
-  button.dataset.enabled=ambientPreferences.enabled?'true':'false'
-  button.title=ambientPreferences.enabled?`Soundscape: ${scene}`:'Sound is muted'
-  const label=button.querySelector('.sound-label')
-  if(label) label.textContent=ambientPreferences.enabled?'Sound':'Silent'
+  const audio=mediaAudio()
+  const active=ambientPreferences.enabled&&audio&&!audio.muted
+  if(button){
+    button.dataset.enabled=active?'true':'false'
+    button.title=active?'Open Memora Audio':'Audio is muted'
+    const label=button.querySelector('.sound-label')
+    if(label) label.textContent=active?'Audio':'Muted'
+  }
 }
 
 async function setAmbientEnabled(enabled){
   await saveExperiencePreferences({enabled})
-  if(enabled) await startAmbient()
-  else stopAmbient()
+  ensureMediaPlayer()
+  const audio=mediaAudio()
+  if(audio) audio.muted=!enabled
+  if(!enabled) stopAmbient()
+  if(enabled&&audio?.paused){
+    try{await audio.play()}catch{}
+  }
+  refreshMediaPlayerUI()
 }
 
-function openSoundscapePicker(){
-  const selected=ambientPreferences.scene||'auto'
-  const box=modal('Ambient Soundscapes',`
-    <div class="soundscape-head">
-      <div><div class="eyebrow">Calm audio</div><h3>${ambientPreferences.enabled?'Sound is on':'Sound is muted'}</h3><p class="muted">Generated locally in your browser. No ads, radio account or external music service required.</p></div>
-      <button class="btn ${ambientPreferences.enabled?'primary':''}" id="soundToggle">${ambientPreferences.enabled?'Mute':'Enable sound'}</button>
+function audioLibraryCard(item,index){
+  const meta=item.type==='radio'
+    ?[item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
+    :[item.category,item.license].filter(Boolean).join(' · ')
+  return `
+    <button class="audio-library-card ${mediaPlayerState.current?.id===item.id?'selected':''}" data-audio-index="${index}">
+      <span class="audio-card-orb"></span>
+      <span class="audio-card-copy"><b>${esc(item.title||'Untitled audio')}</b><small>${esc(meta||'Audio')}</small></span>
+      <span class="audio-card-play">${mediaPlayerState.current?.id===item.id&&!mediaAudio()?.paused?'Playing':'Play'}</span>
+    </button>
+  `
+}
+
+function renderAudioLibraryResults(box){
+  const target=box.querySelector('#audioLibraryResults')
+  const count=box.querySelector('#audioLibraryCount')
+  if(!target) return
+  if(count) count.textContent=`${mediaPlayerState.library.length} available`
+  target.innerHTML=mediaPlayerState.library.length
+    ?mediaPlayerState.library.map(audioLibraryCard).join('')
+    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another category or search.</div>'
+  target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
+    const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
+    await selectMediaTrack(item,true)
+    renderAudioLibraryResults(box)
+  })
+}
+
+async function openSoundscapePicker(){
+  ensureMediaPlayer()
+  const currentMode=mediaPlayerState.mode||'nature'
+  const box=modal('Memora Audio',`
+    <div class="audio-library-head">
+      <div>
+        <div class="eyebrow">Natural sound and live radio</div>
+        <h3>Sound that feels alive.</h3>
+        <p class="muted">Play real nature recordings from Wikimedia Commons or browse live internet radio. Up to 100 results can be loaded at once.</p>
+      </div>
+      <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute audio':'Enable audio'}</button>
     </div>
-    <div class="soundscape-grid">
-      ${ambientScenes.map(scene=>`<button class="soundscape-card ${selected===scene.id?'selected':''}" data-sound-scene="${scene.id}"><b>${esc(scene.name)}</b><small>${esc(scene.description)}</small></button>`).join('')}
+
+    <div class="audio-mode-tabs">
+      <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature recordings</button>
+      <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">Live radio</button>
     </div>
-    <label class="volume-row"><span>Volume</span><input id="ambientVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="ambientVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-    <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly and seasonal background motion</span></label>
+
+    <div class="audio-search-row">
+      <input class="input" id="audioLibrarySearch" value="${esc(mediaPlayerState.query||'')}" placeholder="${currentMode==='radio'?'Search ambient, chill, jazz, Tamil...':'Search rain, forest, night, ocean...'}">
+      <button class="btn primary" id="audioLibrarySearchButton">Search</button>
+    </div>
+
+    <div class="audio-presets" id="audioPresets">
+      ${(currentMode==='radio'
+        ?['ambient','relax','chillout','lofi','jazz','classical','sleep','meditation','Tamil','world']
+        :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
+      ).map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')}
+    </div>
+
+    <div class="audio-library-toolbar"><b id="audioLibraryCount">${mediaPlayerState.library.length} available</b><span class="muted small">Tap any item to play it immediately.</span></div>
+    <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
+
+    <div class="audio-library-footer">
+      <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
+      <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Live hourly and seasonal background motion</span></label>
+    </div>
   `)
 
-  box.querySelector('#soundToggle').onclick=async()=>{
-    await setAmbientEnabled(!ambientPreferences.enabled)
-    box.remove()
-    openSoundscapePicker()
+  const modeTabs=box.querySelectorAll('[data-audio-mode]')
+  const search=box.querySelector('#audioLibrarySearch')
+
+  const runLoad=async(mode,query)=>{
+    box.querySelector('#audioLibraryResults').innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Loading up to 100 sounds...</div>'
+    try{
+      await loadMediaLibrary(mode,query,100,{preserveCurrent:true})
+      renderAudioLibraryResults(box)
+    }catch(error){
+      box.querySelector('#audioLibraryResults').innerHTML=`<div class="empty compact-empty"><strong>Audio directory unavailable</strong>${esc(error.message)}</div>`
+    }
   }
-  box.querySelectorAll('[data-sound-scene]').forEach(button=>button.onclick=async()=>{
-    await saveExperiencePreferences({scene:button.dataset.soundScene})
-    if(ambientPreferences.enabled) await startAmbient()
-    box.remove()
-    openSoundscapePicker()
+
+  if(!mediaPlayerState.library.length) await runLoad(currentMode,mediaPlayerState.query)
+  else renderAudioLibraryResults(box)
+
+  box.querySelector('#libraryMute').onclick=async()=>{
+    await setAmbientEnabled(!ambientPreferences.enabled)
+    box.querySelector('#libraryMute').textContent=ambientPreferences.enabled?'Mute audio':'Enable audio'
+    box.querySelector('#libraryMute').classList.toggle('primary',ambientPreferences.enabled)
+  }
+
+  modeTabs.forEach(button=>button.onclick=async()=>{
+    const mode=button.dataset.audioMode
+    modeTabs.forEach(tab=>tab.classList.toggle('active',tab===button))
+    search.placeholder=mode==='radio'?'Search ambient, chill, jazz, Tamil...':'Search rain, forest, night, ocean...'
+    search.value=mode==='radio'?'ambient':'rain'
+    const presets=mode==='radio'
+      ?['ambient','relax','chillout','lofi','jazz','classical','sleep','meditation','Tamil','world']
+      :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
+    box.querySelector('#audioPresets').innerHTML=presets.map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')
+    bindPresets()
+    await runLoad(mode,search.value)
   })
-  box.querySelector('#ambientVolume').oninput=event=>{
+
+  box.querySelector('#audioLibrarySearchButton').onclick=()=>runLoad(
+    [...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature',
+    search.value.trim()
+  )
+  search.onkeydown=e=>{if(e.key==='Enter') box.querySelector('#audioLibrarySearchButton').click()}
+
+  const bindPresets=()=>{
+    box.querySelectorAll('[data-audio-preset]').forEach(button=>button.onclick=async()=>{
+      search.value=button.dataset.audioPreset
+      const mode=[...modeTabs].find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'nature'
+      await runLoad(mode,button.dataset.audioPreset)
+    })
+  }
+  bindPresets()
+
+  box.querySelector('#libraryVolume').oninput=event=>{
     const value=Number(event.target.value)
     ambientPreferences.volume=value
-    box.querySelector('#ambientVolumeLabel').textContent=`${Math.round(value*100)}%`
-    if(ambientMasterGain&&ambientAudioContext) ambientMasterGain.gain.setTargetAtTime(value,ambientAudioContext.currentTime,.05)
+    const audio=mediaAudio()
+    if(audio) audio.volume=value
+    box.querySelector('#libraryVolumeLabel').textContent=`${Math.round(value*100)}%`
   }
-  box.querySelector('#ambientVolume').onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
+  box.querySelector('#libraryVolume').onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
   box.querySelector('#dynamicBackgroundToggle').onchange=event=>saveExperiencePreferences({dynamicBackground:event.target.checked})
 }
 
 function setupAmbientUnlock(){
   const unlock=async()=>{
-    if(ambientPreferences.enabled) await startAmbient()
+    if(!user||!ambientPreferences.enabled) return
+    ensureMediaPlayer()
+    const audio=mediaAudio()
+    if(audio&&audio.paused){
+      audio.muted=false
+      try{await audio.play()}catch{}
+    }
     document.removeEventListener('pointerdown',unlock)
     document.removeEventListener('keydown',unlock)
   }
-  document.addEventListener('pointerdown',unlock,{passive:true})
+  document.addEventListener('pointerdown',unlock)
   document.addEventListener('keydown',unlock)
 }
 
