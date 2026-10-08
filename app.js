@@ -1,7 +1,10 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/+esm'
+import { createClient } from '@supabase/supabase-js'
+import { safeStorage, fetchApi } from './client/runtime.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+const localStore = safeStorage('localStorage')
+const sessionStore = safeStorage('sessionStorage')
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{storage:localStore}})
 const app = document.getElementById('app')
 
 let user = null
@@ -11,7 +14,7 @@ let chatThreads = []
 let currentThreadId = new URL(window.location.href).searchParams.get('thread') || null
 let legacySessionChat = []
 try{
-  const savedChat=JSON.parse(sessionStorage.getItem('memora-chat')||'[]')
+  const savedChat=JSON.parse(sessionStore.getItem('memora-chat')||'[]')
   if(Array.isArray(savedChat)) legacySessionChat=savedChat.slice(-40)
 }catch{}
 let pendingMedia = []
@@ -60,29 +63,29 @@ const moodCatalog={
 
 
 let mediaPlayerState={
-  mode:localStorage.getItem('memora-player-mode')||'nature',
-  query:localStorage.getItem('memora-player-query')||'rain',
+  mode:localStore.getItem('memora-player-mode')||'nature',
+  query:localStore.getItem('memora-player-query')||'rain',
   library:[],
   current:null,
   index:0,
   loading:false,
   unlocked:false,
   radioBatches:0,
-  radioCountry:localStorage.getItem('memora-radio-country')||'',
-  radioLanguage:localStorage.getItem('memora-radio-language')||'',
-  radioSort:localStorage.getItem('memora-radio-sort')||'popular',
+  radioCountry:localStore.getItem('memora-radio-country')||'',
+  radioLanguage:localStore.getItem('memora-radio-language')||'',
+  radioSort:localStore.getItem('memora-radio-sort')||'popular',
   radioOffset:0,
   radioHasMore:true,
   countries:[],
   languages:[],
-  audioView:localStorage.getItem('memora-audio-view')||'music',
-  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'all_faiths',
-  devotionalLanguage:localStorage.getItem('memora-devotional-language')||'',
-  devotionalQuery:localStorage.getItem('memora-devotional-query')||'',
-  musicQuery:localStorage.getItem('memora-music-query')||'',
-  musicSort:localStorage.getItem('memora-music-sort')||'relevant',
-  musicGenre:localStorage.getItem('memora-music-genre')||'',
-  musicBrowseKind:localStorage.getItem('memora-music-browse-kind')||'tracks',
+  audioView:localStore.getItem('memora-audio-view')||'music',
+  devotionalTradition:localStore.getItem('memora-devotional-tradition')||'all_faiths',
+  devotionalLanguage:localStore.getItem('memora-devotional-language')||'',
+  devotionalQuery:localStore.getItem('memora-devotional-query')||'',
+  musicQuery:localStore.getItem('memora-music-query')||'',
+  musicSort:localStore.getItem('memora-music-sort')||'relevant',
+  musicGenre:localStore.getItem('memora-music-genre')||'',
+  musicBrowseKind:localStore.getItem('memora-music-browse-kind')||'tracks',
   musicCollections:[],
   musicCollectionOffset:0,
   musicCollectionHasMore:true,
@@ -108,7 +111,7 @@ function loadConversationContext(threadId=currentThreadId){
   conversationContext={thing:null,subject:null,relation:null,lastMemoryId:null,lastImageMediaId:null}
   if(!threadId) return
   try{
-    const saved=JSON.parse(localStorage.getItem(`memora-context:${threadId}`)||'{}')
+    const saved=JSON.parse(localStore.getItem(`memora-context:${threadId}`)||'{}')
     conversationContext={...conversationContext,...saved}
   }catch{}
 }
@@ -116,12 +119,12 @@ function loadConversationContext(threadId=currentThreadId){
 function persistConversationState(){
   if(!currentThreadId) return
   try{
-    localStorage.setItem(`memora-context:${currentThreadId}`,JSON.stringify(conversationContext))
+    localStore.setItem(`memora-context:${currentThreadId}`,JSON.stringify(conversationContext))
   }catch{}
 }
 function applyLocalAccessibilityPreferences(){
-  document.documentElement.dataset.largeText=localStorage.getItem('memora-large-text')==='1'?'on':'off'
-  document.documentElement.dataset.highContrast=localStorage.getItem('memora-high-contrast')==='1'?'on':'off'
+  document.documentElement.dataset.largeText=localStore.getItem('memora-large-text')==='1'?'on':'off'
+  document.documentElement.dataset.highContrast=localStore.getItem('memora-high-contrast')==='1'?'on':'off'
 }
 applyLocalAccessibilityPreferences()
 
@@ -346,7 +349,7 @@ async function deleteChatThread(threadId){
   if(!threadId) return
   const {error}=await supabase.from('chat_threads').delete().eq('id',threadId)
   if(error) throw error
-  try{localStorage.removeItem(`memora-context:${threadId}`)}catch{}
+  try{localStore.removeItem(`memora-context:${threadId}`)}catch{}
   if(currentThreadId===threadId){
     currentThreadId=null
     chat=[]
@@ -368,8 +371,8 @@ async function migrateLegacyChat(){
   if(!legacySessionChat.length||!user) return
   const existing=await loadChatThreads()
   if(existing.length){
-    sessionStorage.removeItem('memora-chat')
-    sessionStorage.removeItem('memora-context')
+    sessionStore.removeItem('memora-chat')
+    sessionStore.removeItem('memora-context')
     legacySessionChat=[]
     return
   }
@@ -385,8 +388,8 @@ async function migrateLegacyChat(){
       metadata:{ai:Boolean(item.ai),migrated:true}
     }))
   if(rows.length) await supabase.from('chat_messages').insert(rows)
-  sessionStorage.removeItem('memora-chat')
-  sessionStorage.removeItem('memora-context')
+  sessionStore.removeItem('memora-chat')
+  sessionStore.removeItem('memora-context')
   legacySessionChat=[]
   await loadChatThread(thread.id)
 }
@@ -446,7 +449,7 @@ async function loadSceneBackdrop(query,{force=false}={}){
   const cacheKey=`memora-scene:${clean.toLowerCase()}:${bucket}`
   if(!force){
     try{
-      const cached=JSON.parse(sessionStorage.getItem(cacheKey)||'null')
+      const cached=JSON.parse(sessionStore.getItem(cacheKey)||'null')
       if(cached?.url){
         sceneBackdropState={...sceneBackdropState,...cached,query:clean,loading:false}
         document.documentElement.style.setProperty('--scene-photo',`url("${cached.url.replace(/"/g,'%22')}")`)
@@ -465,7 +468,7 @@ async function loadSceneBackdrop(query,{force=false}={}){
     sceneBackdropState={query:clean,loading:false,...data.item}
     document.documentElement.style.setProperty('--scene-photo',`url("${String(data.item.url).replace(/"/g,'%22')}")`)
     document.documentElement.dataset.scenePhoto='on'
-    try{sessionStorage.setItem(cacheKey,JSON.stringify(data.item))}catch{}
+    try{sessionStore.setItem(cacheKey,JSON.stringify(data.item))}catch{}
     renderSceneCredit()
   }catch{
     sceneBackdropState.loading=false
@@ -966,8 +969,18 @@ function ensureMediaPlayer(){
   audio.addEventListener('waiting',()=>setPlayerStatus('Buffering...'))
   audio.addEventListener('playing',refreshMediaPlayerUI)
   audio.addEventListener('error',()=>{
+    if(!user) return
+    const failedId=mediaPlayerState.current?.id
+    clearTimeout(mediaRecoveryTimer)
+    if(++mediaRecoveryAttempts>Math.min(3,mediaPlayerState.library.length)){
+      audio.pause()
+      setPlayerStatus('Stream unavailable. Choose another track or retry Play.')
+      return
+    }
     setPlayerStatus('Stream unavailable · trying next')
-    setTimeout(()=>nextMediaTrack(true),650)
+    mediaRecoveryTimer=setTimeout(()=>{
+      if(user&&mediaPlayerState.current?.id===failedId) nextMediaTrack(true,true).catch(()=>setPlayerStatus('Choose another track to continue'))
+    },650)
   })
   audio.addEventListener('ended',()=>{
     if(['nature','music'].includes(mediaPlayerState.mode)) nextMediaTrack(true)
@@ -982,11 +995,6 @@ function ensureMediaPlayer(){
   document.getElementById('playerTrackOpen').onclick=openNowPlayingSheet
 
   refreshMediaPlayerUI()
-  if(mediaPlayerState.mode==='music'){
-    loadMediaLibrary('music',mediaPlayerState.musicQuery,50,{preserveCurrent:true,sort:mediaPlayerState.musicSort,genre:mediaPlayerState.musicGenre}).catch(()=>{})
-  }else{
-    loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
-  }
   return player
 }
 
@@ -1195,23 +1203,20 @@ function refreshMediaPlayerUI(){
 
 async function loadRadioCountries(){
   if(mediaPlayerState.countries.length) return mediaPlayerState.countries
-  const response=await fetch('/api/audio-library?mode=countries',{cache:'no-store'})
-  const data=await response.json()
-  if(!response.ok) throw new Error(data?.error||'Country list failed')
+  const data=await fetchApi('/api/audio-library?mode=countries',{cache:'no-store'})
   mediaPlayerState.countries=Array.isArray(data.countries)?data.countries:[]
   return mediaPlayerState.countries
 }
 
 async function loadRadioLanguages(){
   if(mediaPlayerState.languages.length) return mediaPlayerState.languages
-  const response=await fetch('/api/audio-library?mode=languages',{cache:'no-store'})
-  const data=await response.json()
-  if(!response.ok) throw new Error(data?.error||'Language list failed')
+  const data=await fetchApi('/api/audio-library?mode=languages',{cache:'no-store'})
   mediaPlayerState.languages=Array.isArray(data.languages)?data.languages:[]
   return mediaPlayerState.languages
 }
 
 async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null,tradition=null,language=null,genre=null}={}){
+  const requestId=++mediaLibraryRequest
   mediaPlayerState.loading=true
   const safeMode=['radio','devotional','music'].includes(mode)?mode:'nature'
   const safeQuery=String(query||'').trim()
@@ -1236,9 +1241,8 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       if(requestedGenre) params.set('genre',requestedGenre)
       params.set('nonce',String(Date.now()))
 
-      const response=await fetch(`/api/open-music?${params.toString()}`,{cache:'no-store'})
-      const data=await response.json()
-      if(!response.ok) throw new Error(data?.error||'Open music failed')
+      const data=await fetchApi(`/api/open-music?${params.toString()}`,{cache:'no-store'})
+      if(requestId!==mediaLibraryRequest) return mediaPlayerState.library
 
       const incoming=Array.isArray(data.items)?data.items:[]
       mediaPlayerState.mode='music'
@@ -1258,12 +1262,12 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
         mediaPlayerState.index=0
       }
 
-      localStorage.setItem('memora-player-mode','music')
-      localStorage.setItem('memora-audio-view','music')
-      localStorage.setItem('memora-player-query',safeQuery)
-      localStorage.setItem('memora-music-query',safeQuery)
-      localStorage.setItem('memora-music-sort',requestedSort)
-      localStorage.setItem('memora-music-genre',requestedGenre)
+      localStore.setItem('memora-player-mode','music')
+      localStore.setItem('memora-audio-view','music')
+      localStore.setItem('memora-player-query',safeQuery)
+      localStore.setItem('memora-music-query',safeQuery)
+      localStore.setItem('memora-music-sort',requestedSort)
+      localStore.setItem('memora-music-genre',requestedGenre)
 
       if(!preserveCurrent&&mediaPlayerState.library.length){
         mediaPlayerState.index=0
@@ -1274,7 +1278,7 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       }
       return mediaPlayerState.library
     }finally{
-      mediaPlayerState.loading=false
+      if(requestId===mediaLibraryRequest) mediaPlayerState.loading=false
     }
   }
   const requestedCountry=countrycode===null?mediaPlayerState.radioCountry:String(countrycode||'').toUpperCase()
@@ -1320,9 +1324,8 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       }
     }
 
-    const response=await fetch(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
-    const data=await response.json()
-    if(!response.ok) throw new Error(data?.error||'Audio library failed')
+    const data=await fetchApi(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
+    if(requestId!==mediaLibraryRequest) return mediaPlayerState.library
 
     mediaPlayerState.mode=safeMode
     mediaPlayerState.query=safeQuery
@@ -1331,21 +1334,21 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
     if(['radio','devotional'].includes(safeMode)){
       mediaPlayerState.radioCountry=requestedCountry
       mediaPlayerState.radioSort=requestedSort
-      localStorage.setItem('memora-radio-country',requestedCountry)
-      localStorage.setItem('memora-radio-sort',requestedSort)
+      localStore.setItem('memora-radio-country',requestedCountry)
+      localStore.setItem('memora-radio-sort',requestedSort)
 
       if(safeMode==='radio'){
         mediaPlayerState.radioLanguage=requestedLanguage
-        localStorage.setItem('memora-radio-language',requestedLanguage)
+        localStore.setItem('memora-radio-language',requestedLanguage)
       }
 
       if(safeMode==='devotional'){
         mediaPlayerState.devotionalTradition=requestedTradition
         mediaPlayerState.devotionalLanguage=requestedLanguage
         mediaPlayerState.devotionalQuery=safeQuery
-        localStorage.setItem('memora-devotional-tradition',requestedTradition)
-        localStorage.setItem('memora-devotional-language',requestedLanguage)
-        localStorage.setItem('memora-devotional-query',safeQuery)
+        localStore.setItem('memora-devotional-tradition',requestedTradition)
+        localStore.setItem('memora-devotional-language',requestedLanguage)
+        localStore.setItem('memora-devotional-query',safeQuery)
       }
     }
 
@@ -1368,8 +1371,8 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       mediaPlayerState.radioHasMore=true
     }
 
-    localStorage.setItem('memora-player-mode',safeMode)
-    localStorage.setItem('memora-player-query',mediaPlayerState.query)
+    localStore.setItem('memora-player-mode',safeMode)
+    localStore.setItem('memora-player-query',mediaPlayerState.query)
 
     if(!preserveCurrent&&mediaPlayerState.library.length){
       mediaPlayerState.index=0
@@ -1391,11 +1394,13 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
     }
     return mediaPlayerState.library
   }finally{
-    mediaPlayerState.loading=false
+    if(requestId===mediaLibraryRequest) mediaPlayerState.loading=false
   }
 }
 
-async function selectMediaTrack(item,autoplay=true){
+async function selectMediaTrack(item,autoplay=true,recovering=false){
+  clearTimeout(mediaRecoveryTimer)
+  if(!recovering) mediaRecoveryAttempts=0
   if(!item?.url) return
   ensureMediaPlayer()
   const audio=mediaAudio()
@@ -1407,9 +1412,9 @@ async function selectMediaTrack(item,autoplay=true){
   if(found>=0) mediaPlayerState.index=found
   mediaPlayerState.mode=item.devotional?'devotional':(item.type==='radio'?'radio':item.type==='music'?'music':'nature')
   mediaPlayerState.audioView=mediaPlayerState.mode
-  localStorage.setItem('memora-audio-view',mediaPlayerState.audioView)
-  localStorage.setItem('memora-player-mode',mediaPlayerState.mode)
-  localStorage.setItem('memora-player-query',mediaPlayerState.query||'')
+  localStore.setItem('memora-audio-view',mediaPlayerState.audioView)
+  localStore.setItem('memora-player-mode',mediaPlayerState.mode)
+  localStore.setItem('memora-player-query',mediaPlayerState.query||'')
 
   audio.pause()
   audio.src=item.url
@@ -1438,6 +1443,8 @@ async function toggleMediaPlayback(){
     audio.muted=false
   }
   if(audio.paused){
+    mediaRecoveryAttempts=0
+    if(audio.error) audio.load()
     try{
       await audio.play()
     }catch{
@@ -1467,7 +1474,7 @@ function stopMediaPlayback(){
   refreshMediaPlayerUI()
 }
 
-async function nextMediaTrack(autoplay=true){
+async function nextMediaTrack(autoplay=true,recovering=false){
   ensureMediaPlayer()
 
   if(!mediaPlayerState.library.length){
@@ -1527,14 +1534,14 @@ async function nextMediaTrack(autoplay=true){
         let randomIndex=Math.floor(Math.random()*mediaPlayerState.library.length)
         if(randomIndex===mediaPlayerState.index) randomIndex=(randomIndex+1)%mediaPlayerState.library.length
         mediaPlayerState.index=randomIndex
-        await selectMediaTrack(mediaPlayerState.library[randomIndex],autoplay)
+        await selectMediaTrack(mediaPlayerState.library[randomIndex],autoplay,recovering)
         return
       }
     }
   }
 
   mediaPlayerState.index=(mediaPlayerState.index+1)%mediaPlayerState.library.length
-  await selectMediaTrack(mediaPlayerState.library[mediaPlayerState.index],autoplay)
+  await selectMediaTrack(mediaPlayerState.library[mediaPlayerState.index],autoplay,recovering)
 }
 
 function updateSoundButton(){
@@ -1572,9 +1579,7 @@ async function loadMusicCollections(query='',{append=false}={}){
     offset:String(offset),
     nonce:String(Date.now())
   })
-  const response=await fetch(`/api/open-music?${params.toString()}`,{cache:'no-store'})
-  const data=await response.json()
-  if(!response.ok) throw new Error(data?.error||'Albums and playlists are temporarily unavailable')
+  const data=await fetchApi(`/api/open-music?${params.toString()}`,{cache:'no-store'})
   const incoming=Array.isArray(data.items)?data.items:[]
   if(append&&sameQuery){
     const seen=new Set(mediaPlayerState.musicCollections.map(item=>item.id))
@@ -2070,7 +2075,7 @@ async function openSoundscapePicker(){
     modeTabs.forEach(tab=>tab.classList.toggle('active',tab.dataset.audioMode===mode))
     panels.forEach(panel=>panel.classList.toggle('active',panel.dataset.audioPanel===mode))
     mediaPlayerState.audioView=mode
-    localStorage.setItem('memora-audio-view',mode)
+    localStore.setItem('memora-audio-view',mode)
     syncToolbar(mode)
   }
 
@@ -2081,9 +2086,9 @@ async function openSoundscapePicker(){
       mediaPlayerState.devotionalLanguage=String(language||'')
       if(devotionalLanguage) devotionalLanguage.value=mediaPlayerState.devotionalLanguage
     }
-    localStorage.setItem('memora-devotional-tradition',mediaPlayerState.devotionalTradition)
-    localStorage.setItem('memora-devotional-query',mediaPlayerState.devotionalQuery)
-    localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
+    localStore.setItem('memora-devotional-tradition',mediaPlayerState.devotionalTradition)
+    localStore.setItem('memora-devotional-query',mediaPlayerState.devotionalQuery)
+    localStore.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
     box.querySelectorAll('[data-devotional]').forEach(button=>{
       const sameTradition=button.dataset.devotional===mediaPlayerState.devotionalTradition
       const sameQuery=String(button.dataset.devotionalQuery||'')===mediaPlayerState.devotionalQuery
@@ -2100,12 +2105,12 @@ async function openSoundscapePicker(){
       if(mode==='music'){
         const query=box.querySelector('#musicSearch')?.value.trim()||''
         mediaPlayerState.musicQuery=query
-        localStorage.setItem('memora-music-query',query)
+        localStore.setItem('memora-music-query',query)
         if(mediaPlayerState.musicBrowseKind==='collections'){
           await loadMusicCollections(query,{append})
         }else{
           mediaPlayerState.musicSort=activeMusicSort()
-          localStorage.setItem('memora-music-sort',mediaPlayerState.musicSort)
+          localStore.setItem('memora-music-sort',mediaPlayerState.musicSort)
           await loadMediaLibrary('music',query,50,{
             preserveCurrent:true,
             append,
@@ -2118,9 +2123,9 @@ async function openSoundscapePicker(){
         mediaPlayerState.radioCountry=radioCountry?.value||''
         mediaPlayerState.radioLanguage=radioLanguage?.value||''
         mediaPlayerState.radioSort=activeRadioSort()
-        localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
-        localStorage.setItem('memora-radio-language',mediaPlayerState.radioLanguage)
-        localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
+        localStore.setItem('memora-radio-country',mediaPlayerState.radioCountry)
+        localStore.setItem('memora-radio-language',mediaPlayerState.radioLanguage)
+        localStore.setItem('memora-radio-sort',mediaPlayerState.radioSort)
         await loadMediaLibrary('radio',query,100,{
           preserveCurrent:true,
           append,
@@ -2135,10 +2140,10 @@ async function openSoundscapePicker(){
         mediaPlayerState.radioCountry=devotionalCountry?.value||''
         mediaPlayerState.devotionalLanguage=devotionalLanguage?.value||''
         mediaPlayerState.radioSort=activeDevotionalSort()
-        localStorage.setItem('memora-radio-country',mediaPlayerState.radioCountry)
-        localStorage.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
-        localStorage.setItem('memora-devotional-query',query)
-        localStorage.setItem('memora-radio-sort',mediaPlayerState.radioSort)
+        localStore.setItem('memora-radio-country',mediaPlayerState.radioCountry)
+        localStore.setItem('memora-devotional-language',mediaPlayerState.devotionalLanguage)
+        localStore.setItem('memora-devotional-query',query)
+        localStore.setItem('memora-radio-sort',mediaPlayerState.radioSort)
         await loadMediaLibrary('devotional',query,100,{
           preserveCurrent:true,
           append,
@@ -2185,7 +2190,7 @@ async function openSoundscapePicker(){
   box.querySelectorAll('[data-music-kind]').forEach(button=>button.onclick=async()=>{
     box.querySelectorAll('[data-music-kind]').forEach(item=>item.classList.toggle('active',item===button))
     mediaPlayerState.musicBrowseKind=button.dataset.musicKind
-    localStorage.setItem('memora-music-browse-kind',mediaPlayerState.musicBrowseKind)
+    localStore.setItem('memora-music-browse-kind',mediaPlayerState.musicBrowseKind)
     await runLoad('music')
   })
   box.querySelector('#musicSearchButton').onclick=()=>runLoad('music')
@@ -2306,7 +2311,7 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
-  const mode=localStorage.getItem('memora-theme')||'auto'
+  const mode=localStore.getItem('memora-theme')||'auto'
   if(mode==='auto') adaptiveTheme()
   else {
     const theme=manualThemes[mode]||themeCatalog[0]
@@ -2326,7 +2331,7 @@ function setupAtmosphere(){
     document.documentElement.style.setProperty('--pointer-y',`${y}%`)
   },{passive:true})
   setInterval(()=>{
-    const mode=localStorage.getItem('memora-theme')||'auto'
+    const mode=localStore.getItem('memora-theme')||'auto'
     const hour=new Date().getHours()
     if(mode==='auto'&&hour!==lastThemeHour) adaptiveTheme()
     else updateVisualScene()
@@ -2338,7 +2343,7 @@ function setupAtmosphere(){
 }
 
 function openThemePicker(){
-  const current=localStorage.getItem('memora-theme')||'auto'
+  const current=localStore.getItem('memora-theme')||'auto'
   const body=`
     <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
     <div class="theme-picker-tools">
@@ -2352,7 +2357,7 @@ function openThemePicker(){
   const box=modal('Theme Universe',body)
 
   const choose=id=>{
-    localStorage.setItem('memora-theme',id)
+    localStore.setItem('memora-theme',id)
     updateTheme()
     box.remove()
     toast(id==='auto'?'Adaptive hourly theme enabled':'Theme updated')
@@ -2370,14 +2375,16 @@ function openThemePicker(){
 }
 
 let authProviderCache=null
+let mediaLibraryRequest=0
+let mediaRecoveryAttempts=0
+let mediaRecoveryTimer=null
 
 async function getAuthProviderSettings(force=false){
   if(authProviderCache&&!force) return authProviderCache
   try{
-    const response=await fetch(`${SUPABASE_URL}/auth/v1/settings`,{
+    const data=await fetchApi(`${SUPABASE_URL}/auth/v1/settings`,{
       headers:{apikey:SUPABASE_PUBLISHABLE_KEY}
     })
-    const data=await response.json()
     authProviderCache=data?.external||{}
     return authProviderCache
   }catch{
@@ -2410,7 +2417,7 @@ async function oauthSignIn(provider,scopes){
     providerSetupHelp(provider)
     return
   }
-  const options={redirectTo:window.location.origin}
+  const options={redirectTo:window.location.origin+'/'}
   if(scopes) options.scopes=scopes
   const {error}=await supabase.auth.signInWithOAuth({provider,options})
   if(error) toast(error.message)
@@ -2431,6 +2438,7 @@ async function authScreen(mode='login'){
 
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
+    if(!enabled) return ''
     return `<button class="social ${enabled?'':'provider-disabled'}" ${enabled?`data-oauth="${provider}"`:`data-provider-setup="${provider}"`}>${enabled?`Continue with ${label}`:`${label} setup required`}</button>`
   }
 
@@ -2450,16 +2458,16 @@ async function authScreen(mode='login'){
       <div class="divider">OR USE EMAIL</div>
       <form id="authForm">
         ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
-        <input class="input" id="email" type="email" placeholder="Email" required>
-        <input class="input" id="password" type="password" minlength="8" placeholder="Password" required>
+        <input class="input" id="email" name="email" type="email" autocomplete="username" aria-label="Email" placeholder="Email" required>
+        <input class="input" id="password" name="password" type="password" autocomplete="${mode==='signup'?'new-password':'current-password'}" aria-label="Password" ${mode==='signup'?'minlength="8"':''} placeholder="Password" required>
         <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create account'}</button>
       </form>
       <div class="grid two" style="margin-top:9px">
         <button class="btn" id="magicLink">Email me a magic link</button>
         <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
       </div>
-      <p id="authMsg" class="muted"></p>
-      <p class="small muted">Only providers that are enabled in Supabase can redirect. Disabled providers now stay inside Memora and show setup guidance.</p>
+      <p id="authMsg" class="muted" role="status" aria-live="polite"></p>
+
       <div class="auth-public-footer">
         <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
         <a href="mailto:johnabijit@gmail.com?subject=Memora%20support">Contact & feedback</a>
@@ -2472,6 +2480,7 @@ async function authScreen(mode='login'){
     oauthSignIn(provider,provider==='azure'?'email':undefined)
   })
   document.querySelectorAll('[data-provider-setup]').forEach(button=>button.onclick=()=>providerSetupHelp(button.dataset.providerSetup))
+  if(!document.querySelector('.social-grid .social')){document.querySelector('.social-grid')?.remove();document.querySelector('.divider')?.remove()}
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
   document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login')
   document.getElementById('authForm').onsubmit=async event=>{
@@ -2479,7 +2488,11 @@ async function authScreen(mode='login'){
     const email=document.getElementById('email').value.trim()
     const password=document.getElementById('password').value
     const msg=document.getElementById('authMsg')
+    const submit=event.currentTarget.querySelector('[type="submit"]')
+    if(submit.disabled) return
+    submit.disabled=true
     msg.textContent='Working...'
+    try{
     if(mode==='signup'){
       const display_name=document.getElementById('name').value.trim()
       const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name},emailRedirectTo:window.location.origin}})
@@ -2490,6 +2503,11 @@ async function authScreen(mode='login'){
       if(error) return msg.textContent=error.message
       user=data.user
       await bootstrapSignedIn()
+    }
+    }catch(error){
+      msg.textContent=error.message||'Sign-in could not finish. Please try again.'
+    }finally{
+      submit.disabled=false
     }
   }
 }
@@ -3864,14 +3882,14 @@ function relationNamesFromText(relation,text){
   }
   const relationPattern=variants[relation]
   if(!relationPattern) return []
-  const re=new RegExp('(?:my\\s+)?'+relationPattern+"(?:'s)?(?:\\s+name)?\\s+(?:is|are)\\s+([^.;”\"\\n]+)",'ig')
+  const re=new RegExp('(?:my\\s+)?'+relationPattern+"s?(?:'s)?(?:\\s+names?)?\\s+(?:is|are|named|called)\\s+([^.;”\"\\n]+)",'ig')
   const names=[]
   let match
   while((match=re.exec(source))){
     let segment=match[1]
     segment=segment.split(/\s+and\s+(?:my|the)\s+(?:(?:first|second|third|1st|2nd|3rd)\s+)?(?:(?:younger|elder|older)\s+)?(?:father|mother|sister|brother|wife|husband|daughter|son)\b/i)[0]
     segment=segment.split(/,?\s+(?:and\s+)?(?:my|the)\s+(?:(?:first|second|third|1st|2nd|3rd)\s+)?(?:(?:younger|elder|older)\s+)?(?:father|mother|sister|brother|wife|husband|daughter|son)\b/i)[0]
-    const parts=segment.split(/\s+and\s+then\s+|,\s*then\s+|\s+then\s+|\s*,\s*/i)
+    const parts=segment.split(/\s+and\s+then\s+|,\s*then\s+|\s+then\s+|\s*,\s*|\s+and\s+/i)
     for(const raw of parts){
       const name=cleanPersonPart(raw)
       if(name && name.length<=80 && !names.some(existing=>existing.toLowerCase()===name.toLowerCase())) names.push(name)
@@ -4058,8 +4076,10 @@ async function openLiveCamera(mode='photo'){
   await start()
 }
 
-async function latestImageSignedUrl(){
-  const {data}=await supabase.from('memory_media').select('id,storage_path,file_name').eq('media_type','image').order('created_at',{ascending:false}).limit(1).maybeSingle()
+async function latestImageSignedUrl(mediaId=null){
+  let query=supabase.from('memory_media').select('id,storage_path,file_name').eq('media_type','image')
+  if(mediaId) query=query.eq('id',mediaId)
+  const {data}=await query.order('created_at',{ascending:false}).limit(1).maybeSingle()
   if(!data?.storage_path) return null
   const signed=await supabase.storage.from('memora-media').createSignedUrl(data.storage_path,900)
   return signed.data?.signedUrl||null
@@ -4078,24 +4098,20 @@ async function aiReasonedAnswer(question){
     .slice(-12)
     .map(message=>({role:message.role,text:redactSecrets(String(message.text||'')).slice(0,1800)}))
 
-  const response=await fetch('/api/ask',{
+  const data=await fetchApi('/api/ask',{
+    signal:AbortSignal.timeout(60000),
     method:'POST',
     headers:{
       'Content-Type':'application/json',
       Authorization:`Bearer ${session.access_token}`
     },
-    body:JSON.stringify({question,history})
+    body:JSON.stringify({question,history,mediaId:conversationContext.lastImageMediaId||null})
   })
 
-  const data=await response.json().catch(()=>({}))
-  if(!response.ok){
-    console.warn('Memora AI fallback:',data?.error||response.status)
-    return null
-  }
   if(!data?.answer) return null
 
   let imageUrl=null
-  if(data.imageUsed) imageUrl=await latestImageSignedUrl().catch(()=>null)
+  if(data.imageUsed) imageUrl=await latestImageSignedUrl(data.imageId).catch(()=>null)
   return {
     text:data.answer,
     source:data.source||'Memora AI grounded in your saved memories',
@@ -5054,7 +5070,7 @@ async function sources(){
 
     <div class="glass" style="padding:16px;border-radius:20px;margin-top:16px">
       <b>${connectedCount} optional AI provider connection${connectedCount===1?'':'s'} active · ${socialEnabled} social sign-in provider${socialEnabled===1?'':'s'} enabled</b>
-      <div class="muted small" style="margin-top:5px">Memora AI can run through Vercel without an optional provider key. Social sign-in activates only when its OAuth provider is configured in Supabase.</div>
+      <div class="muted small" style="margin-top:5px">Ask Memora uses your connected AI provider. Saved memory search remains available when AI is unavailable.</div>
       <div id="sourceMsg" class="muted" style="margin-top:8px"></div>
     </div>
   `,'Source Universe','Live AI, optional provider APIs, device context and external data connectors.')
@@ -5185,10 +5201,10 @@ async function settings(){
     supabase.from('profiles').select('*').maybeSingle(),
     supabase.from('user_settings').select('*').maybeSingle()
   ])
-  const currentTheme=localStorage.getItem('memora-theme')||'auto'
+  const currentTheme=localStore.getItem('memora-theme')||'auto'
   const reduceMotion=settingsData?.reduce_motion===true
-  const largeText=localStorage.getItem('memora-large-text')==='1'
-  const highContrast=localStorage.getItem('memora-high-contrast')==='1'
+  const largeText=localStore.getItem('memora-large-text')==='1'
+  const highContrast=localStore.getItem('memora-high-contrast')==='1'
 
   app.innerHTML=shell(`
     <div class="settings-grid">
@@ -5303,12 +5319,12 @@ async function settings(){
     await settings()
   }
   document.getElementById('toggleLargeText').onclick=async()=>{
-    localStorage.setItem('memora-large-text',largeText?'0':'1')
+    localStore.setItem('memora-large-text',largeText?'0':'1')
     applyLocalAccessibilityPreferences()
     await settings()
   }
   document.getElementById('toggleHighContrast').onclick=async()=>{
-    localStorage.setItem('memora-high-contrast',highContrast?'0':'1')
+    localStore.setItem('memora-high-contrast',highContrast?'0':'1')
     applyLocalAccessibilityPreferences()
     await settings()
   }
@@ -5331,8 +5347,8 @@ async function settings(){
     const {error}=await supabase.from('profiles').upsert({user_id:user.id,display_name,timezone})
     await supabase.from('user_settings').upsert({
       user_id:user.id,
-      adaptive_theme:(localStorage.getItem('memora-theme')||'auto')==='auto',
-      theme_profile:localStorage.getItem('memora-theme')||'auto',
+      adaptive_theme:(localStore.getItem('memora-theme')||'auto')==='auto',
+      theme_profile:localStore.getItem('memora-theme')||'auto',
       ambient_enabled:ambientPreferences.enabled,
       ambient_scene:ambientPreferences.scene,
       ambient_volume:ambientPreferences.volume,
@@ -5399,7 +5415,13 @@ async function settings(){
   }
 }
 
+let signedInBootstrap=null
 async function bootstrapSignedIn(){
+  if(signedInBootstrap) return signedInBootstrap
+  signedInBootstrap=prepareSignedIn().finally(()=>{signedInBootstrap=null})
+  return signedInBootstrap
+}
+async function prepareSignedIn(){
   removeStrayEscapedNewline()
   await loadExperiencePreferences()
   stopAmbient()
@@ -5445,20 +5467,40 @@ setupAtmosphere()
 const strayTextObserver=new MutationObserver(()=>removeStrayEscapedNewline())
 strayTextObserver.observe(document.body,{childList:true,subtree:false})
 
-const session=await supabase.auth.getSession()
-user=session.data.session?.user||null
-supabase.auth.onAuthStateChange((event,sessionNow)=>{
-  user=sessionNow?.user||null
-  if(event==='SIGNED_OUT'){
-    navigationInitialized=false
-    currentThreadId=null
-    chat=[]
-    chatThreads=[]
-  }
-})
-if(user) await bootstrapSignedIn()
-else authScreen()
+async function startMemora(){
+  const {data,error}=await supabase.auth.getSession()
+  if(error) console.warn('Memora session could not be restored')
+  user=data.session?.user||null
+  supabase.auth.onAuthStateChange((event,sessionNow)=>{
+    user=sessionNow?.user||null
+    if(event==='SIGNED_OUT'){
+      navigationInitialized=false
+      currentThreadId=null
+      chat=[]
+      chatThreads=[]
+      mediaLibraryRequest++
+      clearTimeout(mediaRecoveryTimer)
+      stopMediaPlayback()
+      stopAmbient()
+      document.getElementById('memoraMediaPlayer')?.remove()
+      document.body.classList.remove('has-memora-player')
+      sessionStore.removeItem('memora-chat')
+      pendingMedia=[]
+      pendingLocation=null
+      setTimeout(()=>authScreen(),0)
+    }
+    if(event==='SIGNED_IN'&&sessionNow?.user&&!document.querySelector('.dock')){
+      setTimeout(()=>{
+        if(user&&!document.querySelector('.dock')) bootstrapSignedIn().catch(()=>window.memoraStartupFailed?.())
+      },0)
+    }
+  })
+  if(user) await bootstrapSignedIn()
+  else await authScreen()
+  window.memoraReady=true
+}
+startMemora().catch(error=>{console.error('Memora startup failed',error);window.memoraStartupFailed?.()})
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=43').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=43.1').then(reg=>reg.update()).catch(()=>{})
 }

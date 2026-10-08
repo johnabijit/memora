@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#090c12">
   <meta name="description" content="Memora, your private visual memory and life timeline">
-  <meta name="memora-build" content="2026.10.09.43">
+  <meta name="memora-build" content="2026.10.09.43.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Memora | Your life, remembered beautifully</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=43">
-  <!-- memora-release-v43 -->
+  <link rel="stylesheet" href="styles.css?v=43.1">
+  <!-- memora-release-v43.1 -->
 </head>
 <body>
   <script>
@@ -33,7 +33,19 @@
       requestAnimationFrame(scrub);
     })();
   </script>
-  <div id="app"></div>
-  <script type="module" src="app.js?v=43"></script>
+  <div id="app"><div class="auth-wrap"><div class="glass auth-card auth-loading" role="status"><div class="brand"><div class="logo">M</div><h1>Memora</h1></div><p>Opening your private universe...</p><div class="auth-loader"><span></span><span></span><span></span></div></div></div></div>
+  <script>
+    window.memoraReady = false;
+    window.memoraStartupFailed = () => {
+      if (window.memoraReady) return;
+      document.getElementById('app').innerHTML = '<div class="auth-wrap"><div class="glass auth-card"><div class="brand"><div class="logo">M</div><h1>Memora</h1></div><h2>Let’s try again</h2><p>Memora could not finish loading. Check your connection and retry.</p><button class="btn primary" id="retryStartup">Retry</button></div></div>';
+      document.getElementById('retryStartup').onclick = () => location.reload();
+    };
+    window.addEventListener('error', event => {
+      if (event.target && event.target.tagName === 'SCRIPT') window.memoraStartupFailed();
+    }, true);
+    window.addEventListener('unhandledrejection', () => window.memoraStartupFailed());
+  </script>
+  <script type="module" src="app.js?v=43.1"></script>
 </body>
 </html>

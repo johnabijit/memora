@@ -1849,3 +1849,38 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .collection-open-head{grid-template-columns:1fr}.collection-open-head>a{justify-self:start}
   .music-kind-switch{width:100%}.music-kind-btn{flex:1}
 }
+
+/* v43.1: mobile touch targets, safe areas and short-screen audio sheets. */
+.auth-card .input{font-size:16px}
+.auth-card .btn,.auth-card .social{min-height:44px}
+.player-track-button strong,.player-track-button small,.player-track-button span{max-width:100%}
+.now-playing-modal{overflow-y:auto;overscroll-behavior:contain}
+.now-playing-copy h3{overflow-wrap:anywhere}
+.audio-hub-modal,.audio-hub,.audio-mode-panel,.audio-library-results{min-width:0}
+@media(max-width:760px){
+  :root{--player-h:70px}
+  .memora-player.compact-player{
+    bottom:calc(var(--dock-h) + env(safe-area-inset-bottom) + 12px);
+    min-height:66px;
+    grid-template-columns:44px minmax(0,1fr) auto;
+  }
+  .player-mini-art{width:44px;height:44px}
+  .player-track-button small{font-size:10px;letter-spacing:.01em}
+  .player-track-button strong{font-size:13px}
+  .player-track-button span{font-size:10px}
+  .mini-actions .player-action{width:44px;min-width:44px;height:44px;font-size:13px}
+  .audio-hub-modal{max-height:92dvh;width:calc(100vw - 16px)}
+  .audio-hub input,.audio-hub select,.ask-input,.composer textarea{font-size:16px}
+  .audio-hub .btn,.audio-mode-tab,.music-kind-btn{min-height:44px}
+  .audio-mode-tab{font-size:12px}
+  .now-playing-art{width:min(280px,68vw,34dvh)}
+  .now-playing-meta,.open-music-note,.audio-section-intro small{font-size:12px;line-height:1.5}
+  .now-playing-tools .btn{min-height:44px;white-space:normal}
+  .collection-copy b{font-size:14px}
+  .collection-copy small,.collection-copy span{font-size:11px}
+}
+@media(max-height:520px) and (max-width:900px){
+  .now-playing{gap:10px}
+  .now-playing-art{width:min(180px,30dvh)}
+  .now-playing-copy h3{font-size:22px}
+}
