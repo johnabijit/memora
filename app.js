@@ -4405,12 +4405,12 @@ async function ask({reload=true}={}){
 
         <div class="glass chat-panel">
           <div class="filter-row ask-suggestions">
+            <button class="chip" data-ask-suggestion="How are you?">Talk</button>
+            <button class="chip" data-ask-suggestion="What do you remember about me?">About me</button>
             <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
-            <button class="chip" data-ask-suggestion="Who is my eldest brother?">Family order</button>
-            <button class="chip" data-ask-suggestion="What do I do for work?">My work</button>
             <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
           </div>
-          <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty"><strong>Start a new conversation</strong>This chat has its own context, while Memora can still search your complete private memory vault.</div>'}</div>
+          <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>How is your day going?</strong>Talk naturally, share something you want remembered, ask a question, or let Memora search your private memory vault when it is relevant.</div>'}</div>
         </div>
 
         <div class="glass ask-box">
