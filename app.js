@@ -48,7 +48,9 @@ let mediaPlayerState={
   radioSort:localStorage.getItem('memora-radio-sort')||'popular',
   radioOffset:0,
   radioHasMore:true,
-  countries:[]
+  countries:[],
+  audioView:localStorage.getItem('memora-audio-view')||'nature',
+  devotionalTradition:localStorage.getItem('memora-devotional-tradition')||'christian'
 }
 
 const defaultNaturalTrack={
@@ -621,7 +623,9 @@ function refreshMediaPlayerUI(){
   if(title) title.textContent=current.title||'Memora Audio'
   if(source){
     if(current.type==='radio'){
-      source.textContent=`Live radio · ${current.country||current.countrycode||'Worldwide'}`
+      source.textContent=current.devotional
+        ?`${current.traditionLabel||'Devotional'} · Live radio · ${current.country||current.countrycode||'Worldwide'}`
+        :`Live radio · ${current.country||current.countrycode||'Worldwide'}`
     }else{
       const attribution=[current.artist,current.license].filter(Boolean).join(' · ')
       source.textContent=attribution?`Natural recording · ${attribution}`:`Natural recording · ${current.category||'Nature'}`
@@ -647,9 +651,9 @@ async function loadRadioCountries(){
   return mediaPlayerState.countries
 }
 
-async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null}={}){
+async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurrent=false,append=false,random=null,countrycode=null,sort=null,tradition=null}={}){
   mediaPlayerState.loading=true
-  const safeMode=mode==='radio'?'radio':'nature'
+  const safeMode=['radio','devotional'].includes(mode)?mode:'nature'
   const safeQuery=String(query||'').trim()
   const requestedCountry=countrycode===null?mediaPlayerState.radioCountry:String(countrycode||'').toUpperCase()
   const requestedSort=sort||mediaPlayerState.radioSort||'popular'
@@ -658,8 +662,9 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
   const previousQuery=mediaPlayerState.query
   const previousCountry=mediaPlayerState.radioCountry
   const previousSort=mediaPlayerState.radioSort
-  const sameRadioSelection=previousMode==='radio'&&previousQuery===safeQuery&&previousCountry===requestedCountry&&previousSort===requestedSort
-  const shouldAppend=append&&safeMode==='radio'&&sameRadioSelection
+  const requestedTradition=tradition||mediaPlayerState.devotionalTradition||'christian'
+  const sameRadioSelection=['radio','devotional'].includes(previousMode)&&previousMode===safeMode&&previousQuery===safeQuery&&previousCountry===requestedCountry&&previousSort===requestedSort
+  const shouldAppend=append&&['radio','devotional'].includes(safeMode)&&sameRadioSelection
 
   try{
     const params=new URLSearchParams({
@@ -667,13 +672,14 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
       q:safeQuery,
       limit:String(Math.min(100,limit))
     })
-    if(safeMode==='radio'){
+    if(['radio','devotional'].includes(safeMode)){
       const offset=shouldAppend&&requestedSort!=='random'?mediaPlayerState.radioOffset:0
       params.set('countrycode',requestedCountry)
       params.set('sort',requestedSort)
       params.set('random',useRandom?'1':'0')
       params.set('offset',String(offset))
       params.set('nonce',String(Date.now()))
+      if(safeMode==='devotional') params.set('tradition',requestedTradition)
     }
 
     const response=await fetch(`/api/audio-library?${params.toString()}`,{cache:'no-store'})
@@ -684,11 +690,15 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
     mediaPlayerState.query=safeQuery
     const incoming=Array.isArray(data.items)?data.items:[]
 
-    if(safeMode==='radio'){
+    if(['radio','devotional'].includes(safeMode)){
       mediaPlayerState.radioCountry=requestedCountry
       mediaPlayerState.radioSort=requestedSort
       localStorage.setItem('memora-radio-country',requestedCountry)
       localStorage.setItem('memora-radio-sort',requestedSort)
+      if(safeMode==='devotional'){
+        mediaPlayerState.devotionalTradition=requestedTradition
+        localStorage.setItem('memora-devotional-tradition',requestedTradition)
+      }
     }
 
     if(shouldAppend){
@@ -699,10 +709,10 @@ async function loadMediaLibrary(mode='nature',query='',limit=100,{preserveCurren
     }else{
       mediaPlayerState.library=incoming
       mediaPlayerState.index=0
-      mediaPlayerState.radioBatches=safeMode==='radio'&&incoming.length?1:0
+      mediaPlayerState.radioBatches=['radio','devotional'].includes(safeMode)&&incoming.length?1:0
     }
 
-    if(safeMode==='radio'){
+    if(['radio','devotional'].includes(safeMode)){
       mediaPlayerState.radioOffset=Number(data.nextOffset||mediaPlayerState.library.length||0)
       mediaPlayerState.radioHasMore=data.hasMore!==false
     }else{
@@ -747,7 +757,9 @@ async function selectMediaTrack(item,autoplay=true){
   mediaPlayerState.current=item
   const found=mediaPlayerState.library.findIndex(entry=>entry.id===item.id)
   if(found>=0) mediaPlayerState.index=found
-  mediaPlayerState.mode=item.type==='radio'?'radio':'nature'
+  mediaPlayerState.mode=item.devotional?'devotional':(item.type==='radio'?'radio':'nature')
+  mediaPlayerState.audioView=mediaPlayerState.mode
+  localStorage.setItem('memora-audio-view',mediaPlayerState.audioView)
   localStorage.setItem('memora-player-mode',mediaPlayerState.mode)
   localStorage.setItem('memora-player-query',mediaPlayerState.query||'')
 
@@ -824,17 +836,18 @@ async function nextMediaTrack(autoplay=true){
   }
   if(!mediaPlayerState.library.length) return
 
-  if(mediaPlayerState.mode==='radio'){
+  if(['radio','devotional'].includes(mediaPlayerState.mode)){
     const nearEnd=mediaPlayerState.index>=Math.max(0,mediaPlayerState.library.length-4)
     if(nearEnd&&!mediaPlayerState.loading){
       const before=mediaPlayerState.library.length
       try{
-        await loadMediaLibrary('radio',mediaPlayerState.query,100,{
+        await loadMediaLibrary(mediaPlayerState.mode,mediaPlayerState.query,100,{
           preserveCurrent:true,
           append:true,
           random:mediaPlayerState.radioSort==='random',
           countrycode:mediaPlayerState.radioCountry,
-          sort:mediaPlayerState.radioSort
+          sort:mediaPlayerState.radioSort,
+          tradition:mediaPlayerState.devotionalTradition
         })
       }catch{}
       if(mediaPlayerState.library.length===before&&mediaPlayerState.library.length>1){
@@ -3978,11 +3991,16 @@ async function bootstrapSignedIn(){
     const audio=mediaAudio()
     if(audio) audio.muted=true
   }
-  const preferredMode=mediaPlayerState.mode==='radio'?'radio':'nature'
+  const preferredMode=['radio','devotional'].includes(mediaPlayerState.mode)?mediaPlayerState.mode:'nature'
   const preferredQuery=mediaPlayerState.query||(preferredMode==='radio'?'ambient':'rain')
-  loadMediaLibrary(preferredMode,preferredQuery,100,{preserveCurrent:preferredMode==='nature'})
+  loadMediaLibrary(preferredMode,preferredQuery,100,{
+    preserveCurrent:preferredMode==='nature',
+    countrycode:mediaPlayerState.radioCountry,
+    sort:mediaPlayerState.radioSort,
+    tradition:mediaPlayerState.devotionalTradition
+  })
     .then(items=>{
-      if(preferredMode==='radio'&&items?.length) selectMediaTrack(items[0],false)
+      if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[0],false)
     })
     .catch(()=>{})
   await migrateLegacyChat()
