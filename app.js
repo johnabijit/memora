@@ -1119,7 +1119,7 @@ function shell(content,title,subtitle=''){
         <div class="brand" id="brandHome"><div class="logo">M</div><div><h1>Memora</h1><small>Your life, remembered beautifully</small></div></div>
       </div>
       <div class="top-actions">
-        <button class="icon-btn sound-button" id="soundButton" title="Ambient sound"><span class="sound-icon">◉</span><span class="sound-label">${ambientPreferences.enabled?'Sound':'Silent'}</span></button>
+        <button class="icon-btn sound-button" id="soundButton" title="Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
         <button class="icon-btn" id="themeButton"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton">Profile</button>
       </div>
@@ -2639,19 +2639,32 @@ async function aiReasonedAnswer(question){
   }
 }
 
+function directConversationReply(question){
+  const casual=normalizeQuestion(String(question||''))
+    .toLowerCase()
+    .replace(/[!?.,]+$/,'')
+    .replace(/\s+/g,' ')
+    .trim()
+
+  if(/^(hi|hello|hey|hey there|hello there|good morning|good afternoon|good evening|good night)$/.test(casual)){
+    return 'Hello. I am here with you and ready to help with your memories, questions, plans or anything you want to talk about.'
+  }
+  if(/^(how are you|how r you|how are u|how r u|how're you|how are you doing|how r u doing|how is it going|how's it going|how do you feel|are you okay|are you ok)$/.test(casual)){
+    return 'I am doing well and ready. You can talk to me normally too, not only ask memory questions. When you ask about your life, I will use your saved Memora memories and sources.'
+  }
+  if(/^(what are you doing|what r u doing|what do you do)$/.test(casual)){
+    return 'Right now I am here to help you. I can chat normally, search your memories, connect related facts, find saved details and help you organize what matters.'
+  }
+  if(/^(thanks|thank you|thank u|thx|thanks a lot|thank you so much)$/.test(casual)){
+    return 'You are welcome. This conversation stays separate from your other chats, while your Memora memory vault remains available whenever it is relevant.'
+  }
+  return null
+}
+
 async function answer(question){
   const rawQ=question.trim()
-  const casual=normalizeQuestion(rawQ).toLowerCase().replace(/[!?.,]+$/,'').trim()
-
-  if(/^(hi|hello|hey|hey there|hello there|good morning|good afternoon|good evening)$/.test(casual)){
-    return {text:'Hello. I am here and ready to help you remember, search, organize or reason over anything you have saved in Memora.'}
-  }
-  if(/^(how are you|how r you|how are u|how do you feel)$/.test(casual)){
-    return {text:'I am ready and connected to your Memora memory vault. Ask me naturally, including follow-up questions or imperfect spelling.'}
-  }
-  if(/^(thanks|thank you|thank u|thx)$/.test(casual)){
-    return {text:'You are welcome. Your current conversation will stay here, and your saved memories remain available across your other chats too.'}
-  }
+  const direct=directConversationReply(rawQ)
+  if(direct) return {text:direct,source:'Memora conversation'}
 
   try{
     const structured=await answerFromStructuredFacts(rawQ)
@@ -3014,6 +3027,15 @@ async function ask({reload=true}={}){
     const userMessage={role:'user',text:q,created_at:new Date().toISOString()}
     chat.push(userMessage)
     await saveChatMessage('user',q)
+
+    const directReply=directConversationReply(q)
+    if(directReply){
+      const directMessage={role:'assistant',text:directReply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()}
+      chat.push(directMessage)
+      await saveChatMessage('assistant',directReply,directMessage)
+      await ask({reload:false})
+      return
+    }
 
     chat.push({role:'assistant',pending:true,text:''})
     await ask({reload:false})
@@ -3574,7 +3596,6 @@ async function settings(){
     supabase.from('user_settings').select('*').maybeSingle()
   ])
   const currentTheme=localStorage.getItem('memora-theme')||'auto'
-  const currentScene=ambientScenes.find(scene=>scene.id===ambientPreferences.scene)?.name||'Adaptive mix'
 
   app.innerHTML=shell(`
     <div class="settings-grid">
@@ -3596,12 +3617,12 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
-        <div class="eyebrow">Sound</div><h3>Ambient soundscapes</h3>
-        <p class="muted">Rain, ocean, forest, fireplace, night and focus soundscapes are generated locally. Sound is enabled by default, but mobile browsers start audio after your first interaction.</p>
+        <div class="eyebrow">Audio</div><h3>Natural sound and radio</h3>
+        <p class="muted">Play real rain, forest, ocean, night and other nature recordings, or browse live internet radio. The player stays visible above the navigation so you always know what is playing.</p>
         <div class="setting-row"><span>Sound</span><b>${ambientPreferences.enabled?'On':'Silent'}</b></div>
-        <div class="setting-row"><span>Scene</span><b>${esc(currentScene)}</b></div>
+        <div class="setting-row"><span>Mode</span><b>${esc(mediaPlayerState.mode==='radio'?'Live radio':'Nature recordings')}</b></div>
         <div class="setting-row"><span>Volume</span><b>${Math.round(ambientPreferences.volume*100)}%</b></div>
-        <div class="filter-row"><button class="btn primary" id="settingsSound">Soundscapes</button><button class="btn" id="quickMute">${ambientPreferences.enabled?'Mute':'Enable sound'}</button></div>
+        <div class="filter-row"><button class="btn primary" id="settingsSound">Open audio library</button><button class="btn" id="quickMute">${ambientPreferences.enabled?'Mute':'Enable audio'}</button></div>
       </section>
 
       <section class="glass settings-card">
@@ -3634,6 +3655,9 @@ async function settings(){
   }
   document.getElementById('logoutButton').onclick=async()=>{
     stopAmbient()
+    mediaAudio()?.pause()
+    document.getElementById('memoraMediaPlayer')?.remove()
+    document.body.classList.remove('has-memora-player')
     await supabase.auth.signOut()
     user=null
     navigationInitialized=false
@@ -3716,8 +3740,13 @@ async function settings(){
 
 async function bootstrapSignedIn(){
   await loadExperiencePreferences()
-  if(!ambientPreferences.enabled) stopAmbient()
-  else if(ambientAudioContext?.state==='running') await startAmbient()
+  stopAmbient()
+  ensureMediaPlayer()
+  if(!ambientPreferences.enabled){
+    const audio=mediaAudio()
+    if(audio) audio.muted=true
+  }
+  loadMediaLibrary('nature',mediaPlayerState.mode==='nature'?mediaPlayerState.query:'rain',100,{preserveCurrent:true}).catch(()=>{})
   await migrateLegacyChat()
   if(navigationInitialized) await renderRoute(view)
   else await initializeNavigation()
@@ -3739,4 +3768,6 @@ supabase.auth.onAuthStateChange((event,sessionNow)=>{
 if(user) await bootstrapSignedIn()
 else authScreen()
 
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{})
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./service-worker.js?v=21').then(reg=>reg.update()).catch(()=>{})
+}
