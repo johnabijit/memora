@@ -492,6 +492,41 @@ async function maybeApplyContextScene(text){
   }
 }
 
+const themeSceneQueries={
+  aurora:'aurora borealis night landscape',
+  ocean:'ocean coast',
+  rose:'rose flower garden',
+  forest:'forest landscape',
+  solar:'sunrise golden landscape',
+  lavender:'lavender field',
+  arctic:'arctic snow landscape',
+  ember:'warm fireplace cabin',
+  neon:'neon city night',
+  sakura:'cherry blossom landscape',
+  copper:'autumn forest landscape',
+  galaxy:'milky way night sky'
+}
+
+function sceneForTheme(themeId){
+  const family=String(themeId||'').split('-')[0]
+  return themeSceneQueries[family]||family||'calm landscape'
+}
+
+function detectRememberableStatement(value){
+  const text=String(value||'').trim()
+  if(!text||looksLikeSecret(text)) return null
+  const lower=normalizeQuestion(text).toLowerCase()
+  const explicit=/^(?:please\s+)?(?:remember|save)\s+(?:this\s+|that\s+)?/i.test(text)
+  if(explicit){
+    const cleaned=text.replace(/^(?:please\s+)?(?:remember|save)\s+(?:this\s+|that\s+)?(?:to\s+(?:my\s+)?memory\s*)?/i,'').trim()
+    return cleaned||text
+  }
+  if(/[?]$/.test(text)) return null
+  if(/^(?:i|we)\s+(?:went|visited|met|bought|purchased|got|received|started|finished|joined|moved|shifted|kept|put|left|stored|placed|attended|played|travelled|traveled|ate|changed|renewed|booked|lost|found)\b/i.test(text)) return text
+  if(/^my\s+.{1,45}\s+(?:is|are|was|were)\s+.{2,}/i.test(text)) return text
+  return null
+}
+
 function detectMoodStatement(value){
   const text=normalizeQuestion(String(value||'')).toLowerCase()
   if(/\b(?:do not|don't|dont)\s+(?:save|remember|store)\b/.test(text)) return null
@@ -2266,7 +2301,7 @@ function adaptiveTheme(){
   const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
   applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
   updateVisualScene()
-  if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(theme.id.split('-')[0])
+  if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id))
   lastThemeHour=hour
 }
 
@@ -2276,7 +2311,7 @@ function updateTheme(){
   else {
     const theme=manualThemes[mode]||themeCatalog[0]
     applyTheme(theme,theme.label)
-    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(String(theme.id||mode).split('-')[0])
+    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id||mode))
   }
 }
 
@@ -4467,6 +4502,17 @@ async function ask({reload=true}={}){
       try{await recordMood(detectedMood,q,'chat')}catch(error){console.warn('Mood save failed',error)}
     }
 
+    let autoMemorySaved=false
+    const rememberable=!detectedMood?detectRememberableStatement(q):null
+    if(rememberable){
+      try{
+        await saveMemory(rememberable)
+        autoMemorySaved=true
+      }catch(error){
+        console.warn('Conversational memory save failed',error)
+      }
+    }
+
     const directReply=directConversationReply(q)
     if(directReply){
       const directMessage={role:'assistant',text:directReply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()}
@@ -4486,6 +4532,9 @@ async function ask({reload=true}={}){
       chat=chat.filter(message=>!message.pending)
       let responseText=cleanAnswerText(response.text)
       let action=response.action||null
+      if(autoMemorySaved&&!/saved|remembered|stored.*memory/i.test(responseText)){
+        responseText+=` I’ve saved that to your Memora memory.`
+      }
       if(detectedMood){
         const label=moodCatalog[detectedMood]?.label||detectedMood
         if(/don't have a relevant|do not have a relevant|nothing matched/i.test(responseText)){
