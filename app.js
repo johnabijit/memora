@@ -5013,6 +5013,18 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
+        <div class="eyebrow">Guidance</div><h3>Personal experience</h3>
+        <p class="muted">Use the guided tour anytime, let Memora remember explicit mood check-ins, and choose whether memories can influence the live background scene.</p>
+        <div class="setting-row"><span>Mood check-ins</span><b>${experiencePreferences.moodCheckinsEnabled?'On':'Off'}</b></div>
+        <div class="setting-row"><span>Contextual scenery</span><b>${experiencePreferences.contextualScenery?'On':'Off'}</b></div>
+        <div class="filter-row">
+          <button class="btn primary" id="retakeTour">Take guided tour</button>
+          <button class="btn" id="toggleMoodCheckins">${experiencePreferences.moodCheckinsEnabled?'Disable mood memory':'Enable mood memory'}</button>
+          <button class="btn" id="toggleContextScenery">${experiencePreferences.contextualScenery?'Disable contextual scenes':'Enable contextual scenes'}</button>
+        </div>
+      </section>
+
+      <section class="glass settings-card">
         <div class="eyebrow">Conversations</div><h3>Chat history</h3>
         <p class="muted">Ask conversations are saved separately. All chats share the same Memora memory vault while recent conversational context stays inside its thread.</p>
         <div class="filter-row"><button class="btn" data-nav="ask">Open chats</button><button class="btn danger" id="deleteChats">Delete all chats</button></div>
@@ -5042,6 +5054,23 @@ async function settings(){
 
   document.getElementById('settingsTheme').onclick=openThemePicker
   document.getElementById('settingsSound').onclick=openSoundscapePicker
+  document.getElementById('retakeTour').onclick=()=>showOnboardingTour({force:true})
+  document.getElementById('toggleMoodCheckins').onclick=async()=>{
+    experiencePreferences.moodCheckinsEnabled=!experiencePreferences.moodCheckinsEnabled
+    await supabase.from('user_settings').upsert({user_id:user.id,mood_checkins_enabled:experiencePreferences.moodCheckinsEnabled})
+    await settings()
+  }
+  document.getElementById('toggleContextScenery').onclick=async()=>{
+    experiencePreferences.contextualScenery=!experiencePreferences.contextualScenery
+    await supabase.from('user_settings').upsert({user_id:user.id,contextual_scenery:experiencePreferences.contextualScenery})
+    if(!experiencePreferences.contextualScenery){
+      document.documentElement.dataset.scenePhoto='off'
+      document.documentElement.style.removeProperty('--scene-photo')
+    }else{
+      updateTheme()
+    }
+    await settings()
+  }
   document.getElementById('quickMute').onclick=async()=>{await setAmbientEnabled(!ambientPreferences.enabled);await settings()}
   document.getElementById('toggleDynamicBackground').onclick=async()=>{
     await saveExperiencePreferences({dynamicBackground:!ambientPreferences.dynamicBackground})
@@ -5186,6 +5215,7 @@ async function bootstrapSignedIn(){
   await migrateLegacyChat()
   if(navigationInitialized) await renderRoute(view)
   else await initializeNavigation()
+  if(!experiencePreferences.onboardingCompleted) setTimeout(()=>showOnboardingTour(),320)
 }
 
 removeStrayEscapedNewline()
