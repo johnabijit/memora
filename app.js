@@ -568,6 +568,20 @@ function setPlayerStatus(message){
   if(el) el.textContent=message
 }
 
+function updateAudioVisualScene(item,playing){
+  const text=(String(item?.title||'')+' '+String(item?.category||'')).toLowerCase()
+  let scene='ambient'
+  if(item?.type==='radio') scene='radio'
+  else if(/rain|storm|thunder/.test(text)) scene='rain'
+  else if(/ocean|wave|sea|beach/.test(text)) scene='ocean'
+  else if(/forest|bird|rainforest|wood/.test(text)) scene='forest'
+  else if(/night|cricket|owl/.test(text)) scene='night'
+  else if(/river|waterfall|stream|water/.test(text)) scene='water'
+  else if(/wind/.test(text)) scene='wind'
+  document.documentElement.dataset.audioScene=scene
+  document.documentElement.dataset.audioPlaying=playing?'true':'false'
+}
+
 function refreshMediaPlayerUI(){
   const player=document.getElementById('memoraMediaPlayer')
   const audio=mediaAudio()
@@ -589,7 +603,8 @@ function refreshMediaPlayerUI(){
     if(current.type==='radio'){
       source.textContent=`Live radio · ${current.country||current.category||'Worldwide'}`
     }else{
-      source.textContent=`Natural recording · ${current.category||'Nature'}`
+      const attribution=[current.artist,current.license].filter(Boolean).join(' · ')
+      source.textContent=attribution?`Natural recording · ${attribution}`:`Natural recording · ${current.category||'Nature'}`
     }
   }
   if(status){
@@ -599,6 +614,7 @@ function refreshMediaPlayerUI(){
   }
   if(play) play.textContent=playing?'Pause':'Play'
   if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
+  updateAudioVisualScene(current,playing)
   updateSoundButton()
 }
 
@@ -751,7 +767,7 @@ async function setAmbientEnabled(enabled){
 function audioLibraryCard(item,index){
   const meta=item.type==='radio'
     ?[item.country,item.codec,item.bitrate?item.bitrate+' kbps':''].filter(Boolean).join(' · ')
-    :[item.category,item.license].filter(Boolean).join(' · ')
+    :[item.artist,item.category,item.license].filter(Boolean).join(' · ')
   return `
     <button class="audio-library-card ${mediaPlayerState.current?.id===item.id?'selected':''}" data-audio-index="${index}">
       <span class="audio-card-orb"></span>
