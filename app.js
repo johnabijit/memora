@@ -85,6 +85,12 @@ function persistConversationState(){
     localStorage.setItem(`memora-context:${currentThreadId}`,JSON.stringify(conversationContext))
   }catch{}
 }
+function applyLocalAccessibilityPreferences(){
+  document.documentElement.dataset.largeText=localStorage.getItem('memora-large-text')==='1'?'on':'off'
+  document.documentElement.dataset.highContrast=localStorage.getItem('memora-high-contrast')==='1'?'on':'off'
+}
+applyLocalAccessibilityPreferences()
+
 let ocrWorkerPromise = null
 let lastThemeHour = null
 
@@ -373,7 +379,7 @@ function updateVisualScene(){
 
 async function loadExperiencePreferences(){
   if(!user) return ambientPreferences
-  const {data}=await supabase.from('user_settings').select('ambient_enabled,ambient_scene,ambient_volume,dynamic_background').maybeSingle()
+  const {data}=await supabase.from('user_settings').select('ambient_enabled,ambient_scene,ambient_volume,dynamic_background,reduce_motion').maybeSingle()
   if(data){
     ambientPreferences={
       enabled:data.ambient_enabled!==false,
@@ -381,6 +387,7 @@ async function loadExperiencePreferences(){
       volume:Number(data.ambient_volume??0.24),
       dynamicBackground:data.dynamic_background!==false
     }
+    document.documentElement.dataset.reduceMotion=data.reduce_motion?'on':'off'
   }else{
     await supabase.from('user_settings').upsert({
       user_id:user.id,
@@ -1767,7 +1774,7 @@ function wire(){
 async function renderRoute(next,focus=false){
   const routes={home,memories,ask,timeline,sources,vault,people,places,things,documents,settings,help}
   const renderPage=async()=>await (routes[next]||home)()
-  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const reduced=document.documentElement.dataset.reduceMotion==='on'||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   if(document.startViewTransition&&!reduced){
     try{
       const transition=document.startViewTransition(renderPage)
@@ -4273,6 +4280,9 @@ async function settings(){
     supabase.from('user_settings').select('*').maybeSingle()
   ])
   const currentTheme=localStorage.getItem('memora-theme')||'auto'
+  const reduceMotion=settingsData?.reduce_motion===true
+  const largeText=localStorage.getItem('memora-large-text')==='1'
+  const highContrast=localStorage.getItem('memora-high-contrast')==='1'
 
   app.innerHTML=shell(`
     <div class="settings-grid">
@@ -4303,6 +4313,19 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
+        <div class="eyebrow">Accessibility</div><h3>Comfort and clarity</h3>
+        <p class="muted">Adjust motion, text size and contrast without changing your memories or theme selection.</p>
+        <div class="setting-row"><span>Reduced motion</span><b>${reduceMotion?'On':'Off'}</b></div>
+        <div class="setting-row"><span>Larger text</span><b>${largeText?'On':'Off'}</b></div>
+        <div class="setting-row"><span>Higher contrast</span><b>${highContrast?'On':'Off'}</b></div>
+        <div class="filter-row accessibility-actions">
+          <button class="btn" id="toggleReduceMotion">${reduceMotion?'Use full motion':'Reduce motion'}</button>
+          <button class="btn" id="toggleLargeText">${largeText?'Normal text':'Larger text'}</button>
+          <button class="btn" id="toggleHighContrast">${highContrast?'Standard contrast':'Higher contrast'}</button>
+        </div>
+      </section>
+
+      <section class="glass settings-card">
         <div class="eyebrow">Conversations</div><h3>Chat history</h3>
         <p class="muted">Ask conversations are saved separately. All chats share the same Memora memory vault while recent conversational context stays inside its thread.</p>
         <div class="filter-row"><button class="btn" data-nav="ask">Open chats</button><button class="btn danger" id="deleteChats">Delete all chats</button></div>
@@ -4311,7 +4334,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.30</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.31</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4335,6 +4358,23 @@ async function settings(){
   document.getElementById('quickMute').onclick=async()=>{await setAmbientEnabled(!ambientPreferences.enabled);await settings()}
   document.getElementById('toggleDynamicBackground').onclick=async()=>{
     await saveExperiencePreferences({dynamicBackground:!ambientPreferences.dynamicBackground})
+    await settings()
+  }
+
+  document.getElementById('toggleReduceMotion').onclick=async()=>{
+    const next=!reduceMotion
+    await supabase.from('user_settings').upsert({user_id:user.id,reduce_motion:next})
+    document.documentElement.dataset.reduceMotion=next?'on':'off'
+    await settings()
+  }
+  document.getElementById('toggleLargeText').onclick=async()=>{
+    localStorage.setItem('memora-large-text',largeText?'0':'1')
+    applyLocalAccessibilityPreferences()
+    await settings()
+  }
+  document.getElementById('toggleHighContrast').onclick=async()=>{
+    localStorage.setItem('memora-high-contrast',highContrast?'0':'1')
+    applyLocalAccessibilityPreferences()
     await settings()
   }
   document.getElementById('logoutButton').onclick=async()=>{
@@ -4469,5 +4509,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=30').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=31').then(reg=>reg.update()).catch(()=>{})
 }
