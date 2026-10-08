@@ -1105,7 +1105,7 @@ async function openSoundscapePicker(){
     <div class="audio-mode-tabs three">
       <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
       <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">World radio</button>
-      <button class="audio-mode-tab ${currentMode==='devotional'?'active':''}" data-audio-mode="devotional">Devotional</button>
+      <button class="audio-mode-tab ${currentMode==='devotional'?'active':''}" data-audio-mode="devotional">Devotional & spiritual</button>
     </div>
 
     <div class="radio-world-controls ${['radio','devotional'].includes(currentMode)?'':'hidden'}" id="radioWorldControls">
@@ -1120,9 +1120,10 @@ async function openSoundscapePicker(){
         </label>
       </div>
 
-      <div class="radio-sort-switch" role="group" aria-label="Audio discovery mode">
-        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-radio-sort="popular">Popular / major stations</button>
-        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-radio-sort="random">Random discovery</button>
+      <div class="radio-sort-switch three" role="group" aria-label="Audio discovery mode">
+        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='popular'?'active':''}" data-radio-sort="popular">Popular</button>
+        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='quality'?'active':''}" data-radio-sort="quality">Best quality</button>
+        <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-radio-sort="random">Random</button>
       </div>
 
       <div class="radio-country-quick">
@@ -1139,7 +1140,7 @@ async function openSoundscapePicker(){
       <div class="devotional-intro">
         <div>
           <span class="eyebrow">Faith and spiritual audio</span>
-          <strong>Worldwide devotional discovery</strong>
+          <strong>Worldwide devotional discovery</strong><small>Christian, Gospel, worship, Catholic, Orthodox, Islamic, Sufi, Hindu, Sikh, Buddhist, Jewish, Jain, Baháʼí and more</small>
         </div>
         <span class="muted small">Broad coverage across major traditions plus free search. Ghazal can be secular or spiritual, so it is kept as its own music category.</span>
       </div>
@@ -4195,7 +4196,7 @@ async function settings(){
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Your private data</h3>
         <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
-        <div class="setting-row"><span>App build</span><b>2026.10.08.26</b></div>
+        <div class="setting-row"><span>App build</span><b>2026.10.08.27</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -4347,5 +4348,5 @@ if(user) await bootstrapSignedIn()
 else authScreen()
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=26').then(reg=>reg.update()).catch(()=>{})
+  navigator.serviceWorker.register('./service-worker.js?v=27').then(reg=>reg.update()).catch(()=>{})
 }
