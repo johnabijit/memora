@@ -261,7 +261,7 @@ async function radioLanguages(){
 const DEVOTIONAL_LIBRARY={
   all_faiths:{
     label:'All faiths and spiritual',
-    terms:['devotional','spiritual','sacred','religious','faith','meditation'],
+    terms:['devotional','spiritual','christian','gospel','worship','catholic','quran','nasheed','sufi','qawwali','bhajan','gurbani','buddhist','jewish','jain'],
     description:'A mixed worldwide discovery view across faith and spiritual programming'
   },
   christian:{
@@ -387,9 +387,11 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
   }
   for(const base of entry.terms) pushTerm(base)
 
-  const perTerm=Math.max(10,Math.min(36,Math.ceil((Math.min(100,limit||60)*2.2)/Math.max(1,searchTerms.length))+8))
+  const maxTerms=key==='all_faiths'?10:8
+  const selectedTerms=searchTerms.slice(0,maxTerms)
+  const perTerm=Math.max(12,Math.min(34,Math.ceil((Math.min(100,limit||60)*2.1)/Math.max(1,selectedTerms.length))+8))
   const batches=await Promise.allSettled(
-    searchTerms.map(term=>radioLibrary(term,perTerm,{
+    selectedTerms.map(term=>radioLibrary(term,perTerm,{
       random,
       offset:0,
       countrycode,
@@ -444,6 +446,13 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
       const j=Math.floor(Math.random()*(i+1))
       ;[merged[i],merged[j]]=[merged[j],merged[i]]
     }
+  }else if(sort==='quality'){
+    merged.sort((a,b)=>
+      (Math.min(b.bitrate||0,512)-Math.min(a.bitrate||0,512))||
+      (b.relevance-a.relevance)||
+      ((b.votes||0)-(a.votes||0))||
+      ((b.clickcount||0)-(a.clickcount||0))
+    )
   }else{
     merged.sort((a,b)=>(b.relevance-a.relevance)||(b.clickcount-a.clickcount)||(b.votes-a.votes)||(b.bitrate-a.bitrate))
   }
@@ -572,7 +581,7 @@ module.exports=async function handler(req,res){
       },'no-store')
     }
     if(mode==='devotional'){
-      const tradition=String(req.query?.tradition||'christian').slice(0,48).toLowerCase()
+      const tradition=String(req.query?.tradition||'all_faiths').slice(0,48).toLowerCase()
       const result=await devotionalLibrary(tradition,query,limit,{random,offset,countrycode,sort,language})
       return json(res,200,{
         mode:'devotional',
