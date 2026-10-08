@@ -833,6 +833,7 @@ function stopAmbient(){
     ambientMasterGain.gain.setTargetAtTime(0,ambientAudioContext.currentTime,0.05)
   }
   updateSoundButton()
+  renderSceneCredit()
 }
 
 function mediaAudio(){
