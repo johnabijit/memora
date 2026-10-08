@@ -931,7 +931,7 @@ function renderAudioLibraryResults(box){
 
 async function openSoundscapePicker(){
   ensureMediaPlayer()
-  const currentMode=mediaPlayerState.mode||'nature'
+  const currentMode=mediaPlayerState.audioView||mediaPlayerState.mode||'nature'
   let countries=[]
   try{countries=await loadRadioCountries()}catch{}
 
@@ -950,12 +950,13 @@ async function openSoundscapePicker(){
       <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute audio':'Enable audio'}</button>
     </div>
 
-    <div class="audio-mode-tabs">
-      <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature recordings</button>
+    <div class="audio-mode-tabs three">
+      <button class="audio-mode-tab ${currentMode==='nature'?'active':''}" data-audio-mode="nature">Nature</button>
       <button class="audio-mode-tab ${currentMode==='radio'?'active':''}" data-audio-mode="radio">World radio</button>
+      <button class="audio-mode-tab ${currentMode==='devotional'?'active':''}" data-audio-mode="devotional">Devotional</button>
     </div>
 
-    <div class="radio-world-controls ${currentMode==='radio'?'':'hidden'}" id="radioWorldControls">
+    <div class="radio-world-controls ${['radio','devotional'].includes(currentMode)?'':'hidden'}" id="radioWorldControls">
       <label class="radio-country-field">
         <span>Country</span>
         <select class="input" id="radioCountry">${countryOptions}</select>
@@ -973,22 +974,24 @@ async function openSoundscapePicker(){
     </div>
 
     <div class="audio-search-row">
-      <input class="input" id="audioLibrarySearch" value="${esc(mediaPlayerState.query||'')}" placeholder="${currentMode==='radio'?'Optional: station, genre or language':'Search rain, forest, night, ocean...'}">
+      <input class="input" id="audioLibrarySearch" value="${esc(mediaPlayerState.query||'')}" placeholder="${currentMode==='devotional'?'Search Christian, Gospel, Bhajan, Quran, Gurbani, Ghazal...':currentMode==='radio'?'Optional: station, genre or language':'Search rain, forest, night, ocean...'}">
       <button class="btn primary" id="audioLibrarySearchButton">Search</button>
     </div>
 
     <div class="audio-presets" id="audioPresets">
       ${(currentMode==='radio'
         ?['Tamil','news','pop','rock','classical','jazz','talk','sports','oldies','dance']
-        :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
+        :currentMode==='devotional'
+          ?['Christian','Gospel','Worship','Catholic','Hymn','Quran','Nasheed','Sufi','Bhajan','Gurbani','Buddhist','Ghazal']
+          :['rain','forest','ocean','night','thunder','river','birds','waterfall','wind','beach']
       ).map(label=>`<button class="chip" data-audio-preset="${esc(label)}">${esc(label)}</button>`).join('')}
     </div>
 
     <div class="audio-library-toolbar">
       <b id="audioLibraryCount">${mediaPlayerState.library.length} available</b>
       <div class="audio-library-actions">
-        <span class="muted small" id="radioModeHint">${currentMode==='radio'?'Live stations, not songs.':'Real recordings streamed on demand.'}</span>
-        <button class="btn compact" id="audioDiscoverMore" ${currentMode==='radio'?'':'hidden'}>Load 100 more</button>
+        <span class="muted small" id="radioModeHint">${currentMode==='devotional'?'Live devotional and spiritual stations from around the world.':currentMode==='radio'?'Live stations, not songs.':'Real recordings streamed on demand.'}</span>
+        <button class="btn compact" id="audioDiscoverMore" ${['radio','devotional'].includes(currentMode)?'':'hidden'}>Load 100 more</button>
       </div>
     </div>
     <div class="audio-library-results" id="audioLibraryResults"><div class="audio-loading"><span></span><span></span><span></span>Loading audio library...</div></div>
