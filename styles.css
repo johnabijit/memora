@@ -763,3 +763,107 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .devotional-intro>.small{text-align:left}
   .devotional-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Devotional and spiritual audio v26 */
+.audio-mode-tabs.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.radio-sort-switch.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.devotional-panel{
+  display:grid;
+  gap:14px;
+  margin:14px 0 10px;
+  padding:14px;
+  border:1px solid color-mix(in srgb,var(--c1) 14%,var(--line));
+  border-radius:22px;
+  background:
+    radial-gradient(circle at 12% 8%,color-mix(in srgb,var(--c1) 10%,transparent),transparent 32%),
+    radial-gradient(circle at 88% 16%,color-mix(in srgb,var(--c2) 8%,transparent),transparent 34%),
+    rgba(255,255,255,.025);
+}
+.devotional-hero{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:14px;
+  align-items:center;
+  padding:14px;
+  border-radius:18px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--c1) 10%,rgba(255,255,255,.025)),color-mix(in srgb,var(--c2) 5%,rgba(255,255,255,.02)));
+  border:1px solid rgba(255,255,255,.05);
+}
+.devotional-hero strong{display:block;font-size:18px;margin:4px 0 5px}
+.devotional-hero p{margin:0;color:var(--muted);font-size:10px;line-height:1.55}
+.devotional-symbols{
+  width:58px;height:58px;border-radius:19px;
+  display:grid;place-items:center;
+  position:relative;overflow:hidden;
+  background:radial-gradient(circle at 30% 24%,color-mix(in srgb,var(--c3) 60%,white),var(--c1) 48%,color-mix(in srgb,var(--c2) 74%,#101624));
+  box-shadow:0 10px 28px color-mix(in srgb,var(--c1) 18%,transparent),inset 0 1px rgba(255,255,255,.2);
+}
+.devotional-symbols span{position:absolute;color:#fff;font-size:13px;animation:devotionalOrbit 7s linear infinite}
+.devotional-symbols span:nth-child(1){transform:translateY(-15px)}
+.devotional-symbols span:nth-child(2){animation-delay:-2.3s}
+.devotional-symbols span:nth-child(3){animation-delay:-4.6s}
+@keyframes devotionalOrbit{0%{transform:rotate(0deg) translateY(-15px) rotate(0deg)}100%{transform:rotate(360deg) translateY(-15px) rotate(-360deg)}}
+
+.devotional-group{display:grid;gap:8px}
+.devotional-group h4{margin:0;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:color-mix(in srgb,var(--c2) 58%,#c8d2df)}
+.devotional-grid{display:flex;flex-wrap:wrap;gap:7px}
+.devotional-chip{
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.035);
+  color:#dfe5ee;
+  padding:8px 11px;
+  font-size:10px;
+  cursor:pointer;
+  transition:.2s ease;
+}
+.devotional-chip:hover{transform:translateY(-1px);background:rgba(255,255,255,.07)}
+.devotional-chip.selected{
+  color:#fff;
+  border-color:color-mix(in srgb,var(--c1) 42%,rgba(255,255,255,.12));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--c1) 24%,rgba(255,255,255,.04)),color-mix(in srgb,var(--c2) 10%,rgba(255,255,255,.03)));
+  box-shadow:0 6px 18px color-mix(in srgb,var(--c1) 11%,transparent);
+}
+.devotional-note{
+  margin:0;
+  padding:10px 12px;
+  border-radius:14px;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.5;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.04);
+}
+.audio-card-art{
+  width:38px;height:38px;border-radius:13px;
+  overflow:hidden;
+  display:grid;place-items:center;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--c1) 28%,#1a2130),color-mix(in srgb,var(--c2) 12%,#121925));
+  box-shadow:0 4px 16px rgba(0,0,0,.2);
+}
+.audio-card-art img{width:100%;height:100%;object-fit:cover}
+.audio-card-art.fallback:after{
+  content:"♫";
+  color:#fff;
+  font-size:14px;
+  opacity:.85;
+}
+html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:before{
+  opacity:.26;
+  background:
+    radial-gradient(circle at 18% 28%,color-mix(in srgb,var(--c3) 18%,transparent),transparent 24%),
+    radial-gradient(circle at 78% 34%,color-mix(in srgb,var(--c1) 18%,transparent),transparent 28%),
+    conic-gradient(from 45deg at 50% 50%,transparent,color-mix(in srgb,var(--c2) 6%,transparent),transparent,color-mix(in srgb,var(--c1) 7%,transparent),transparent);
+  animation:devotionalGlow 18s ease-in-out infinite;
+}
+@keyframes devotionalGlow{
+  0%,100%{transform:scale(1) rotate(0deg);filter:brightness(.9)}
+  50%{transform:scale(1.07) rotate(5deg);filter:brightness(1.18)}
+}
+@media(max-width:760px){
+  .audio-mode-tabs.three{grid-template-columns:1fr}
+  .radio-sort-switch.three{grid-template-columns:1fr}
+  .devotional-hero{grid-template-columns:1fr}
+  .devotional-symbols{width:50px;height:50px}
+}
