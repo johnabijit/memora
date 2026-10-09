@@ -2434,7 +2434,7 @@ async function magicLink(email){
 
 async function authScreen(mode='login'){
   app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
-  const external=await getAuthProviderSettings()
+  const external=authProviderCache||{}
 
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2480,7 +2480,23 @@ async function authScreen(mode='login'){
     oauthSignIn(provider,provider==='azure'?'email':undefined)
   })
   document.querySelectorAll('[data-provider-setup]').forEach(button=>button.onclick=()=>providerSetupHelp(button.dataset.providerSetup))
-  if(!document.querySelector('.social-grid .social')){document.querySelector('.social-grid')?.remove();document.querySelector('.divider')?.remove()}
+  const socialGrid=app.querySelector('.social-grid')
+  const socialDivider=app.querySelector('.divider')
+  socialGrid.hidden=!socialGrid.querySelector('.social')
+  socialDivider.hidden=socialGrid.hidden
+  // Email sign-in must never wait for optional provider discovery.
+  getAuthProviderSettings().then(settings=>{
+    if(!socialGrid.isConnected) return
+    socialGrid.innerHTML=['google','azure','apple','github']
+      .filter(provider=>settings[provider])
+      .map(provider=>`<button class="social" data-oauth="${provider}">Continue with ${providerLabel(provider)}</button>`).join('')
+    socialGrid.hidden=!socialGrid.children.length
+    socialDivider.hidden=socialGrid.hidden
+    socialGrid.querySelectorAll('[data-oauth]').forEach(button=>button.onclick=()=>{
+      const provider=button.dataset.oauth
+      oauthSignIn(provider,provider==='azure'?'email':undefined)
+    })
+  })
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
   document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login')
   document.getElementById('authForm').onsubmit=async event=>{

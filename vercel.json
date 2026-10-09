@@ -36,5 +36,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "cloudflare-v43-fixes": false
+    }
+  }
 }

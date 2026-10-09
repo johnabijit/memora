@@ -13,13 +13,13 @@ const facts=[
   {fact_key:'family.sister.2',category:'family',predicate:'sister',value_text:'Dana',ordinal:2,age_relation:'younger'}
 ]
 
-async function appFixture({blockedStorage=false}={}) {
+async function appFixture({blockedStorage=false,slowProviders=false}={}) {
   const dom=new JSDOM('<div id="app"></div>',{url:'https://memora.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()})
   const w=dom.window
   w.SUPABASE_URL='https://fixture.supabase.co'
   w.SUPABASE_PUBLISHABLE_KEY='fixture-publishable-key'
   w.AbortSignal=AbortSignal
-  w.fetch=async()=>Response.json({external:{}})
+  w.fetch=async()=>slowProviders?new Promise(()=>{}):Response.json({external:{}})
   w.matchMedia=()=>({matches:false,addEventListener(){}})
   w.HTMLMediaElement.prototype.load=function(){}
   w.HTMLMediaElement.prototype.play=async function(){this._playing=true;this.dispatchEvent(new w.Event('play'))}
@@ -136,5 +136,14 @@ test('previous and next controls move through the selected queue',async()=>{
     await api.nextMediaTrack(false)
     assert.equal(api.mediaPlayerState.current.id,'first')
     assert.equal(w.document.getElementById('memoraAudio').paused,true)
+  }finally{dom.window.close()}
+})
+
+ test('email form is ready even when provider discovery never responds',async()=>{
+  const {dom,w}=await appFixture({slowProviders:true})
+  try{
+    assert.equal(w.memoraReady,true)
+    assert.ok(w.document.getElementById('authForm'))
+    assert.equal(w.document.getElementById('authForm').querySelector('[type="submit"]').disabled,false)
   }finally{dom.window.close()}
 })
