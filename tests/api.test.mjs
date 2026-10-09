@@ -244,3 +244,15 @@ test('empty music searches stay empty with bounded retries and preserve non-Lati
     assert.equal(data.searchedQueries.length,3)
   })
 })
+
+test('music search excludes dictionary audio and explicitly mismatched language recordings',async()=>{
+  const page=(id,title,description)=>({pageid:id,title:'File:'+title+'.ogg',imageinfo:[{mime:'audio/ogg',url:'https://example.test/'+id+'.ogg',extmetadata:{ImageDescription:{value:description}}}]})
+  await withFetch(async url=>String(url).includes('commons.wikimedia.org')?json({query:{pages:[
+    page(1,'En-au-chillax','Pronunciation of chillax'),
+    page(2,'Nijamadu dana','A Telugu song'),
+    page(3,'Tamil hymn','A Tamil Christian song')
+  ]}}):json({data:[]}),async()=>{
+    const data=await(await music({request:request('open-music?q=Tamil%20Movie%20songs')})).json()
+    assert.deepEqual(data.items.map(x=>x.title),['Tamil hymn'])
+  })
+})

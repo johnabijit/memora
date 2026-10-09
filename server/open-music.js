@@ -150,6 +150,13 @@ async function commonsMusicSearch(query,{limit=12,offset=0}={}){
       .replace(/_/g,' ')
       .replace(/\.(mp3|ogg|oga|wav|flac)$/i,'')
       .trim()
+    const description=stripHtml(meta.ImageDescription?.value||'')
+    // Commons indexes all audio, including dictionary pronunciations.
+    const recordingText=title+' '+description
+    if(/\b(?:pronunciation|pronouncing|spoken word|dictionary|phonetic)\b/i.test(recordingText)||/^(?:en(?:-au|-uk|-us)?|nl|de|fr)-/i.test(title)) return []
+    const requestedLanguage=term.match(/\b(tamil|malayalam|telugu|hindi|kannada|bengali|punjabi|marathi)\b/i)?.[1]
+    const describedLanguages=description.toLowerCase().match(/\b(tamil|malayalam|telugu|hindi|kannada|bengali|punjabi|marathi)\b/g)||[]
+    if(requestedLanguage&&describedLanguages.length&&!describedLanguages.includes(requestedLanguage.toLowerCase())) return []
     const artist=stripHtml(meta.Artist?.value||meta.Credit?.value||'Wikimedia Commons contributor')
     const license=stripHtml(meta.LicenseShortName?.value||meta.UsageTerms?.value||'Open license')
     return [{
@@ -167,7 +174,7 @@ async function commonsMusicSearch(query,{limit=12,offset=0}={}){
       url,
       source:'Wikimedia Commons',
       sourcePage:'https://commons.wikimedia.org/wiki/'+encodeURIComponent(String(page.title||'').replace(/ /g,'_')),
-      description:stripHtml(meta.ImageDescription?.value||'').slice(0,500),
+      description:description.slice(0,500),
       license,
       openCatalog:true,
       provider:'commons'
