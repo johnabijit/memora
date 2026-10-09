@@ -38,7 +38,7 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
       return chain
     }
   })
-  w.eval(runtime+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -224,7 +224,7 @@ test('artist discovery expands SPB and keeps movie and playlist queries distinct
     const query=w.document.querySelector('#songFinderQuery'),kind=w.document.querySelector('#songFinderKind')
     assert.match(w.document.querySelector('#songFinderLinks a').href,/S\.\+P\.\+Balasubrahmanyam/)
     query.value='Anirudh';kind.value='playlist';kind.onchange()
-    assert.match(w.document.querySelector('#songFinderLinks a').href,/Anirudh\+songs\+playlist/)
+    assert.match(w.document.querySelector('#songFinderLinks a').href,/anirudh\+songs\+playlist/)
     kind.value='movie';kind.onchange()
     assert.match(w.document.querySelector('#songFinderLinks a').href,/movie\+soundtrack/)
   }finally{dom.window.close()}

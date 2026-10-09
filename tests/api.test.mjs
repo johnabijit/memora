@@ -198,3 +198,49 @@ test('scene background selects a suitable licensed image and returns JSON upstre
     assert.ok((await res.json()).error)
   })
 })
+
+test('music search corrects typos and normalizes capitalization before provider requests', async()=>{
+  const terms=[]
+  await withFetch(async url=>{
+    const u=new URL(url)
+    if(u.hostname==='commons.wikimedia.org') return json({query:{pages:[]}})
+    terms.push(u.searchParams.get('query'))
+    return json({data:[{id:'fixture-track',title:'Tamil movie songs'}]})
+  },async()=>{
+    for(const q of ['tamil mobie songs','Tamil Movie songs','  TAMIL   MOVIE SONGS  ']){
+      const r=await music({request:request('open-music?q='+encodeURIComponent(q))})
+      const data=await r.json()
+      assert.equal(data.count,1)
+      assert.equal(data.query,'tamil movie songs')
+    }
+    assert.deepEqual(terms,['tamil movie songs','tamil movie songs','tamil movie songs'])
+  })
+})
+
+test('devotional music retries retain language and faith instead of unrelated trending tracks',async()=>{
+  const terms=[]
+  await withFetch(async url=>{
+    const u=new URL(url)
+    if(u.hostname==='commons.wikimedia.org')return json({query:{pages:[]}})
+    const q=u.searchParams.get('query');terms.push(q)
+    return json({data:q==='malayalam gospel'?[{id:'gospel-track',title:'Malayalam Gospel'}]:[]})
+  },async()=>{
+    const data=await (await music({request:request('open-music?q=Malayalam%20Christian%20Music')})).json()
+    assert.equal(data.count,1)
+    assert.equal(data.matchedQuery,'malayalam gospel')
+    assert.deepEqual(terms,['malayalam christian music','malayalam christian','malayalam gospel'])
+  })
+})
+
+test('empty music searches stay empty with bounded retries and preserve non-Latin names',async()=>{
+  const {normalizeMusicQuery}=await import('../shared/music-search.js')
+  assert.equal(normalizeMusicQuery('தமிழ் பாடல்கள்'),'தமிழ் பாடல்கள்')
+  assert.equal(normalizeMusicQuery('Akon'),'akon')
+  let calls=0
+  await withFetch(async()=>{calls++;return json({data:[],query:{pages:[]}})},async()=>{
+    const data=await (await music({request:request('open-music?q=Malayalam%20Christian%20Music')})).json()
+    assert.equal(data.count,0)
+    assert.equal(calls,6)
+    assert.equal(data.searchedQueries.length,3)
+  })
+})

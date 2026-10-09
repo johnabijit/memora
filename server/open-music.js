@@ -1,3 +1,4 @@
+import { normalizeMusicQuery, musicQueryVariants } from '../shared/music-search.js'
 export default async function handler(req,res,env={}) {
 const AUDIUS_API='https://api.audius.co/v1'
 const COMMONS_API='https://commons.wikimedia.org/w/api.php'
@@ -360,7 +361,18 @@ async function run(req,res){
     }
   }
 
-  const query=String(req.query?.q||'').trim().slice(0,120)
+  const originalQuery=String(req.query?.q||'').trim().slice(0,120)
+  const query=normalizeMusicQuery(originalQuery)
+  let matchedQuery=query
+  const searchedQueries=[]
+  async function searchWithFallback(search){
+    for(const candidate of musicQueryVariants(query)){
+      searchedQueries.push(candidate)
+      const items=await search(candidate)
+      if(items.length){matchedQuery=candidate;return items}
+    }
+    return []
+  }
   const genre=String(req.query?.genre||'').trim().slice(0,80)
   const sort=['relevant','popular','recent'].includes(String(req.query?.sort||'').toLowerCase())
     ?String(req.query.sort).toLowerCase()
@@ -372,12 +384,12 @@ async function run(req,res){
   try{
     if(mode==='collections'){
       const items=query
-        ?await searchCollections({query,limit,offset})
+        ?await searchWithFallback(candidate=>searchCollections({query:candidate,limit,offset}))
         :await trendingCollections({limit,offset})
       return json(res,200,{
         mode:'collections',
         provider:'Audius',
-        query,
+        query, originalQuery, matchedQuery, searchedQueries,
         offset,
         nextOffset:offset+items.length,
         hasMore:items.length>=limit,
@@ -407,13 +419,13 @@ async function run(req,res){
       actualMode='trending'
       items=await trendingTracks({limit,offset,genre,time})
     }else{
-      items=await searchTracks({query,limit,offset,sort,genre})
+      items=await searchWithFallback(candidate=>searchTracks({query:candidate,limit,offset,sort,genre}))
     }
 
     return json(res,200,{
       mode:actualMode,
       provider:actualMode==='trending'?'Audius':'Audius + Wikimedia Commons',
-      query,
+      query, originalQuery, matchedQuery, searchedQueries,
       genre,
       sort,
       offset,

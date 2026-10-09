@@ -1,3 +1,4 @@
+import { normalizeMusicQuery } from './shared/music-search.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
@@ -1630,7 +1631,7 @@ function renderMusicCollections(box){
   if(count) count.textContent=`${mediaPlayerState.musicCollections.length} albums and playlists loaded`
   target.innerHTML=mediaPlayerState.musicCollections.length
     ?`<div class="music-collection-grid">${mediaPlayerState.musicCollections.map(musicCollectionCard).join('')}</div>`
-    :'<div class="empty compact-empty"><strong>No collections found</strong>Try another artist, album or playlist search.</div>'
+    :'<div class="empty compact-empty"><strong>No collections found</strong>The built-in catalog may not include this music. Use “Find artists, movie songs, albums & playlists” above to search YouTube.</div>'
   if(note) note.innerHTML='Albums and playlists are discovered from the open <a href="https://audius.co" target="_blank" rel="noopener">Audius</a> catalog.'
   target.querySelectorAll('[data-collection-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.musicCollections[Number(button.dataset.collectionIndex)]
@@ -1703,7 +1704,7 @@ function renderAudioLibraryResults(box){
 
   target.innerHTML=mediaPlayerState.library.length
     ?mediaPlayerState.library.map(audioLibraryCard).join('')
-    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another search, language, tradition, country or genre.</div>'
+    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another search or filter. For songs missing from the open catalog, use “Find artists, movie songs, albums & playlists” above.</div>'
 
   target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
@@ -2678,7 +2679,7 @@ function openMusicFinder(initial=''){
     <p role="status" id="youtubeLinkStatus"></p><div id="youtubePlayerSlot"></div>`)
   const query=box.querySelector('#songFinderQuery'),kind=box.querySelector('#songFinderKind'),links=box.querySelector('#songFinderLinks')
   const update=()=>{
-    const term=query.value.trim();links.replaceChildren();if(!term)return
+    const term=normalizeMusicQuery(query.value);links.replaceChildren();if(!term)return
     const expanded=/^spb$/i.test(term)?'S. P. Balasubrahmanyam':term
     const suffix={song:'official song',artist:'official songs',movie:'movie soundtrack songs',album:'full album',playlist:'songs playlist'}[kind.value]
     const a=document.createElement('a');a.className='btn primary';a.target='_blank';a.rel='noopener noreferrer';a.href='https://www.youtube.com/results?'+new URLSearchParams({search_query:expanded+' '+suffix});a.textContent='Open YouTube results ↗';links.append(a)
@@ -2711,7 +2712,7 @@ function openGlobalSearch(){
     <p role="status" aria-live="polite" id="globalSearchStatus"></p>
     <button class="btn" id="globalMusicFinder">Find artists, movie songs, albums & playlists</button>
     <div class="global-search-results"></div>`)
-  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder()
+  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder(wrap.querySelector('input').value)
   const scope=wrap.querySelector('select'), input=wrap.querySelector('input')
   const results=wrap.querySelector('.global-search-results'), status=wrap.querySelector('[role="status"]')
   let request=0
@@ -2719,7 +2720,7 @@ function openGlobalSearch(){
   const link=(url,label)=>`<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`
   wrap.querySelector('form').onsubmit=async event=>{
     event.preventDefault()
-    const query=input.value.trim(), mode=scope.value, id=++request
+    const mode=scope.value, query=mode==='music'?normalizeMusicQuery(input.value):input.value.trim(), id=++request
     if(!query) return
     results.replaceChildren();status.textContent='Searching…'
     const encoded=encodeURIComponent(query)
@@ -2727,9 +2728,10 @@ function openGlobalSearch(){
     results.innerHTML=links
     if(mode==='web'){status.textContent='Ready to search the web';return}
     try{
-      const items=mode==='memories'?await smartMemorySearch(query,20):(await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'}))).items||[]
+      const musicData=mode==='music'?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'})):null
+      const items=musicData?musicData.items||[]:await smartMemorySearch(query,20)
       if(id!==request||!wrap.isConnected) return
-      status.textContent=items.length?`${items.length} results`:'No matching results. Try another title or keyword.'
+      status.textContent=items.length?`${items.length} results${musicData&&musicData.matchedQuery!==input.value.trim()?' for “'+musicData.matchedQuery+'”':''}`:mode==='music'?'No matches in the built-in open catalogs. This does not mean the songs are unavailable. Try YouTube above.':'No matching results. Try another title or keyword.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
         const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
