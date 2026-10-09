@@ -2394,13 +2394,14 @@ async function getAuthProviderSettings(force=false){
 }
 
 function providerLabel(provider){
-  return ({google:'Google',azure:'Microsoft',apple:'Apple',github:'GitHub'})[provider]||provider
+  return ({google:'Google',facebook:'Facebook',azure:'Microsoft',apple:'Apple',github:'GitHub'})[provider]||provider
 }
 
 function providerSetupHelp(provider){
   const label=providerLabel(provider)
   const details={
     google:'Create Google OAuth credentials, then enable Google in Supabase Authentication > Sign In / Providers.',
+    facebook:'Create a Meta app with Facebook Login, then enable Facebook in Supabase Authentication > Sign In / Providers.',
     azure:'Create a Microsoft Entra application registration, then enable Azure in Supabase Authentication > Sign In / Providers.',
     apple:'Create an Apple Services ID and Sign in with Apple credentials, then enable Apple in Supabase Authentication > Sign In / Providers.',
     github:'Create a GitHub OAuth App, then enable GitHub in Supabase Authentication > Sign In / Providers.'
@@ -2424,12 +2425,18 @@ async function oauthSignIn(provider,scopes){
 }
 
 async function magicLink(email){
-  if(!email) return toast('Enter your email first')
+  if(!email||!document.getElementById('email')?.checkValidity()) return toast('Enter a valid email first')
+  const button=document.getElementById('magicLink')
+  if(button?.disabled) return
+  if(button) button.disabled=true
+  try{
   const {error}=await supabase.auth.signInWithOtp({
     email,
     options:{emailRedirectTo:window.location.origin,shouldCreateUser:true}
   })
-  toast(error?error.message:'Magic link sent. Check your email.')
+  toast(error?error.message:'Magic link sent. Check your inbox and spam folder.')
+  }catch{toast('Could not send the link. Please try again.')}
+  finally{if(button) button.disabled=false}
 }
 
 async function authScreen(mode='login'){
@@ -2453,6 +2460,7 @@ async function authScreen(mode='login'){
         ${socialButton('google','Google')}
         ${socialButton('azure','Microsoft')}
         ${socialButton('apple','Apple')}
+        ${socialButton('facebook','Facebook')}
         ${socialButton('github','GitHub')}
       </div>
       <div class="divider">OR USE EMAIL</div>
@@ -2466,10 +2474,11 @@ async function authScreen(mode='login'){
         <button class="btn" id="magicLink">Email me a magic link</button>
         <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
       </div>
+      <p class="small muted">A magic link signs you in from your email inbox. No password is needed. Request a new link if yours expires.</p>
       <p id="authMsg" class="muted" role="status" aria-live="polite"></p>
 
       <div class="auth-public-footer">
-        <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
+        <span>© 2026 Memora. Created by John Abijit J A. All rights reserved.</span>
         <a href="mailto:johnabijit@gmail.com?subject=Memora%20support">Contact & feedback</a>
       </div>
     </div>
@@ -2477,7 +2486,7 @@ async function authScreen(mode='login'){
 
   document.querySelectorAll('[data-oauth]').forEach(button=>button.onclick=()=>{
     const provider=button.dataset.oauth
-    oauthSignIn(provider,provider==='azure'?'email':undefined)
+    oauthSignIn(provider,['azure','facebook'].includes(provider)?'email':undefined)
   })
   document.querySelectorAll('[data-provider-setup]').forEach(button=>button.onclick=()=>providerSetupHelp(button.dataset.providerSetup))
   const socialGrid=app.querySelector('.social-grid')
@@ -2487,14 +2496,14 @@ async function authScreen(mode='login'){
   // Email sign-in must never wait for optional provider discovery.
   getAuthProviderSettings().then(settings=>{
     if(!socialGrid.isConnected) return
-    socialGrid.innerHTML=['google','azure','apple','github']
+    socialGrid.innerHTML=['google','apple','facebook','azure','github']
       .filter(provider=>settings[provider])
       .map(provider=>`<button class="social" data-oauth="${provider}">Continue with ${providerLabel(provider)}</button>`).join('')
     socialGrid.hidden=!socialGrid.children.length
     socialDivider.hidden=socialGrid.hidden
     socialGrid.querySelectorAll('[data-oauth]').forEach(button=>button.onclick=()=>{
       const provider=button.dataset.oauth
-      oauthSignIn(provider,provider==='azure'?'email':undefined)
+      oauthSignIn(provider,['azure','facebook'].includes(provider)?'email':undefined)
     })
   })
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
@@ -2561,6 +2570,7 @@ function shell(content,title,subtitle=''){
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <div class="top-actions">
+        <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
         <button class="icon-btn sound-button" id="soundButton" title="Memora Audio" aria-label="Open Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
         <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
@@ -2572,7 +2582,7 @@ function shell(content,title,subtitle=''){
       <footer class="app-footer" aria-label="Memora footer">
         <div class="footer-copy">
           <strong>Memora</strong>
-          <span>© 2026 Memora. Created by John Abijit. All rights reserved.</span>
+          <span>© 2026 Memora. Created by John Abijit J A. All rights reserved.</span>
         </div>
         <div class="footer-actions">
           <a class="scene-credit hidden" id="sceneCredit" target="_blank" rel="noopener">Scene: Wikimedia Commons</a>
@@ -2589,11 +2599,59 @@ function shell(content,title,subtitle=''){
   </div>`
 }
 
+function openGlobalSearch(){
+  const wrap=modal('Search',`
+    <form class="global-search-form">
+      <label for="globalSearchScope">Search in</label>
+      <select class="input" id="globalSearchScope"><option value="memories">Saved memories, people and things</option><option value="music">Music and songs</option><option value="web">The web</option></select>
+      <label for="globalSearchQuery">What are you looking for?</label>
+      <input class="input" id="globalSearchQuery" type="search" maxlength="200" required placeholder="Search by name, title or keyword">
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+    <p class="small muted" id="globalSearchNote">Search your saved information privately. Public searches run only when you choose Music or The web.</p>
+    <p role="status" aria-live="polite" id="globalSearchStatus"></p>
+    <div class="global-search-results"></div>`)
+  const scope=wrap.querySelector('select'), input=wrap.querySelector('input')
+  const results=wrap.querySelector('.global-search-results'), status=wrap.querySelector('[role="status"]')
+  let request=0
+  scope.onchange=()=>{request++;results.replaceChildren();status.textContent=''}
+  const link=(url,label)=>`<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`
+  wrap.querySelector('form').onsubmit=async event=>{
+    event.preventDefault()
+    const query=input.value.trim(), mode=scope.value, id=++request
+    if(!query) return
+    results.replaceChildren();status.textContent='Searching…'
+    const encoded=encodeURIComponent(query)
+    const links=mode==='music'?`<p class="small muted">Search available Audius and Wikimedia recordings below. For other songs, open a provider. Availability and subscriptions vary.</p><div class="search-external">${link('https://www.youtube.com/results?search_query='+encoded,'YouTube')}${link('https://open.spotify.com/search/'+encoded,'Spotify')}</div>`:mode==='web'?`<p class="small muted">Choose a search engine to open results outside Memora.</p><div class="search-external">${link('https://www.google.com/search?q='+encoded,'Google')}${link('https://www.bing.com/search?q='+encoded,'Bing')}</div>`:''
+    results.innerHTML=links
+    if(mode==='web'){status.textContent='Ready to search the web';return}
+    try{
+      const items=mode==='memories'?await smartMemorySearch(query,20):(await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'}))).items||[]
+      if(id!==request||!wrap.isConnected) return
+      status.textContent=items.length?`${items.length} results`:'No matching results. Try another title or keyword.'
+      items.forEach(item=>{
+        const card=document.createElement('article');card.className='search-result'
+        const title=document.createElement('strong');title.textContent=item.title||item.summary||'Saved memory';card.append(title)
+        const detail=document.createElement('p');detail.textContent=mode==='music'?[item.artist,item.source,item.license].filter(Boolean).join(' · '):item.original_text||'';card.append(detail)
+        if(mode==='music'&&item.url){
+          const play=document.createElement('button');play.className='btn';play.textContent='Play'
+          play.onclick=async()=>{mediaPlayerState.library=items;mediaPlayerState.query=query;await selectMediaTrack(item,true);status.textContent=ambientPreferences.enabled?`Selected ${item.title}`:'Track selected. Turn on Audio to listen.'}
+          card.append(play)
+          if(/^https?:\/\//i.test(item.sourcePage||'')){const source=document.createElement('a');source.href=item.sourcePage;source.target='_blank';source.rel='noopener noreferrer';source.textContent='Source & credits ↗';card.append(source)}
+        }
+        results.append(card)
+      })
+    }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
+  }
+  setTimeout(()=>input.focus(),30)
+}
+
 function wire(){
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
+  document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
   document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
@@ -4972,7 +5030,7 @@ async function sources(){
   ])
   const lastAi=lastAiResult.data||null
   const connectedCount=Object.values(connections).filter(item=>item.status==='connected').length
-  const socialEnabled=['google','azure','apple','github'].filter(provider=>authProviders?.[provider]).length
+  const socialEnabled=['google','apple','facebook','azure','github'].filter(provider=>authProviders?.[provider]).length
   const aiHealthy=lastAi?.status==='success'
   const openAiConnected=connections.openai?.status==='connected'
   const aiAvailable=Boolean(health.aiGateway||openAiConnected)

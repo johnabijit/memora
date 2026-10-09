@@ -1902,3 +1902,12 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
 }
 .audio-hub .audio-library-toolbar { position: static; }
 .audio-hub .audio-mode-tabs.four { top: 0; }
+
+/* Search remains reachable without covering the page or modal content. */
+.global-search-form{display:grid;gap:10px}
+.global-search-results{display:grid;gap:12px}
+.search-external{display:flex;flex-wrap:wrap;gap:8px}
+.search-result{padding:15px;border:1px solid var(--line);border-radius:14px;overflow-wrap:anywhere}
+.search-result p{white-space:pre-wrap}
+.search-result a{display:inline-block;margin:10px}
+@media(max-width:600px){.global-search-label{display:none}.topbar{flex-wrap:wrap}.top-actions{flex-wrap:wrap}.auth-wrap{padding:16px;align-items:start}.auth-card{padding:22px 18px}}

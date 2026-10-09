@@ -27,6 +27,7 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
   Object.defineProperty(w.HTMLMediaElement.prototype,'paused',{get(){return !this._playing}})
   if(blockedStorage) Object.defineProperty(w,'localStorage',{get(){throw new Error('Storage denied')}})
   w.createClient=()=>({
+    rpc:async()=>({data:[{entity_id:'m1',title:'My saved guitar',content:'Stored in the music room',metadata:{}}]}),
     auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({}),signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}})},
     from(table){
       const chain=new Proxy({}, {get(_,key){
@@ -37,7 +38,7 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
       return chain
     }
   })
-  w.eval(runtime+'\n'+source+`\nwindow.testApi={answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval(runtime+'\n'+source+`\nwindow.testApi={openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -155,5 +156,44 @@ test('unavailable AI cannot turn a general request into an unrelated memory answ
     assert.equal(result.source,'AI connection unavailable')
     assert.match(result.text,/provider connection in Sources/)
     assert.doesNotMatch(result.text,/I found this relevant memory/)
+  }finally{dom.window.close()}
+})
+
+
+test('global search keeps personal queries private and public search requires an explicit scope',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    const requests=[]
+    w.fetch=async url=>{requests.push(String(url));return Response.json({items:[{title:'Open song',artist:'Artist',url:'/track',type:'music'}]})}
+    api.openGlobalSearch()
+    const form=w.document.querySelector('.global-search-form'), input=form.querySelector('input'), scope=form.querySelector('select')
+    input.value='my guitar'
+    await form.onsubmit({preventDefault(){}})
+    assert.equal(requests.length,0)
+    assert.match(w.document.querySelector('.global-search-results').textContent,/Stored in the music room/)
+    scope.value='music';scope.onchange();input.value='open song'
+    await form.onsubmit({preventDefault(){}})
+    assert.equal(requests.length,1)
+    assert.match(requests[0],/open-music/)
+    assert.match(w.document.querySelector('.global-search-results').textContent,/Open song/)
+    scope.value='web';scope.onchange();input.value='books & music'
+    await form.onsubmit({preventDefault(){}})
+    assert.equal(requests.length,1)
+    assert.match(w.document.querySelector('.search-external a').href,/books%20%26%20music/)
+  }finally{dom.window.close()}
+})
+
+test('changing search scope discards pending music results',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    let resolve
+    w.fetch=()=>new Promise(r=>{resolve=r})
+    api.openGlobalSearch()
+    const form=w.document.querySelector('.global-search-form'),scope=form.querySelector('select')
+    scope.value='music';form.querySelector('input').value='old song'
+    const pending=form.onsubmit({preventDefault(){}})
+    scope.value='memories';scope.onchange()
+    resolve(Response.json({items:[{title:'Old song'}]}));await pending
+    assert.equal(w.document.querySelector('.global-search-results').textContent,'')
   }finally{dom.window.close()}
 })
