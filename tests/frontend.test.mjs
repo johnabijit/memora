@@ -38,7 +38,7 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
       return chain
     }
   })
-  w.eval(runtime+'\n'+source+`\nwindow.testApi={openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval(runtime+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -195,5 +195,58 @@ test('changing search scope discards pending music results',async()=>{
     scope.value='memories';scope.onchange()
     resolve(Response.json({items:[{title:'Old song'}]}));await pending
     assert.equal(w.document.querySelector('.global-search-results').textContent,'')
+  }finally{dom.window.close()}
+})
+
+
+test('memory search snippets omit extraction JSON and stay readable',async()=>{
+  const {dom,api}=await appFixture()
+  try{
+    assert.equal(api.memorySearchSnippet({summary:'Saved note',original_text:'Saved note Saved note {"image_text":"raw OCR"} raw OCR'}),'Saved note')
+    assert.ok(api.memorySearchSnippet({original_text:'x'.repeat(500)}).length<=401)
+  }finally{dom.window.close()}
+})
+
+test('YouTube player accepts video and playlist links but rejects unrelated or unsafe URLs',async()=>{
+  const {dom,api}=await appFixture()
+  try{
+    assert.match(api.youtubeTarget('https://youtu.be/abcdefghijk').embed,/youtube-nocookie.com\/embed\/abcdefghijk$/)
+    assert.match(api.youtubeTarget('https://www.youtube.com/playlist?list=PL123456789012345').embed,/videoseries/)
+    for(const value of ['javascript:alert(1)','https://youtube.com.evil.test/watch?v=abcdefghijk','https://user:pass@youtube.com/watch?v=abcdefghijk','http://youtube.com/watch?v=abcdefghijk','https://youtube.com/watch?v=bad'])assert.equal(api.youtubeTarget(value),null)
+  }finally{dom.window.close()}
+})
+
+test('artist discovery expands SPB and keeps movie and playlist queries distinct',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    api.openMusicFinder('SPB')
+    const query=w.document.querySelector('#songFinderQuery'),kind=w.document.querySelector('#songFinderKind')
+    assert.match(w.document.querySelector('#songFinderLinks a').href,/S\.\+P\.\+Balasubrahmanyam/)
+    query.value='Anirudh';kind.value='playlist';kind.onchange()
+    assert.match(w.document.querySelector('#songFinderLinks a').href,/Anirudh\+songs\+playlist/)
+    kind.value='movie';kind.onchange()
+    assert.match(w.document.querySelector('#songFinderLinks a').href,/movie\+soundtrack/)
+  }finally{dom.window.close()}
+})
+
+test('audio controls open even when radio directory services never respond',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    w.fetch=()=>new Promise(()=>{})
+    api.openSoundscapePicker()
+    assert.ok(w.document.querySelector('.audio-hub-modal'))
+    assert.ok(w.document.querySelector('#worldSongFinder'))
+    assert.ok(w.document.querySelector('#libraryMute'))
+  }finally{dom.window.close()}
+})
+
+test('out-of-order album searches cannot overwrite the latest collection results',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    const pending=[];w.fetch=()=>new Promise(r=>pending.push(r))
+    const first=api.loadMusicCollections('old'),second=api.loadMusicCollections('new')
+    pending[1](Response.json({items:[{id:'new'}]}));await second
+    pending[0](Response.json({items:[{id:'old'}]}));await first
+    assert.equal(api.mediaPlayerState.musicCollections[0].id,'new')
   }finally{dom.window.close()}
 })

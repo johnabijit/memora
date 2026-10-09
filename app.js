@@ -236,7 +236,15 @@ function modal(title,body){
   }
   wrap.querySelector('.close').onclick=close
   wrap.onclick=e=>{if(e.target===wrap)close()}
-  wrap.addEventListener('keydown',e=>{if(e.key==='Escape')close()})
+  wrap.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.stopPropagation();close()}
+    if(e.key==='Tab'){
+      const nodes=[...wrap.querySelectorAll('button,input,select,textarea,a[href],iframe,[tabindex="0"]')].filter(n=>!n.disabled&&n.getClientRects().length)
+      const first=nodes[0],last=nodes[nodes.length-1]
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
+    }
+  })
   document.body.appendChild(wrap)
   setTimeout(()=>wrap.querySelector('.close')?.focus({preventScroll:true}),20)
   return wrap
@@ -1568,7 +1576,9 @@ async function setAmbientEnabled(enabled){
   refreshMediaPlayerUI()
 }
 
+let musicCollectionRequest=0
 async function loadMusicCollections(query='',{append=false}={}){
+  const requestId=++musicCollectionRequest
   const safeQuery=String(query||'').trim()
   const sameQuery=mediaPlayerState.musicQuery===safeQuery
   const offset=append&&sameQuery?mediaPlayerState.musicCollectionOffset:0
@@ -1580,6 +1590,7 @@ async function loadMusicCollections(query='',{append=false}={}){
     nonce:String(Date.now())
   })
   const data=await fetchApi(`/api/open-music?${params.toString()}`,{cache:'no-store'})
+  if(requestId!==musicCollectionRequest)return mediaPlayerState.musicCollections
   const incoming=Array.isArray(data.items)?data.items:[]
   if(append&&sameQuery){
     const seen=new Set(mediaPlayerState.musicCollections.map(item=>item.id))
@@ -1624,7 +1635,7 @@ function renderMusicCollections(box){
   target.querySelectorAll('[data-collection-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.musicCollections[Number(button.dataset.collectionIndex)]
     if(!item) return
-    await openMusicCollection(item,box)
+    try{await openMusicCollection(item,box)}catch(error){target.innerHTML=`<p role="alert">${esc(error.message)}</p><button class="btn" id="retryCollections">Back to albums & playlists</button>`;target.querySelector('#retryCollections').onclick=()=>renderMusicCollections(box)}
   })
 }
 
@@ -1633,9 +1644,8 @@ async function openMusicCollection(collection,box){
   const count=box.querySelector('#audioLibraryCount')
   if(!target) return
   target.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Opening collection...</div>'
-  const response=await fetch(`/api/open-music?mode=collection_tracks&id=${encodeURIComponent(collection.collectionId)}&limit=100`,{cache:'no-store'})
-  const data=await response.json()
-  if(!response.ok) throw new Error(data?.error||'Could not open this collection')
+  const data=await fetchApi(`/api/open-music?mode=collection_tracks&id=${encodeURIComponent(collection.collectionId)}&limit=100`,{cache:'no-store'})
+  if(!box.isConnected)return
   mediaPlayerState.activeCollection=collection
   mediaPlayerState.library=Array.isArray(data.items)?data.items:[]
   mediaPlayerState.mode='music'
@@ -1653,7 +1663,7 @@ async function openMusicCollection(collection,box){
   target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
     await selectMediaTrack(item,true)
-    openMusicCollection(collection,box).catch(()=>{})
+    target.querySelectorAll('[data-audio-index]').forEach(row=>{row.classList.toggle('selected',row===button);row.querySelector('.audio-card-play').textContent=row===button&&!mediaAudio()?.paused?'Playing':'Play'})
   })
 }
 
@@ -1729,9 +1739,8 @@ async function openSoundscapePicker(){
 
   let countries=[]
   let languages=[]
-  try{
-    [countries,languages]=await Promise.all([loadRadioCountries(),loadRadioLanguages()])
-  }catch{}
+  // Directory metadata must not block opening the audio controls.
+  const directoryPromise=Promise.allSettled([loadRadioCountries(),loadRadioLanguages()])
 
   const preferredLanguages=[
     'English','Tamil','Malayalam','Hindi','Telugu','Kannada','Marathi','Bengali','Punjabi','Gujarati',
@@ -1751,12 +1760,14 @@ async function openSoundscapePicker(){
 
   const countryOptions=[
     '<option value="">Worldwide</option>',
+    ...(mediaPlayerState.radioCountry?[`<option value="${esc(mediaPlayerState.radioCountry)}" selected>${esc(mediaPlayerState.radioCountry)}</option>`]:[]),
     ...countries.map(country=>`<option value="${esc(country.code)}" ${mediaPlayerState.radioCountry===country.code?'selected':''}>${esc(country.name)} · ${Number(country.stationcount||0).toLocaleString()} stations</option>`)
   ].join('')
 
   const selectedLanguage=currentMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
   const languageOptions=[
     '<option value="">All languages</option>',
+    ...(selectedLanguage?[`<option value="${esc(selectedLanguage)}" selected>${esc(selectedLanguage)}</option>`]:[]),
     ...languageRows.map(language=>`<option value="${esc(language.name)}" ${selectedLanguage.toLowerCase()===String(language.name||'').toLowerCase()?'selected':''}>${esc(language.name)} · ${Number(language.stationcount||0).toLocaleString()}</option>`)
   ].join('')
 
@@ -1858,6 +1869,7 @@ async function openSoundscapePicker(){
       </div>
 
       <section class="audio-mode-panel ${currentMode==='music'?'active':''}" data-audio-panel="music">
+        <button class="btn primary" id="worldSongFinder">Find artists, movie songs, albums & playlists</button>
         <div class="audio-section-intro">
           <div><span class="eyebrow">Open catalog</span><strong>Tracks, albums and playlists.</strong><small>Stream full tracks and browse open Audius albums/playlists, with Wikimedia Commons as an open-recording source.</small></div>
           <span class="source-pill">Audius + Commons</span>
@@ -1998,6 +2010,23 @@ async function openSoundscapePicker(){
     </div>
   `)
 
+  directoryPromise.then(rows=>{
+    if(!box.isConnected) return
+    const countryRows=rows[0].status==='fulfilled'?rows[0].value:[]
+    const languageRows=rows[1].status==='fulfilled'?rows[1].value:[]
+    for(const id of ['radioCountry','devotionalCountry']){
+      const select=box.querySelector('#'+id);if(!select)continue
+      const selected=mediaPlayerState.radioCountry||''
+      countryRows.forEach(row=>{const old=[...select.options].find(o=>o.value===row.code);if(old)old.textContent=row.name;else select.add(new Option(row.name+' · '+Number(row.stationcount||0).toLocaleString()+' stations',row.code))})
+      select.value=selected
+    }
+    for(const id of ['radioLanguage','devotionalLanguage']){
+      const select=box.querySelector('#'+id);if(!select)continue
+      const selected=id==='radioLanguage'?mediaPlayerState.radioLanguage:mediaPlayerState.devotionalLanguage
+      languageRows.forEach(row=>{if(![...select.options].some(o=>o.value===row.name))select.add(new Option(row.name,row.name))})
+      select.value=selected||''
+    }
+  }).catch(()=>{})
   box.classList.add('audio-hub-backdrop')
   box.querySelector('.modal')?.classList.add('audio-hub-modal')
   const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
@@ -2096,7 +2125,9 @@ async function openSoundscapePicker(){
     })
   }
 
+  let panelRequest=0
   const runLoad=async(mode,{append=false}={})=>{
+    const requestId=++panelRequest
     const results=box.querySelector('#audioLibraryResults')
     if(!append) results.innerHTML='<div class="audio-loading"><span></span><span></span><span></span>Finding the best available audio...</div>'
     discoverMore.disabled=true
@@ -2158,14 +2189,17 @@ async function openSoundscapePicker(){
         await loadMediaLibrary('nature',query,100,{preserveCurrent:true})
       }
 
+      if(requestId!==panelRequest||!box.isConnected)return
       setMode(mode)
       if(mode==='music'&&mediaPlayerState.musicBrowseKind==='collections') renderMusicCollections(box)
       else renderAudioLibraryResults(box)
       if(append) results.scrollTop=results.scrollHeight
     }catch(error){
+      if(requestId!==panelRequest||!box.isConnected)return
       if(!append) results.innerHTML=`<div class="empty compact-empty"><strong>Audio is temporarily unavailable</strong>${esc(error.message)}</div>`
       else toast('Could not load another batch just now')
     }finally{
+      if(requestId!==panelRequest||!box.isConnected)return
       const modeNow=activeMode()
       discoverMore.disabled=modeNow==='music'
         ?(mediaPlayerState.musicBrowseKind==='collections'?!mediaPlayerState.musicCollectionHasMore:!mediaPlayerState.musicHasMore)
@@ -2193,6 +2227,7 @@ async function openSoundscapePicker(){
     localStore.setItem('memora-music-browse-kind',mediaPlayerState.musicBrowseKind)
     await runLoad('music')
   })
+  box.querySelector('#worldSongFinder').onclick=()=>openMusicFinder(box.querySelector('#musicSearch').value)
   box.querySelector('#musicSearchButton').onclick=()=>runLoad('music')
   box.querySelector('#musicSearch').onkeydown=e=>{if(e.key==='Enter') runLoad('music')}
   box.querySelectorAll('[data-music-sort]').forEach(button=>button.onclick=async()=>{
@@ -2393,6 +2428,14 @@ async function getAuthProviderSettings(force=false){
   }
 }
 
+function providerIcon(provider){
+  const svg=body=>`<svg class="provider-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${body}</svg>`
+  if(provider==='google')return svg('<path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.07v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.41 13.92A6 6 0 0 1 6.1 12c0-.67.11-1.32.31-1.92V7.49H3.07A10 10 0 0 0 2 12c0 1.61.39 3.14 1.07 4.51l3.34-2.59Z"/><path fill="#EA4335" d="M12 5.96c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.93 5.49l3.34 2.59C7.2 7.72 9.4 5.96 12 5.96Z"/>')
+  if(provider==='facebook')return svg('<circle cx="12" cy="12" r="12" fill="#0866FF"/><path fill="white" d="M13.7 24v-9.3h3.1l.5-3.6h-3.6V8.8c0-1 .3-1.8 1.8-1.8h1.9V3.8c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.9v2.5H6.8v3.6h3.1V24Z"/>')
+  if(provider==='azure')return svg('<path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#7fba00" d="M13 1h10v10H13z"/><path fill="#00a4ef" d="M1 13h10v10H1z"/><path fill="#ffb900" d="M13 13h10v10H13z"/>')
+  return ''
+}
+
 function providerLabel(provider){
   return ({google:'Google',facebook:'Facebook',azure:'Microsoft',apple:'Apple',github:'GitHub'})[provider]||provider
 }
@@ -2446,7 +2489,7 @@ async function authScreen(mode='login'){
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
     if(!enabled) return ''
-    return `<button class="social ${enabled?'':'provider-disabled'}" ${enabled?`data-oauth="${provider}"`:`data-provider-setup="${provider}"`}>${enabled?`Continue with ${label}`:`${label} setup required`}</button>`
+    return `<button class="social ${enabled?'':'provider-disabled'}" ${enabled?`data-oauth="${provider}"`:`data-provider-setup="${provider}"`}>${providerIcon(provider)}${enabled?`Continue with ${label}`:`${label} setup required`}</button>`
   }
 
   app.innerHTML=`
@@ -2498,7 +2541,7 @@ async function authScreen(mode='login'){
     if(!socialGrid.isConnected) return
     socialGrid.innerHTML=['google','apple','facebook','azure','github']
       .filter(provider=>settings[provider])
-      .map(provider=>`<button class="social" data-oauth="${provider}">Continue with ${providerLabel(provider)}</button>`).join('')
+      .map(provider=>`<button class="social" data-oauth="${provider}">${providerIcon(provider)}Continue with ${providerLabel(provider)}</button>`).join('')
     socialGrid.hidden=!socialGrid.children.length
     socialDivider.hidden=socialGrid.hidden
     socialGrid.querySelectorAll('[data-oauth]').forEach(button=>button.onclick=()=>{
@@ -2599,6 +2642,62 @@ function shell(content,title,subtitle=''){
   </div>`
 }
 
+function memorySearchSnippet(item){
+  const title=String(item.summary||item.title||'').trim()
+  let text=String(item.original_text||'').split(/\s*\{["\s]/)[0].replace(/\s+/g,' ').trim()
+  if(title&&text.startsWith(title)) text=text.slice(title.length).trim()
+  if(title&&text.startsWith(title)) text=text.slice(title.length).trim()
+  return (text||title).slice(0,400)+(text.length>400?'…':'')
+}
+
+function youtubeTarget(value){
+  try{
+    const u=new URL(value), host=u.hostname.toLowerCase()
+    if(u.protocol!=='https:'||u.username||u.password||u.port) return null
+    if(!['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtube-nocookie.com'].includes(host)) return null
+    const id=host==='youtu.be'?u.pathname.slice(1):u.searchParams.get('v')||u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)$/)?.[1]
+    const list=u.searchParams.get('list')
+    if(id&&/^[A-Za-z0-9_-]{11}$/.test(id)) return {embed:'https://www.youtube-nocookie.com/embed/'+id,source:'https://www.youtube.com/watch?v='+id}
+    if(list&&/^[A-Za-z0-9_-]{10,100}$/.test(list)) return {embed:'https://www.youtube-nocookie.com/embed/videoseries?list='+encodeURIComponent(list),source:'https://www.youtube.com/playlist?list='+encodeURIComponent(list)}
+  }catch{}
+  return null
+}
+
+function openMusicFinder(initial=''){
+  const box=modal('Find songs worldwide',`
+    <p class="muted">Find songs, artists, movie soundtracks, albums and playlists on YouTube. Choose official artist or label uploads. Availability, ads and regional restrictions depend on YouTube.</p>
+    <form class="global-search-form" id="songFinderForm">
+      <label for="songFinderQuery">Song, artist or movie name</label><input class="input" id="songFinderQuery" value="${esc(initial)}" placeholder="Akon, SPB, Anirudh, movie or song name" maxlength="200" required>
+      <label for="songFinderKind">Find</label><select class="input" id="songFinderKind"><option value="song">Songs</option><option value="artist">Artists</option><option value="movie">Movie soundtracks</option><option value="album">Albums</option><option value="playlist">Playlists</option></select>
+      <button class="btn primary" type="submit">Find on YouTube</button>
+    </form>
+    <div class="search-external" id="songFinderLinks"></div>
+    <div class="music-artist-examples">${['Akon','S. P. Balasubrahmanyam','Anirudh Ravichander','A. R. Rahman'].map(name=>`<button class="chip" data-find-artist="${esc(name)}">${esc(name)}</button>`).join('')}</div>
+    <p class="small muted">Search opens YouTube in a new tab. To play an embeddable video or playlist here, paste its YouTube link below. Some videos can only play on YouTube.</p>
+    <form class="global-search-form" id="youtubeLinkForm"><label for="youtubeLink">YouTube video or playlist link</label><input class="input" id="youtubeLink" type="url" placeholder="https://www.youtube.com/watch?v=…" required><button class="btn" type="submit">Open player</button></form>
+    <p role="status" id="youtubeLinkStatus"></p><div id="youtubePlayerSlot"></div>`)
+  const query=box.querySelector('#songFinderQuery'),kind=box.querySelector('#songFinderKind'),links=box.querySelector('#songFinderLinks')
+  const update=()=>{
+    const term=query.value.trim();links.replaceChildren();if(!term)return
+    const expanded=/^spb$/i.test(term)?'S. P. Balasubrahmanyam':term
+    const suffix={song:'official song',artist:'official songs',movie:'movie soundtrack songs',album:'full album',playlist:'songs playlist'}[kind.value]
+    const a=document.createElement('a');a.className='btn primary';a.target='_blank';a.rel='noopener noreferrer';a.href='https://www.youtube.com/results?'+new URLSearchParams({search_query:expanded+' '+suffix});a.textContent='Open YouTube results ↗';links.append(a)
+  }
+  box.querySelector('#songFinderForm').onsubmit=e=>{e.preventDefault();update();links.querySelector('a')?.click()}
+  query.oninput=update;kind.onchange=update
+  box.querySelectorAll('[data-find-artist]').forEach(b=>b.onclick=()=>{query.value=b.dataset.findArtist;kind.value='artist';update()})
+  box.querySelector('#youtubeLinkForm').onsubmit=e=>{
+    e.preventDefault();const target=youtubeTarget(box.querySelector('#youtubeLink').value.trim()),status=box.querySelector('#youtubeLinkStatus')
+    if(!target){status.textContent='Enter a valid HTTPS YouTube video or playlist link.';return}
+    mediaAudio()?.pause();stopAmbient()
+    const slot=box.querySelector('#youtubePlayerSlot');slot.replaceChildren()
+    const frame=document.createElement('iframe');frame.src=target.embed;frame.title='YouTube music player';frame.className='youtube-music-player';frame.allow='encrypted-media; picture-in-picture; fullscreen';frame.allowFullscreen=true;frame.referrerPolicy='strict-origin-when-cross-origin';slot.append(frame)
+    const a=document.createElement('a');a.href=target.source;a.target='_blank';a.rel='noopener noreferrer';a.className='btn';a.textContent='Watch on YouTube ↗';slot.append(a)
+    status.textContent='Press Play in the video. If embedding is restricted, use Watch on YouTube.'
+  }
+  update()
+}
+
 function openGlobalSearch(){
   const wrap=modal('Search',`
     <form class="global-search-form">
@@ -2610,7 +2709,9 @@ function openGlobalSearch(){
     </form>
     <p class="small muted" id="globalSearchNote">Search your saved information privately. Public searches run only when you choose Music or The web.</p>
     <p role="status" aria-live="polite" id="globalSearchStatus"></p>
+    <button class="btn" id="globalMusicFinder">Find artists, movie songs, albums & playlists</button>
     <div class="global-search-results"></div>`)
+  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder()
   const scope=wrap.querySelector('select'), input=wrap.querySelector('input')
   const results=wrap.querySelector('.global-search-results'), status=wrap.querySelector('[role="status"]')
   let request=0
@@ -2631,8 +2732,8 @@ function openGlobalSearch(){
       status.textContent=items.length?`${items.length} results`:'No matching results. Try another title or keyword.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
-        const title=document.createElement('strong');title.textContent=item.title||item.summary||'Saved memory';card.append(title)
-        const detail=document.createElement('p');detail.textContent=mode==='music'?[item.artist,item.source,item.license].filter(Boolean).join(' · '):item.original_text||'';card.append(detail)
+        const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
+        const detail=document.createElement('p');detail.textContent=mode==='music'?[item.artist,item.source,item.license].filter(Boolean).join(' · '):memorySearchSnippet(item);card.append(detail)
         if(mode==='music'&&item.url){
           const play=document.createElement('button');play.className='btn';play.textContent='Play'
           play.onclick=async()=>{mediaPlayerState.library=items;mediaPlayerState.query=query;await selectMediaTrack(item,true);status.textContent=ambientPreferences.enabled?`Selected ${item.title}`:'Track selected. Turn on Audio to listen.'}
