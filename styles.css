@@ -1884,3 +1884,5 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .now-playing-art{width:min(180px,30dvh)}
   .now-playing-copy h3{font-size:22px}
 }
+
+.auth-card .social-grid[hidden], .auth-card .divider[hidden] { display: none !important; }

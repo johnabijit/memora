@@ -37,7 +37,7 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
       return chain
     }
   })
-  w.eval(runtime+'\n'+source+`\nwindow.testApi={answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval(runtime+'\n'+source+`\nwindow.testApi={answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -145,5 +145,15 @@ test('previous and next controls move through the selected queue',async()=>{
     assert.equal(w.memoraReady,true)
     assert.ok(w.document.getElementById('authForm'))
     assert.equal(w.document.getElementById('authForm').querySelector('[type="submit"]').disabled,false)
+  }finally{dom.window.close()}
+})
+
+test('unavailable AI cannot turn a general request into an unrelated memory answer',async()=>{
+  const {dom,api}=await appFixture()
+  try{
+    const result=await api.answer('Reply with one short sentence confirming you can respond. This is a deployment test.')
+    assert.equal(result.source,'AI connection unavailable')
+    assert.match(result.text,/provider connection in Sources/)
+    assert.doesNotMatch(result.text,/I found this relevant memory/)
   }finally{dom.window.close()}
 })

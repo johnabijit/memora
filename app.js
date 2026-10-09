@@ -4170,10 +4170,13 @@ async function answer(question){
     console.warn('Structured memory lookup failed',error)
   }
 
+  let aiUnavailable=false
   try{
     const aiAnswer=await aiReasonedAnswer(rawQ)
     if(aiAnswer) return {...aiAnswer,text:cleanAnswerText(aiAnswer.text)}
+    aiUnavailable=true
   }catch(error){
+    aiUnavailable=true
     console.warn('Memora AI error, using local memory engine',error)
   }
 
@@ -4334,6 +4337,11 @@ async function answer(question){
     const relevant=data.filter(result=>resultRelevant(match[1],result))
     if(!relevant.length) return {text:"I don't have a relevant memory about that yet."}
     return {text:`The most recent relevant memory is: “${cleanAnswerText(relevant[0].summary||relevant[0].original_text)}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
+  }
+
+  if(aiUnavailable) return {
+    text:'AI reasoning is currently unavailable. Check your AI provider connection in Sources and try again. You can still ask for specific saved details, such as your manager or an item’s location.',
+    source:'AI connection unavailable'
   }
 
   const data=await smartMemorySearch(q,8)
