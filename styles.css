@@ -1886,3 +1886,19 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
 }
 
 .auth-card .social-grid[hidden], .auth-card .divider[hidden] { display: none !important; }
+
+/* Keep audio controls and results in one scroll area at every viewport size. */
+.audio-hub-modal > .audio-hub {
+  grid-auto-rows: max-content;
+  align-content: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding-bottom: 16px;
+}
+.audio-hub .audio-library-results {
+  max-height: none;
+  overflow: visible;
+}
+.audio-hub .audio-library-toolbar { position: static; }
+.audio-hub .audio-mode-tabs.four { top: 0; }
