@@ -202,8 +202,9 @@ test('changing search scope discards pending music results',async()=>{
 test('memory search snippets omit extraction JSON and stay readable',async()=>{
   const {dom,api}=await appFixture()
   try{
-    assert.equal(api.memorySearchSnippet({summary:'Saved note',original_text:'Saved note Saved note {"image_text":"raw OCR"} raw OCR'}),'Saved note')
+    assert.equal(api.memorySearchSnippet({summary:'Saved note',original_text:'Saved note Saved note {"image_text":"raw OCR"} raw OCR'}),'')
     assert.ok(api.memorySearchSnippet({original_text:'x'.repeat(500)}).length<=401)
+    assert.equal(api.memorySearchSnippet({summary:'Note',original_text:'Note Note {}'}),'')
   }finally{dom.window.close()}
 })
 

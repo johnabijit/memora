@@ -2644,10 +2644,10 @@ function shell(content,title,subtitle=''){
 
 function memorySearchSnippet(item){
   const title=String(item.summary||item.title||'').trim()
-  let text=String(item.original_text||'').split(/\s*\{["\s]/)[0].replace(/\s+/g,' ').trim()
+  let text=String(item.original_text||'').split(/\s*\{(?=["\s}])/)[0].replace(/\s+/g,' ').trim()
   if(title&&text.startsWith(title)) text=text.slice(title.length).trim()
   if(title&&text.startsWith(title)) text=text.slice(title.length).trim()
-  return (text||title).slice(0,400)+(text.length>400?'…':'')
+  return text.slice(0,400)+(text.length>400?'…':'')
 }
 
 function youtubeTarget(value){
@@ -4830,14 +4830,14 @@ async function vault(){
   ])
   app.innerHTML=shell(`
     <div class="vault-grid">
-      <div class="glass vault-card" data-vault="people"><div class="vault-icon">◎</div><h3>People</h3><p>Names, relationships and encounters recognized from memories.</p><div class="memory-meta">${peopleCount||0} people</div></div>
-      <div class="glass vault-card" data-vault="places"><div class="vault-icon">⌖</div><h3>Places</h3><p>Homes, cafes, cities and locations connected to your story.</p><div class="memory-meta">${placeCount||0} places</div></div>
-      <div class="glass vault-card" data-vault="things"><div class="vault-icon">◇</div><h3>Things</h3><p>Keys, documents, jewellery and anything whose location matters.</p><div class="memory-meta">${thingCount||0} things</div></div>
-      <div class="glass vault-card" data-vault="documents"><div class="vault-icon">▣</div><h3>Documents</h3><p>Files, policies, receipts and records you asked Memora to keep.</p><div class="memory-meta">${docCount||0} files</div></div>
+      <div class="glass vault-card" role="button" tabindex="0" data-vault="people"><div class="vault-icon">◎</div><h3>People</h3><p>Names, relationships and encounters recognized from memories.</p><div class="memory-meta">${peopleCount||0} people</div></div>
+      <div class="glass vault-card" role="button" tabindex="0" data-vault="places"><div class="vault-icon">⌖</div><h3>Places</h3><p>Homes, cafes, cities and locations connected to your story.</p><div class="memory-meta">${placeCount||0} places</div></div>
+      <div class="glass vault-card" role="button" tabindex="0" data-vault="things"><div class="vault-icon">◇</div><h3>Things</h3><p>Keys, documents, jewellery and anything whose location matters.</p><div class="memory-meta">${thingCount||0} things</div></div>
+      <div class="glass vault-card" role="button" tabindex="0" data-vault="documents"><div class="vault-icon">▣</div><h3>Documents</h3><p>Files, policies, receipts and records you asked Memora to keep.</p><div class="memory-meta">${docCount||0} files</div></div>
     </div>
   `,'Vault','People, places, things and documents without cluttering the main navigation.')
   wire()
-  document.querySelectorAll('[data-vault]').forEach(card=>card.onclick=()=>go(card.dataset.vault))
+  document.querySelectorAll('[data-vault]').forEach(card=>{card.onclick=()=>go(card.dataset.vault);card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();card.click()}}})
 }
 
 async function people(){
