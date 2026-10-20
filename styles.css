@@ -2230,3 +2230,13 @@ body.has-memora-player .ask-main{height:clamp(320px,calc(100dvh - 355px),645px)}
 @media(max-width:760px){
  .memora-player .player-actions{grid-column:3;grid-row:1}
 }
+
+
+/* Users decide whether typed text is a memory or a question. */
+.composer-submit-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.composer-submit-group .btn{min-height:45px;white-space:nowrap;font-size:13px}
+.composer-submit-group #askFromMemoryInput{background:rgba(255,255,255,.065)}
+@media(max-width:760px){
+ .composer-submit-group{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}
+ .composer-submit-group .btn{min-width:0;padding:10px 7px}
+}
