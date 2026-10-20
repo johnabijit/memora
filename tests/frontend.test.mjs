@@ -32,6 +32,8 @@ async function appFixture({blockedStorage=false,slowProviders=false,phoneProvide
     rpc:async()=>({data:[{entity_id:'m1',title:'My saved guitar',content:'Stored in the music room',metadata:{}}]}),
     auth:{
       getSession:async()=>({data:{session:null}}),
+      getUser:async()=>({data:{user:{id:'fixture-user',phone:''}},error:null}),
+      updateUser:async()=>({data:{user:{id:'fixture-user'}},error:null}),
       onAuthStateChange:()=>({}),
       signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}}),
       signInWithPasskey:passkeyAvailable?async()=>({data:null,error:{code:'passkey_disabled',message:'Passkey authentication disabled'}}):undefined,
@@ -50,9 +52,10 @@ async function appFixture({blockedStorage=false,slowProviders=false,phoneProvide
     }
   })
   const phoneAuth=(await readFile('client/phone-auth.js','utf8')).replace(/^export /gm,'')
+  const phoneLink=(await readFile('client/phone-link.js','utf8')).replace(/^export /gm,'').replace(/^import .*\n/gm,'')
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
   const countries=(await readFile('client/phone-countries.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+countries+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+phoneLink+'\n'+countries+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,settings,openLinkPhoneModal,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -347,4 +350,22 @@ test('passkey login invokes secure Supabase challenge and reports disabled servi
 test('passkey option is hidden when browser or native WebView lacks WebAuthn',async()=>{
   const {dom,w}=await appFixture()
   try{assert.equal(w.document.getElementById('passkeyLogin'),null)}finally{dom.window.close()}
+})
+
+
+test('profile offers link mobile to existing signed-in account without false SMS promises',async()=>{
+  const {dom,w,api}=await appFixture({phoneProviderEnabled:false})
+  try{
+    api.setUser()
+    await api.settings()
+    const button=w.document.getElementById('linkMobileNumber')
+    assert.ok(button)
+    assert.match(w.document.getElementById('linkedPhoneState').textContent,/Not linked/)
+    button.click()
+    await new Promise(resolve=>setTimeout(resolve,35))
+    assert.ok(w.document.getElementById('linkPhoneStart'))
+    assert.equal(w.document.getElementById('linkPhoneVerify').hidden,true)
+    assert.equal(w.document.getElementById('linkPhoneSend').disabled,true)
+    assert.match(w.document.getElementById('linkPhoneStatus').textContent,/SMS delivery is not configured/i)
+  }finally{dom.window.close()}
 })
