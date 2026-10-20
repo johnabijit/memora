@@ -331,7 +331,8 @@ function applyVisualWorld(world){
   root.dataset.visualStyle=world.style
   const [c1,c2,c3]=world.palette
   const [bg0,bg1,bg2]=world.bg
-  applyTheme({c1,c2,c3,bg0,bg1,bg2},world.name)
+  const light=root.dataset.appearance==='light'
+  applyTheme(light?{c1,c2,c3,bg0:'#f2f6fb',bg1:'#e8f0f8',bg2:'#dce8f4'}:{c1,c2,c3,bg0,bg1,bg2},world.name)
   if(root.dataset.audioPlaying!=='true')loadSceneBackdrop(world.scene)
 }
 
@@ -3193,7 +3194,7 @@ function openGlobalSearch(initial=''){
     }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
   }
   setCategory()
-  if(initial){input.value=initial;scope.value=inferGlobalSearchScope(initial);setCategory()}
+  if(initial){input.value=initial;scope.value=inferGlobalSearchScope(initial);setCategory();queueMicrotask(()=>{if(wrap.isConnected)wrap.querySelector('form')?.requestSubmit()})}
   setTimeout(()=>input.focus(),30)
 }
 
@@ -4943,6 +4944,12 @@ function directConversationReply(question){
 
 async function answer(question){
   const rawQ=question.trim()
+  const singleTopic=normalizeQuestion(rawQ).toLowerCase().replace(/[?.!]+$/,'').trim()
+  if(/^(?:my )?(?:wedding|marriage|reception|engagement|birthday)(?: memories)?$/.test(singleTopic)){
+    const matches=await smartMemorySearch(singleTopic,80)
+    const ordered=matches.filter(item=>!item.entity_type||item.entity_type==='memory').sort((a,b)=>new Date(b.occurred_at||b.created_at||0)-new Date(a.occurred_at||a.created_at||0))
+    if(ordered.length)return {text:'I found '+ordered.length+' relevant memories, newest first:\n'+ordered.map((item,i)=>`${i+1}. ${shortDate(item.occurred_at||item.created_at)}: ${cleanAnswerText(item.summary||item.original_text).slice(0,230)}`).join('\n'),source:'Saved memories in date order'}
+  }
   const direct=directConversationReply(rawQ)
   if(direct) return {text:direct,source:'Memora conversation'}
 
