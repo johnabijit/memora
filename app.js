@@ -51,18 +51,19 @@ let experiencePreferences={
   contextualScenery:true
 }
 let latestMood=null
+let moodActionSequence=0
 let sceneBackdropState={query:'',url:'',sourcePage:'',artist:'',license:'',loading:false}
 
 const moodCatalog={
   great:{label:'Great',audio:{mode:'music',query:'uplifting happy'}},
   happy:{label:'Happy',audio:{mode:'music',query:'feel good uplifting'}},
-  calm:{label:'Calm',audio:{mode:'nature',query:'ocean'}},
+  calm:{label:'Calm',audio:{mode:'nature',queries:['gentle ocean','forest birds','river stream','meditation instrumental','soft wind','rainforest']}},
   okay:{label:'Okay',audio:{mode:'music',query:'easy listening'}},
-  low:{label:'Low',audio:{mode:'nature',query:'gentle rain'}},
+  low:{label:'Low',audio:{mode:'nature',queries:['gentle rain','forest birds','ocean waves','relaxing instrumental']}},
   sad:{label:'Sad',audio:{mode:'nature',query:'forest'}},
-  stressed:{label:'Stressed',audio:{mode:'nature',query:'rain'}},
-  anxious:{label:'Anxious',audio:{mode:'nature',query:'ocean'}},
-  tired:{label:'Tired',audio:{mode:'nature',query:'night'}},
+  stressed:{label:'Stressed',audio:{mode:'nature',queries:['forest','river','ocean','wind','meditation']}},
+  anxious:{label:'Anxious',audio:{mode:'nature',queries:['ocean waves','forest birds','soft rain','gentle river']}},
+  tired:{label:'Tired',audio:{mode:'nature',queries:['night nature','soft rain','calm ocean','ambient sleep']}},
   focused:{label:'Focused',audio:{mode:'music',query:'focus instrumental'}},
   prayerful:{label:'Prayerful',audio:{mode:'devotional',query:'',tradition:'all_faiths'}},
   grateful:{label:'Grateful',audio:{mode:'music',query:'peaceful uplifting'}}
@@ -193,6 +194,99 @@ const visualWorlds=[
   {id:'old-library',name:'Old Library',group:'Editorial',scene:'cozy vintage library warm wooden shelves lamplight',style:'library',palette:['#eac58c','#cfb89a','#c0d3b1'],bg:['#271c17','#423025','#5e4938']},
   {id:'rainy-cafe',name:'Rainy Cafe',group:'Editorial',scene:'rainy cozy cafe window warm lights cinematic',style:'cafe',palette:['#efc5a0','#b2d0d8','#f2cf9a'],bg:['#1d2429','#343b3c','#504840']}
 ]
+const worldSubjects=[
+  ['wildlife','Wildlife','Nature',95,'wild animals in their natural habitat'],
+  ['birds','Bird Sanctuary','Nature',170,'colorful wild birds in nature'],
+  ['whales','Whales','Nature',201,'whales under ocean surface'],
+  ['dolphins','Dolphins','Nature',188,'dolphins ocean'],
+  ['coral','Coral Reef','Nature',190,'colorful coral reefs tropical fish'],
+  ['jellyfish','Jellyfish','Nature',239,'bioluminescent jellyfish underwater'],
+  ['sea','Deep Sea','Nature',221,'ocean deep underwater photography'],
+  ['river','Rivers','Nature',180,'river forest valley'],
+  ['waterfall','Waterfalls','Nature',168,'waterfall tropical rainforest'],
+  ['lake','Mirror Lakes','Nature',205,'mountain lake reflections'],
+  ['cliffs','Coastal Cliffs','Nature',198,'sea cliffs dramatic coastline'],
+  ['islands','Tropical Islands','Nature',171,'island lagoon palm trees'],
+  ['desert','Desert Horizons','Nature',32,'Sahara sand dunes'],
+  ['canyon','Canyons','Nature',24,'red rock canyon landscape'],
+  ['volcano','Volcanoes','Nature',8,'volcanic landscape lava'],
+  ['mountains','Mountain Peaks','Nature',221,'high mountain peaks Himalayas'],
+  ['rainforest','Rainforests','Nature',142,'lush tropical jungle'],
+  ['bamboo','Bamboo Forest','Nature',133,'bamboo green forest'],
+  ['flowers','Flowers','Nature',327,'wildflower meadow botanical photograph'],
+  ['gardens','Gardens','Nature',104,'flower garden pathways'],
+  ['butterflies','Butterflies','Nature',292,'butterfly macro photography'],
+  ['tigers','Big Cats','Nature',38,'tiger leopard lion wildlife photograph'],
+  ['horses','Horses','Nature',24,'horses running through meadow'],
+  ['penguins','Polar Wildlife','Nature',198,'penguins antarctica nature photograph'],
+  ['aurora','Polar Skies','Seasons',179,'northern lights aurora snowy mountain'],
+  ['snow','Snowfall','Seasons',208,'snow falling pine forest'],
+  ['spring','Spring Blossoms','Seasons',338,'spring blossoms cherry tree landscape'],
+  ['autumn','Autumn Trails','Seasons',25,'autumn forest colorful leaves'],
+  ['clouds','Cloudscape','Seasons',210,'soft clouds sunlight aerial sky'],
+  ['rain','Rain Windows','Seasons',217,'rain drops on glass window'],
+  ['stars','Starry Night','Space',238,'night sky long exposure stars'],
+  ['planets','Planets','Space',256,'space planet illustration'],
+  ['galaxy','Galaxies','Space',263,'galaxy astronomy photo'],
+  ['aliens','Alien Worlds','Space',122,'otherworldly alien planet landscape concept art'],
+  ['nebulas','Nebulas','Space',283,'nebula colorful space telescope image'],
+  ['astronaut','Astronaut','Space',218,'astronaut outer space photography'],
+  ['cyberpunk','Cyberpunk Streets','Creative',313,'cyberpunk futuristic city street'],
+  ['cartoon','Cartoon Stories','Creative',48,'original whimsical cartoon illustrated landscape'],
+  ['anime','Anime Landscapes','Creative',224,'hand drawn anime inspired countryside painting'],
+  ['comic','Comic Panels','Creative',10,'bold comic book pop art illustration'],
+  ['pixel','Pixel Art','Creative',274,'retro pixel art game landscape'],
+  ['graffiti','Street Art','Creative',12,'colorful graffiti wall street art'],
+  ['geometric','Geometric Art','Creative',191,'geometric abstract architecture'],
+  ['abstract','Abstract Painting','Creative',305,'modern original abstract paintings'],
+  ['ink','Ink and Paper','Creative',198,'black ink wash painting landscape'],
+  ['watercolor','Watercolors','Creative',183,'watercolor floral landscape painting'],
+  ['vinyl','Vinyl Music','Music',38,'vinyl record player music photograph'],
+  ['piano','Piano Room','Music',212,'grand piano concert hall'],
+  ['guitar','Guitars','Music',34,'acoustic guitar photography'],
+  ['concert','Concert Lights','Music',292,'concert stage lights crowd'],
+  ['jazz','Jazz Lounge','Music',35,'jazz club saxophone music'],
+  ['classical','Classical Hall','Music',27,'orchestra opera hall instruments'],
+  ['architecture','Architecture','Places',35,'beautiful architecture building photograph'],
+  ['libraries','Libraries','Places',29,'grand old library architecture'],
+  ['castles','Castles','Places',211,'historic medieval castle landscape'],
+  ['temples','Temples','Places',37,'historical temple architecture'],
+  ['cities','Cityscapes','Places',230,'panoramic city skyline'],
+  ['villages','Village Streets','Places',94,'beautiful village street photography'],
+  ['markets','Markets','Places',27,'traditional colorful market photography'],
+  ['trains','Rail Journeys','Places',203,'scenic train journey mountains'],
+  ['aircraft','Aviation','Places',208,'commercial airplanes sky photography'],
+  ['boats','Boats','Places',187,'sailboats turquoise water'],
+  ['sports','Sports','People',23,'stadium sports action photograph'],
+  ['portraits','Portrait Stories','People',338,'artistic portrait photography'],
+  ['dance','Dance','People',312,'stage dance silhouette'],
+  ['festivals','World Festivals','People',31,'cultural festival lights procession'],
+  ['spacecraft','Future Tech','Modern',201,'futuristic spaceship concept art'],
+  ['minimal','Minimal Spaces','Minimal',206,'minimal clean interior design'],
+  ['paper','Paper and Linen','Minimal',35,'handmade paper textures stationery'],
+  ['retro','Vintage Film','Editorial',29,'vintage film photography city'],
+  ['fashion','Fashion Editorial','Editorial',335,'fashion photography studio'],
+  ['interiors','Interior Spaces','Editorial',25,'architectural interior photography'],
+  ['food','Food Stories','Editorial',20,'fine food photography'],
+  ['coffee','Coffee Culture','Editorial',28,'coffee cafe aesthetic']
+]
+const worldScenes=[
+  {id:'real',name:'Photography',suffix:'realistic award winning photo',style:'photo',light:false},
+  {id:'sunrise',name:'Golden Hour',suffix:'golden sunrise warm sunlight',style:'sunrise',light:true},
+  {id:'noir',name:'Midnight',suffix:'dramatic dark night atmospheric lighting',style:'noir',light:false},
+  {id:'illustrated',name:'Illustrated',suffix:'detailed artistic illustration',style:'illustrated',light:true}
+]
+for(const [id,name,group,h,scene] of worldSubjects){
+  for(const look of worldScenes){
+    const pale=look.light
+    const lighter=look.id==='illustrated'
+    const palette=[`hsl(${h} 75% ${pale?38:72}%)`,`hsl(${(h+57)%360} 68% ${pale?44:65}%)`,`hsl(${(h+128)%360} 73% ${pale?46:73}%)`]
+    const bg=pale?
+      [`hsl(${h} 30% ${lighter?91:82}%)`,`hsl(${h} 28% 85%)`,`hsl(${h} 25% 79%)`]:
+      [`hsl(${h} 26% 7%)`,`hsl(${h} 37% 13%)`,`hsl(${h} 30% 19%)`]
+    visualWorlds.push({id:`world-${id}-${look.id}`,name:`${name} · ${look.name}`,group,scene:`${scene} ${look.suffix}`,style:look.style,palette,bg})
+  }
+}
 const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
 const worldRegions=[
   ['auto','My current local time'],['IN','India'],['US','United States'],['GB','United Kingdom'],
@@ -238,7 +332,8 @@ function applyVisualWorld(world){
   root.dataset.visualStyle=world.style
   const [c1,c2,c3]=world.palette
   const [bg0,bg1,bg2]=world.bg
-  applyTheme({c1,c2,c3,bg0,bg1,bg2},world.name)
+  const light=root.dataset.appearance==='light'
+  applyTheme(light?{c1,c2,c3,bg0:'#f2f6fb',bg1:'#e8f0f8',bg2:'#dce8f4'}:{c1,c2,c3,bg0,bg1,bg2},world.name)
   if(root.dataset.audioPlaying!=='true')loadSceneBackdrop(world.scene)
 }
 
@@ -644,6 +739,7 @@ function detectMoodStatement(value){
 
 async function recordMood(mood,note='',source='chat'){
   if(!user||!experiencePreferences.moodCheckinsEnabled||!moodCatalog[mood]) return null
+  const action=++moodActionSequence
   const now=new Date().toISOString()
   const label=moodCatalog[mood].label
   const {data:memory,error:memoryError}=await supabase.from('memories').insert({
@@ -668,32 +764,40 @@ async function recordMood(mood,note='',source='chat'){
     created_at:now
   }).select().single()
   if(error) throw error
-  latestMood=data
-  maybeApplyContextScene(mood)
+  if(action===moodActionSequence){latestMood=data;maybeApplyContextScene(mood)}
   return data
 }
 
+let moodPlaybackRequest=0
+let previousMoodTrackId=null
 async function playForMood(mood){
+  const request=++moodPlaybackRequest
   const plan=moodCatalog[mood]?.audio||moodCatalog.calm.audio
-  mediaPlayerState.audioView=plan.mode
-  if(plan.mode==='devotional'){
-    mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
-    mediaPlayerState.devotionalQuery=plan.query||''
-    const items=await loadMediaLibrary('devotional',plan.query||'',100,{
-      preserveCurrent:false,
-      tradition:mediaPlayerState.devotionalTradition,
-      language:mediaPlayerState.devotionalLanguage,
-      countrycode:mediaPlayerState.radioCountry,
-      sort:'popular'
-    })
-    if(items?.length) await selectMediaTrack(items[0],true)
-  }else if(plan.mode==='music'){
-    const items=await loadMediaLibrary('music',plan.query||'',50,{preserveCurrent:false,sort:'relevant'})
-    if(items?.length) await selectMediaTrack(items[0],true)
-  }else{
-    const items=await loadMediaLibrary('nature',plan.query||'rain',100,{preserveCurrent:false})
-    if(items?.length) await selectMediaTrack(items[0],true)
+  const queries=plan.queries||[plan.query||'']
+  const randomQueries=[...queries].sort(()=>Math.random()-.5)
+  for(const query of randomQueries.slice(0,4)){
+    const mode=plan.mode
+    mediaPlayerState.audioView=mode
+    const options={preserveCurrent:false}
+    if(mode==='devotional'){
+      mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
+      mediaPlayerState.devotionalQuery=query
+      Object.assign(options,{tradition:mediaPlayerState.devotionalTradition,language:mediaPlayerState.devotionalLanguage,countrycode:mediaPlayerState.radioCountry,sort:'popular'})
+    }else if(mode==='music')options.sort='relevant'
+    let items=[]
+    try{items=await loadMediaLibrary(mode,query,mode==='music'?50:100,options)||[]}catch{}
+    if(request!==moodPlaybackRequest)return false
+    const available=items.filter(item=>item?.url&&item.id!==previousMoodTrackId)
+    const candidates=available.length?available:items.filter(item=>item?.url)
+    if(candidates.length){
+      const item=candidates[Math.floor(Math.random()*Math.min(candidates.length,20))]
+      await selectMediaTrack(item,true)
+      if(request!==moodPlaybackRequest)return false
+      previousMoodTrackId=item.id
+      return Boolean(mediaAudio()&&!mediaAudio().paused)
+    }
   }
+  return false
 }
 
 async function playMemoryMix(){
@@ -2122,7 +2226,7 @@ async function openSoundscapePicker(){
         <summary>Playback and visual settings</summary>
         <div class="audio-library-footer">
           <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-          <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
+          <label class="setting-switch"><input id="startupAutoplayToggle" type="checkbox" ${localStore.getItem('memora-startup-autoplay')==='1'?'checked':''}><span>Play a random music selection when I open Memora (browser permission may require a tap)</span></label><label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
         </div>
       </details>
     </div>
@@ -2437,6 +2541,7 @@ async function openSoundscapePicker(){
   }
   volume.onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
   box.querySelector('#dynamicBackgroundToggle').onchange=event=>saveExperiencePreferences({dynamicBackground:event.target.checked})
+  box.querySelector('#startupAutoplayToggle').onchange=event=>localStore.setItem('memora-startup-autoplay',event.target.checked?'1':'0')
 
   syncToolbar(currentMode)
   await runLoad(currentMode)
@@ -2444,7 +2549,7 @@ async function openSoundscapePicker(){
 
 function setupAmbientUnlock(){
   const unlock=async()=>{
-    if(!user||!ambientPreferences.enabled) return
+    if(!user||!ambientPreferences.enabled||localStore.getItem('memora-startup-autoplay')!=='1')return
     ensureMediaPlayer()
     const audio=mediaAudio()
     if(audio&&audio.paused){
@@ -2481,6 +2586,9 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
+  const appearance=localStore.getItem('memora-appearance')||'system'
+  const isLight=appearance==='light'||(appearance==='system'&&window.matchMedia?.('(prefers-color-scheme: light)').matches)
+  document.documentElement.dataset.appearance=isLight?'light':'dark'
   const worldMode=localStore.getItem('memora-world-mode')||
     (localStore.getItem('memora-theme')&&localStore.getItem('memora-theme')!=='auto'?'classic':'auto')
   if(worldMode!=='classic'){
@@ -2533,17 +2641,17 @@ function openThemePicker(){
     return `<button type="button" class="world-card ${favorite===world.id&&worldMode==='manual'?'selected':''}"
       data-world-select="${world.id}" data-world-category="${world.group}" data-world-name="${esc(world.name.toLowerCase())}"
       style="--world-a:${c1};--world-b:${c2};--world-c:${c3};--world-bg0:${bg0};--world-bg1:${bg1};--world-bg2:${bg2}">
-        <span class="world-preview"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
+        <span class="world-preview" data-preview-style="${world.style}" data-preview-group="${world.group}"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
         <span class="world-title">${esc(world.name)}</span><small>${esc(world.group)}</small>
       </button>`
   }).join('')
   const body=`
-    <div class="world-intro"><p>Choose a genuine visual world, not just another color combination. You stay in control.</p>
+    <div class="world-intro"><p>Explore ${visualWorlds.length} visual worlds with different subjects, compositions and photographic or illustrated scenes. The original 120 palettes remain available too.</p>
       <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
     </div>
     <div class="world-preferences">
       <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
-      <label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>Appearance <select class="input" id="worldAppearance"><option value="system">System automatic</option><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
     </div>
     <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Memora does not need precise location or your religious preferences.</p>
     <div class="world-search-row">
@@ -2551,7 +2659,7 @@ function openThemePicker(){
       <button class="btn" id="worldSurprise" type="button">Surprise me</button>
     </div>
     <div class="world-categories" role="group" aria-label="Visual world category">
-      ${['All','Modern','Minimal','Nature','Seasons','Festivals','Creative','Editorial'].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
+      ${['All',...new Set(visualWorlds.map(w=>w.group))].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
     </div>
     <div class="world-grid" id="visualWorldGrid">${worldMarkup}</div>
     <details class="world-classic">
@@ -2564,6 +2672,9 @@ function openThemePicker(){
     <div class="world-selection-status" role="status" id="worldSelectionStatus">Changes apply immediately. Close this window when you're happy.</div>
   `
   const box=modal('Memora Visual Worlds',body)
+  const appearanceSelect=box.querySelector('#worldAppearance')
+  appearanceSelect.value=localStore.getItem('memora-appearance')||'system'
+  appearanceSelect.onchange=()=>{localStore.setItem('memora-appearance',appearanceSelect.value);updateTheme()}
   box.querySelector('.modal')?.classList.add('visual-world-dialog')
   const status=box.querySelector('#worldSelectionStatus')
   const applied=(message)=>{
@@ -2880,8 +2991,8 @@ function shell(content,title,subtitle=''){
     <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
-      <div class="top-left">
-        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>‹</button>
+      <div class="top-left"><button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>← Back</button>
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
@@ -2892,8 +3003,8 @@ function shell(content,title,subtitle=''){
           <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
         </form>
         <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
-        <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
-        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
+        
+        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Play music</span></button>
         
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
@@ -2979,6 +3090,12 @@ function openMusicFinder(initial=''){
   update()
 }
 
+function inferGlobalSearchScope(query){
+  const text=String(query||'').toLowerCase().trim()
+  if(/\b(?:songs?|music|album|artist|sing|lyrics|soundtrack|playlist|devot|gospel|bhajan|worship|melod|track)\w*\b/i.test(text))return 'music'
+  if(/\b(?:radio|station|fm|broadcast)\b/i.test(text))return 'radio'
+  return 'memories'
+}
 function openGlobalSearch(initial=''){
   const wrap=modal('Search or Ask',`
     <form class="global-search-form">
@@ -3078,7 +3195,7 @@ function openGlobalSearch(initial=''){
     }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
   }
   setCategory()
-  if(initial)input.value=initial
+  if(initial){input.value=initial;scope.value=inferGlobalSearchScope(initial);setCategory();queueMicrotask(()=>{if(wrap.isConnected)wrap.querySelector('form')?.requestSubmit()})}
   setTimeout(()=>input.focus(),30)
 }
 
@@ -3111,7 +3228,7 @@ function openExploreMenu(){
   wrap.querySelector('#exploreSearch').onclick=()=>{wrap.remove();openGlobalSearch()}
 }
 function wire(){
-  document.getElementById('memoraExploreButton')?.addEventListener('click',openExploreMenu)
+  document.getElementById('leftMenuButton')?.addEventListener('click',openExploreMenu)
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
@@ -4108,11 +4225,14 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
+  let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
+    const request=++latestHomeMoodRequest
     const mood=button.dataset.moodCheckin
     document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
     try{
       await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
+      if(request!==latestHomeMoodRequest)return
       const response=document.getElementById('moodResponse')
       const text=document.getElementById('moodResponseText')
       if(text) text.textContent=`Remembered. You are feeling ${String(moodCatalog[mood]?.label||mood).toLowerCase()} today.`
@@ -4121,7 +4241,7 @@ async function home(){
       if(play) play.onclick=async()=>{
         play.disabled=true
         play.textContent='Finding something...'
-        try{await playForMood(mood);play.textContent='Playing'}catch{play.disabled=false;play.textContent='Try audio'}
+        try{const playing=await playForMood(mood);play.textContent=playing?'Playing':'Tap Play in the player';play.disabled=false}catch{play.disabled=false;play.textContent='Try audio'}
       }
     }catch(error){toast(error.message||'Could not save mood check-in')}
   })
@@ -4825,6 +4945,12 @@ function directConversationReply(question){
 
 async function answer(question){
   const rawQ=question.trim()
+  const singleTopic=normalizeQuestion(rawQ).toLowerCase().replace(/[?.!]+$/,'').trim()
+  if(/^(?:my )?(?:wedding|marriage|reception|engagement|birthday)(?: memories)?$/.test(singleTopic)){
+    const matches=await smartMemorySearch(singleTopic,80)
+    const ordered=matches.filter(item=>!item.entity_type||item.entity_type==='memory').sort((a,b)=>new Date(b.occurred_at||b.created_at||0)-new Date(a.occurred_at||a.created_at||0))
+    if(ordered.length)return {text:'I found '+ordered.length+' relevant memories, newest first:\n'+ordered.map((item,i)=>`${i+1}. ${shortDate(item.occurred_at||item.created_at)}: ${cleanAnswerText(item.summary||item.original_text).slice(0,230)}`).join('\n'),source:'Saved memories in date order'}
+  }
   const direct=directConversationReply(rawQ)
   if(direct) return {text:direct,source:'Memora conversation'}
 
@@ -6197,19 +6323,19 @@ async function prepareSignedIn(){
       sort:mediaPlayerState.musicSort,
       genre:mediaPlayerState.musicGenre
     }).then(items=>{
-      if(items?.length) selectMediaTrack(items[0],false)
+      if(items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
     }).catch(()=>{})
   }else{
     const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
     loadMediaLibrary(preferredMode,preferredQuery,100,{
-      preserveCurrent:preferredMode==='nature',
+      preserveCurrent:false,
       countrycode:mediaPlayerState.radioCountry,
       sort:mediaPlayerState.radioSort,
       tradition:mediaPlayerState.devotionalTradition,
       language:preferredMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
     })
       .then(items=>{
-        if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[0],false)
+        if(items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
       })
       .catch(()=>{})
   }

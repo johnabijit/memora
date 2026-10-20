@@ -280,6 +280,23 @@ function normalizeTracks(rows){
   return items
 }
 
+function relevanceFilteredTracks(query,items){
+  const noise=new Set(['music','songs','song','tracks','track','audio','list','playlist','album','official','full','latest'])
+  const tokens=normalizeMusicQuery(query).split(/\s+/u).filter(t=>t.length>2&&!noise.has(t))
+  if(!tokens.length)return items
+  const ranked=items.map(item=>{
+    const title=normalizeMusicQuery(item.title||'')
+    const artist=normalizeMusicQuery(item.artist||'')
+    const genre=normalizeMusicQuery(item.genre||'')
+    const description=normalizeMusicQuery(item.description||'')
+    const hits=tokens.reduce((n,t)=>n+(title.includes(t)||artist.includes(t)||genre.includes(t)||description.includes(t)?1:0),0)
+    const quality=hits/tokens.length
+    const score=quality*100+(title.includes(tokens.join(' '))?15:0)+(artist.includes(tokens.join(' '))?12:0)
+    return {...item,__relevance:score}
+  }).filter(item=>item.__relevance>=40)
+  ranked.sort((a,b)=>b.__relevance-a.__relevance)
+  return ranked.map(({__relevance,...item})=>item)
+}
 async function searchTracks({query,limit,offset,sort,genre}){
   const params={
     query,
@@ -304,7 +321,7 @@ async function searchTracks({query,limit,offset,sort,genre}){
     const reason=audiusResult.status==='rejected'?audiusResult.reason:commonsResult.reason
     throw reason||new Error('No open music providers responded')
   }
-  return mergeMusicProviders(audiusItems,commonsItems,limit)
+  return relevanceFilteredTracks(query,mergeMusicProviders(audiusItems,commonsItems,limit))
 }
 
 async function trendingTracks({limit,offset,genre,time='week'}){

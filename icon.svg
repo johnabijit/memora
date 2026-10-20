@@ -1,18 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Memora, luminous open memory blossom">
-<defs>
- <linearGradient id="night" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#182844"/><stop offset=".58" stop-color="#102037"/><stop offset="1" stop-color="#080f20"/></linearGradient>
- <linearGradient id="bloom" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#86eddf"/><stop offset=".47" stop-color="#dff6e5"/><stop offset=".8" stop-color="#f7daf3"/><stop offset="1" stop-color="#ffbf93"/></linearGradient>
- <linearGradient id="leaf" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#49b7b4"/><stop offset="1" stop-color="#c2edff"/></linearGradient>
- <radialGradient id="glow"><stop stop-color="#8bd8db" stop-opacity=".25"/><stop offset="1" stop-color="#8bd8db" stop-opacity="0"/></radialGradient>
-</defs>
-<rect x="5" y="5" width="502" height="502" rx="120" fill="url(#night)"/>
-<rect x="11" y="11" width="490" height="490" rx="114" fill="none" stroke="#f8e7ce" stroke-opacity=".24" stroke-width="4"/>
-<circle cx="255" cy="246" r="220" fill="url(#glow)"/>
-<circle cx="256" cy="137" r="18" fill="#f5dba9"/>
-<path d="M256 160C217 197 195 246 212 301c10 28 26 48 44 57 20-11 36-31 45-59 17-52-7-104-45-139Z" fill="url(#bloom)"/>
-<path d="M197 211c-74 1-120 27-130 61-8 40 31 92 101 111 28 7 50 7 71 3-34-38-43-92-42-175Z" fill="#b9f1ee"/>
-<path d="M315 211c74 1 120 27 130 61 8 40-31 92-101 111-28 7-50 7-71 3 34-38 43-92 42-175Z" fill="#a9ddf4"/>
-<path d="M138 321c-26 7-42 18-55 34 30 47 91 70 173 72 82-2 143-25 173-72-13-16-29-27-55-34-20 46-66 78-118 79-52-1-98-33-118-79Z" fill="url(#leaf)"/>
-<path d="M256 172v176M197 223c-2 68 15 123 59 146 44-23 61-78 59-146" fill="none" stroke="#20394e" stroke-opacity=".25" stroke-width="8"/>
-<path d="M150 383c32 21 70 31 106 31s74-10 106-31" fill="none" stroke="#f0e9d9" stroke-opacity=".65" stroke-width="8" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Memora"><defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#0b2340"/><stop offset="1" stop-color="#09101f"/></linearGradient><linearGradient id="ribbon" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#57e5eb"/><stop offset=".48" stop-color="#6b9cf9"/><stop offset="1" stop-color="#ffc67e"/></linearGradient></defs><rect width="128" height="128" rx="30" fill="url(#bg)"/><path d="M24 94V36q0-10 10-10 5 0 9 5l21 24 21-24q4-5 9-5 10 0 10 10v58q0 9-9 9t-9-9V59L70 77q-6 7-12 0L42 59v35q0 9-9 9t-9-9Z" fill="none" stroke="url(#ribbon)" stroke-width="10" stroke-linejoin="round"/><path d="M64 65l5 10 10 5-10 5-5 10-5-10-10-5 10-5z" fill="#ffe3a9"/><circle cx="99" cy="22" r="2" fill="#6deaf2"/><circle cx="21" cy="109" r="2" fill="#ffc67e"/></svg>
