@@ -2776,12 +2776,24 @@ function shell(content,title,subtitle=''){
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left">
-        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">‹</button>':''}
-        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="back-btn header-history" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled'}>←</button>
+        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo" aria-hidden="true"><img src="icon.svg" alt=""></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <div class="top-actions">
-        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search or Ask</span></button>
-        <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
+        <form class="header-search-form" id="headerSearchForm" role="search">
+          <label for="headerSearchQuery" class="sr-only">Search memories, music, radio or ask</label>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="headerSearchQuery" type="search" autocomplete="off" placeholder="Search or ask anything...">
+          <button type="submit">Search</button>
+        </form>
+        <nav class="header-navigation" aria-label="Main sections">
+          <button data-nav="home" class="${view==='home'?'active':''}">Home</button>
+          <button data-nav="memories" class="${view==='memories'?'active':''}">Memories</button>
+          <button data-nav="ask" class="${view==='ask'?'active':''}">Ask</button>
+          <button id="headerMusicNav">Music</button>
+        </nav>
+        <button class="icon-btn header-theme" id="headerThemeButton" title="Appearance and themes" aria-label="Choose appearance and themes">◐ <span>Themes</span></button>
+        <button class="icon-btn" id="memoraExploreButton" aria-label="More Memora sections">☰ <span>More</span></button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
@@ -3007,6 +3019,14 @@ function wire(){
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
+  document.getElementById('headerSearchForm')?.addEventListener('submit',event=>{
+    event.preventDefault()
+    const q=document.getElementById('headerSearchQuery')?.value.trim()||''
+    openGlobalSearch(q)
+    if(q)setTimeout(()=>document.querySelector('.global-search-form')?.requestSubmit(),0)
+  })
+  document.getElementById('headerMusicNav')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('headerThemeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
