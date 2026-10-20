@@ -13,20 +13,19 @@ const facts=[
   {fact_key:'family.sister.2',category:'family',predicate:'sister',value_text:'Dana',ordinal:2,age_relation:'younger'}
 ]
 
-async function appFixture({blockedStorage=false,slowProviders=false,phoneProviderEnabled=false,passkeyAvailable=false}={}) {
+async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvailable=false}={}) {
   const dom=new JSDOM('<div id="app"></div>',{url:'https://memora.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()})
   const w=dom.window
   w.SUPABASE_URL='https://fixture.supabase.co'
   w.SUPABASE_PUBLISHABLE_KEY='fixture-publishable-key'
   w.AbortSignal=AbortSignal
-  w.fetch=async()=>slowProviders?new Promise(()=>{}):Response.json({external:{phone:phoneProviderEnabled}})
+  w.fetch=async()=>slowProviders?new Promise(()=>{}):Response.json({external:{}})
   w.matchMedia=()=>({matches:false,addEventListener(){}})
   w.HTMLMediaElement.prototype.load=function(){}
   w.HTMLMediaElement.prototype.play=async function(){this._playing=true;this.dispatchEvent(new w.Event('play'))}
   w.HTMLMediaElement.prototype.pause=function(){this._playing=false}
   Object.defineProperty(w.HTMLMediaElement.prototype,'paused',{get(){return !this._playing}})
   if(blockedStorage) Object.defineProperty(w,'localStorage',{get(){throw new Error('Storage denied')}})
-  w.memoraOtpRequests=[]
   if(passkeyAvailable){w.isSecureContext=true;Object.defineProperty(w.navigator,'credentials',{value:{}})}
   w.createClient=()=>({
     rpc:async()=>({data:[{entity_id:'m1',title:'My saved guitar',content:'Stored in the music room',metadata:{}}]}),
@@ -51,11 +50,8 @@ async function appFixture({blockedStorage=false,slowProviders=false,phoneProvide
       return chain
     }
   })
-  const phoneAuth=(await readFile('client/phone-auth.js','utf8')).replace(/^export /gm,'')
-  const phoneLink=(await readFile('client/phone-link.js','utf8')).replace(/^export /gm,'').replace(/^import .*\n/gm,'')
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
-  const countries=(await readFile('client/phone-countries.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+phoneLink+'\n'+countries+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,settings,openLinkPhoneModal,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -270,71 +266,6 @@ test('out-of-order album searches cannot overwrite the latest collection results
 })
 
 
-test('phone method is visible but SMS send is blocked while Supabase phone authentication is disabled',async()=>{
-  const {dom,w}=await appFixture({phoneProviderEnabled:false})
-  try{
-    const tab=w.document.getElementById('authPhoneTab')
-    assert.ok(tab)
-    tab.click()
-    await new Promise(resolve=>setTimeout(resolve,10))
-    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
-    assert.equal(w.document.getElementById('authForm').hidden,true)
-    assert.equal(w.document.getElementById('sendPhoneOtp').disabled,true)
-    assert.match(w.document.getElementById('phoneAuthMsg').textContent,/SMS verification is being configured/)
-    assert.equal(w.memoraOtpRequests.length,0)
-  }finally{dom.window.close()}
-})
-
-test('phone OTP signup and login use the same mobile screen across Memora web and app',async()=>{
-  const {dom,w}=await appFixture({phoneProviderEnabled:true})
-  try{
-    w.document.getElementById('authPhoneTab').click()
-    await new Promise(resolve=>setTimeout(resolve,10))
-    const phone=w.document.getElementById('phoneNumber')
-    phone.value='+91 9876543210'
-    w.document.getElementById('phoneAuthForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))
-    await new Promise(resolve=>setTimeout(resolve,10))
-    assert.equal(w.memoraOtpRequests.length,1)
-    assert.equal(w.memoraOtpRequests[0].phone,'+919876543210')
-    assert.equal(w.memoraOtpRequests[0].options.shouldCreateUser,false)
-    assert.equal(w.document.getElementById('phoneOtpForm').hidden,false)
-    w.document.getElementById('changePhoneNumber').click()
-    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
-    w.document.getElementById('switchMode').click()
-    await new Promise(resolve=>setTimeout(resolve,10))
-    assert.equal(w.document.getElementById('authForm').hidden,true)
-    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
-    w.document.getElementById('phoneNumber').value='+1 415 555 0100'
-    w.document.getElementById('phoneDisplayName').value='Phone User'
-    w.document.getElementById('phoneAuthForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))
-    await new Promise(resolve=>setTimeout(resolve,10))
-    assert.equal(w.memoraOtpRequests.length,2)
-    assert.equal(w.memoraOtpRequests[1].options.shouldCreateUser,true)
-    assert.deepEqual(JSON.parse(JSON.stringify(w.memoraOtpRequests[1].options.data)),{display_name:'Phone User'})
-  }finally{dom.window.close()}
-})
-
-
-test('mobile signup always hides inactive email and OTP forms and lists country codes',async()=>{
-  const {dom,w}=await appFixture({phoneProviderEnabled:false})
-  try{
-    w.document.getElementById('authPhoneTab').click()
-    await new Promise(resolve=>setTimeout(resolve,12))
-    assert.equal(w.document.getElementById('authForm').hidden,true)
-    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
-    assert.equal(w.document.getElementById('phoneOtpForm').hidden,true)
-    assert.ok(w.document.querySelectorAll('#phoneCountry option').length>150)
-    assert.equal(w.document.getElementById('phoneCountry').value,'US') // jsdom locale is en-US
-    assert.equal(w.document.getElementById('phoneCustomDial').hidden,true)
-    w.document.getElementById('phoneCountry').value='other'
-    w.document.getElementById('phoneCountry').dispatchEvent(new w.Event('change'))
-    assert.equal(w.document.getElementById('phoneCustomDial').hidden,false)
-    w.document.getElementById('authEmailTab').click()
-    assert.equal(w.document.getElementById('authForm').hidden,false)
-    assert.equal(w.document.getElementById('phoneAuthForm').hidden,true)
-  }finally{dom.window.close()}
-})
-
 test('passkey login invokes secure Supabase challenge and reports disabled service honestly',async()=>{
   const {dom,w}=await appFixture({passkeyAvailable:true})
   try{
@@ -353,19 +284,14 @@ test('passkey option is hidden when browser or native WebView lacks WebAuthn',as
 })
 
 
-test('profile offers link mobile to existing signed-in account without false SMS promises',async()=>{
-  const {dom,w,api}=await appFixture({phoneProviderEnabled:false})
+
+test('email and social sign-in remain, while SMS signup and phone linking are completely absent',async()=>{
+  const {dom,w,api}=await appFixture()
   try{
+    assert.ok(w.document.getElementById('authForm'))
+    for(const id of ['authPhoneTab','phoneAuthForm','phoneOtpForm','phoneAuthMsg','phoneCountry']) assert.equal(w.document.getElementById(id),null)
     api.setUser()
     await api.settings()
-    const button=w.document.getElementById('linkMobileNumber')
-    assert.ok(button)
-    assert.match(w.document.getElementById('linkedPhoneState').textContent,/Not linked/)
-    button.click()
-    await new Promise(resolve=>setTimeout(resolve,35))
-    assert.ok(w.document.getElementById('linkPhoneStart'))
-    assert.equal(w.document.getElementById('linkPhoneVerify').hidden,true)
-    assert.equal(w.document.getElementById('linkPhoneSend').disabled,true)
-    assert.match(w.document.getElementById('linkPhoneStatus').textContent,/SMS delivery is not configured/i)
+    for(const id of ['linkMobileNumber','linkedPhoneState','linkPhoneStart'])assert.equal(w.document.getElementById(id),null)
   }finally{dom.window.close()}
 })
