@@ -3636,7 +3636,7 @@ function memoryCard(m,{compact=false}={}){
       <div class="context-row" data-location-slot="${m.id}"></div>
       <div class="memory-footer">
         <div class="memory-meta"><span>${shortDate(m.occurred_at||m.created_at)}</span><span>•</span><span>${esc((m.provenance_kind||'user_stated').replaceAll('_',' '))}</span></div>
-        <button class="memory-open" data-open-memory="${m.id}">Open</button>
+        <div class="memory-actions"><button class="memory-open" data-edit-memory="${m.id}" aria-label="Edit saved memory">Edit</button><button class="memory-open" data-open-memory="${m.id}">Open</button></div>
       </div>
     </div>
   </article>`
@@ -3655,11 +3655,72 @@ function bindMemoryViews(memoriesList){
         <h3>${esc(title)}</h3>
         ${original&&original!==title?`<p>${esc(original)}</p>`:''}
         <div class="filter-row" style="margin-top:14px">
+          <button class="btn primary" data-edit-memory="${memory.id}">Edit memory</button>
           <button class="btn" data-memory-close>Close</button>
         </div>
       </div>
     `).querySelector('[data-memory-close]').onclick=event=>event.target.closest('.modal-backdrop')?.remove()
   })
+  document.querySelectorAll('[data-edit-memory]').forEach(button=>button.onclick=async()=>{
+    const memoryId=String(button.dataset.editMemory||'')
+    if(!memoryId) return
+    await openEditMemory(memoryId)
+  })
+}
+
+async function openEditMemory(memoryId){
+  const {data:memory,error}=await supabase.from('memories').select('*')
+    .eq('id',memoryId).eq('user_id',user.id).maybeSingle()
+  if(error||!memory) return toast('Could not open this memory for editing.')
+  const box=modal('Edit saved memory',`
+    <form id="memoryEditForm" class="memory-edit-form">
+      <label for="memoryEditText">What would you like Memora to remember?</label>
+      <textarea class="input" id="memoryEditText" rows="7" maxlength="12000" required>${esc(memory.original_text||'')}</textarea>
+      <p class="small muted">Corrections update this saved memory. Earlier text is retained in a limited edit history. Attached media is not removed.</p>
+      <p id="memoryEditStatus" class="small muted" role="status" aria-live="polite"></p>
+      <div class="filter-row">
+        <button class="btn primary" type="submit">Save changes</button>
+        <button class="btn" type="button" id="cancelMemoryEdit">Cancel</button>
+      </div>
+    </form>`)
+  box.querySelector('#cancelMemoryEdit').onclick=()=>box.remove()
+  box.querySelector('#memoryEditForm').onsubmit=async event=>{
+    event.preventDefault()
+    const text=box.querySelector('#memoryEditText').value.trim()
+    const status=box.querySelector('#memoryEditStatus')
+    const save=box.querySelector('[type="submit"]')
+    if(text.length<2){status.textContent='Enter the corrected memory.';return}
+    if(looksLikeSecret(text)){status.textContent='Sensitive credentials cannot be saved in memories.';return}
+    if(text===String(memory.original_text||'').trim()){box.remove();return}
+    save.disabled=true
+    status.textContent='Saving correction...'
+    try{
+      const parsed=interpret(text)
+      const previous=Array.isArray(memory.metadata?.edit_history)?memory.metadata.edit_history.slice(-4):[]
+      const metadata={...(memory.metadata||{}),edit_history:[...previous,{
+        original_text:memory.original_text,edited_at:new Date().toISOString()
+      }]}
+      const {data:updated,error:updateError}=await supabase.from('memories')
+        .update({original_text:text,summary:parsed.summary,interpreted_data:parsed.interpreted_data,
+          memory_type:parsed.memory_type,metadata,updated_at:new Date().toISOString()})
+        .eq('id',memory.id).eq('user_id',user.id).select('*').single()
+      if(updateError) throw updateError
+      // Retire derived facts from the previous version before re-extracting
+      // the new statement. Keep audit history instead of deleting the facts.
+      const outdated=await supabase.from('memory_facts').update({is_current:false,updated_at:new Date().toISOString()})
+        .eq('source_memory_id',memory.id).eq('user_id',user.id).eq('is_current',true)
+      if(outdated.error) throw outdated.error
+      await syncStructuredFactsFromMemory(updated,text)
+      await syncPeopleFromMemory(updated,text)
+      await syncPlacesFromMemory(updated,text)
+      box.remove()
+      toast('Memory corrected and saved')
+      await go(view,false,{replace:true,push:false})
+    }catch(error){
+      status.textContent='Unable to finish the correction: '+String(error.message||error)
+      save.disabled=false
+    }
+  }
 }
 
 async function home(){
