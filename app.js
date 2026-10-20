@@ -321,6 +321,36 @@ const festivalWorlds=[
  ['bastille-day','Bastille Day','French Bastille Day fireworks Paris skyline',220]
 ]
 for(const [id,name,scene,h] of festivalWorlds)visualWorlds.push({id,name,group:'Festivals',scene,style:'festival',palette:[`hsl(${h} 90% 70%)`,`hsl(${(h+40)%360} 80% 70%)`,'#fff1c4'],bg:['#101729','#26324a','#34425b']})
+const additionalVisualWorlds=[
+ ['aurora-ribbons','Aurora Ribbons','Space','aurora borealis sweeping northern lights forest','aurora',165],
+ ['prismatic-glass','Prismatic Glass','Creative','refraction glass prism colorful studio','prism',281],
+ ['color-pop','Color Pop','Creative','bright playful color blocking editorial','pop',328],
+ ['liquid-chrome','Liquid Chrome','Modern','liquid chrome iridescent metal 3d','chrome',201],
+ ['blueprint','Blueprint Studio','Modern','architectural blueprint precision technical drawing','blueprint',210],
+ ['paper-cut','Paper Cut Worlds','Creative','layered paper cut colorful art mountains','papercut',19],
+ ['ocean-current','Ocean Current','Nature','aerial teal sea currents beaches','wave',190],
+ ['meteor-shower','Meteor Shower','Space','meteor shower stars above mountains','meteor',250],
+ ['neon-grid','Neon Grid','Modern','retro futurist neon vector grid','grid',289],
+ ['geometric-ribbons','Color Ribbons','Creative','vibrant floating satin ribbons','ribbons',309],
+ ['jungle-canopy','Jungle Canopy','Nature','jungle canopy aerial landscape photography','leaves',123],
+ ['crystal-cave','Crystal Caves','Nature','glowing geode crystal caves','crystal',260],
+ ['desert-mirage','Desert Mirage','Nature','sunlit sand desert architecture','dunes',35],
+ ['midnight-moon','Moon and Clouds','Space','moon behind midnight clouds','moon',211],
+ ['retro-arcade','Arcade Pixel','Creative','retro arcade pixel art colorful','pixel',306],
+ ['magazine','Magazine Editorial','Editorial','modern artistic typography editorial magazine','editorial',28],
+ ['terminal','Terminal Minimal','Minimal','futuristic minimal command terminal','terminal',156],
+ ['forest-silhouette','Forest Silhouette','Nature','misty evergreen pine forest sunrise','forest',139],
+ ['isometric','Isometric City','Creative','isometric miniature colorful city illustration','isometric',42],
+ ['glitter','Festival Glitter','Festivals','glittering celebration golden sparks','confetti',32],
+ ['hemisphere','Signature Hemisphere','Modern','abstract glass luminous hemisphere sphere translucent','hemisphere',195],
+ ['silk-fabric','Woven Silk','Editorial','textured flowing colorful silk fabric','fabric',337],
+ ['ink-flow','Ink in Water','Creative','pigmented ink swirling in transparent water','inkflow',267],
+ ['kaleidoscope','Kaleidoscope','Creative','bright multi-color geometric kaleidoscope pattern','kaleidoscope',27]
+]
+for(const [id,name,group,scene,style,h] of additionalVisualWorlds){
+ const palette=[`hsl(${h} 90% 70%)`,`hsl(${(h+75)%360} 85% 69%)`,`hsl(${(h+150)%360} 80% 72%)`]
+ visualWorlds.push({id:'special-'+id,name,group,scene,style,palette,bg:[`hsl(${h} 37% 8%)`,`hsl(${h} 40% 15%)`,`hsl(${(h+40)%360} 27% 22%)`]})
+}
 const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
 function selectedVisualWorld(){
   const mode=localStore.getItem('memora-world-mode')||'auto'
