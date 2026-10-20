@@ -1709,9 +1709,14 @@ function renderAudioLibraryResults(box){
           :`${mediaPlayerState.library.length} nature recordings found`
   }
 
+  const hinduMissing=mediaPlayerState.mode==='devotional'&&mediaPlayerState.devotionalTradition==='hindu'
   target.innerHTML=mediaPlayerState.library.length
     ?mediaPlayerState.library.map(audioLibraryCard).join('')
-    :'<div class="empty compact-empty"><strong>No audio found</strong>Try another search or filter. For songs missing from the open catalog, use “Find artists, movie songs, albums & playlists” above.</div>'
+    :hinduMissing
+      ?'<div class="empty compact-empty"><strong>No matching live Hindu stations found</strong>Some broadcasters do not expose playable HTTPS streams. Try all languages or another station search.<div style="margin-top:12px"><button class="btn primary" id="findHinduSongs">Find Hindu devotional songs on YouTube</button></div></div>'
+      :'<div class="empty compact-empty"><strong>No matching audio found</strong>Try another search or remove filters. Not every song or station is in the open catalog.<div style="margin-top:12px"><button class="btn" id="findMissingSongs">Find songs on YouTube</button></div></div>'
+  target.querySelector('#findHinduSongs')?.addEventListener('click',()=>openMusicFinder('Hindu devotional bhajan kirtan'))
+  target.querySelector('#findMissingSongs')?.addEventListener('click',()=>openMusicFinder(mediaPlayerState.query||mediaPlayerState.devotionalQuery||''))
 
   target.querySelectorAll('[data-audio-index]').forEach(button=>button.onclick=async()=>{
     const item=mediaPlayerState.library[Number(button.dataset.audioIndex)]
