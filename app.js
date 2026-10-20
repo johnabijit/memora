@@ -46,13 +46,13 @@ let sceneBackdropState={query:'',url:'',sourcePage:'',artist:'',license:'',loadi
 const moodCatalog={
   great:{label:'Great',audio:{mode:'music',query:'uplifting happy'}},
   happy:{label:'Happy',audio:{mode:'music',query:'feel good uplifting'}},
-  calm:{label:'Calm',audio:{mode:'nature',query:'ocean'}},
+  calm:{label:'Calm',audio:{mode:'nature',queries:['ocean','forest','river','gentle breeze','birds','soft instrumental','meditation']}},
   okay:{label:'Okay',audio:{mode:'music',query:'easy listening'}},
-  low:{label:'Low',audio:{mode:'nature',query:'gentle rain'}},
+  low:{label:'Low',audio:{mode:'nature',queries:['gentle rain','forest','ocean','soft instrumental']}},
   sad:{label:'Sad',audio:{mode:'nature',query:'forest'}},
-  stressed:{label:'Stressed',audio:{mode:'nature',query:'rain'}},
+  stressed:{label:'Stressed',audio:{mode:'nature',queries:['ocean','forest','gentle rain','river','meditation']}},
   anxious:{label:'Anxious',audio:{mode:'nature',query:'ocean'}},
-  tired:{label:'Tired',audio:{mode:'nature',query:'night'}},
+  tired:{label:'Tired',audio:{mode:'nature',queries:['night','gentle rain','soft ocean','forest']}},
   focused:{label:'Focused',audio:{mode:'music',query:'focus instrumental'}},
   prayerful:{label:'Prayerful',audio:{mode:'devotional',query:'',tradition:'all_faiths'}},
   grateful:{label:'Grateful',audio:{mode:'music',query:'peaceful uplifting'}}
@@ -581,27 +581,36 @@ async function recordMood(mood,note='',source='chat'){
   return data
 }
 
+let moodPlaybackRequest=0
+let previousMoodTrackId=null
 async function playForMood(mood){
+  const request=++moodPlaybackRequest
   const plan=moodCatalog[mood]?.audio||moodCatalog.calm.audio
   mediaPlayerState.audioView=plan.mode
-  if(plan.mode==='devotional'){
-    mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
-    mediaPlayerState.devotionalQuery=plan.query||''
-    const items=await loadMediaLibrary('devotional',plan.query||'',100,{
-      preserveCurrent:false,
-      tradition:mediaPlayerState.devotionalTradition,
-      language:mediaPlayerState.devotionalLanguage,
-      countrycode:mediaPlayerState.radioCountry,
-      sort:'popular'
-    })
-    if(items?.length) await selectMediaTrack(items[0],true)
-  }else if(plan.mode==='music'){
-    const items=await loadMediaLibrary('music',plan.query||'',50,{preserveCurrent:false,sort:'relevant'})
-    if(items?.length) await selectMediaTrack(items[0],true)
-  }else{
-    const items=await loadMediaLibrary('nature',plan.query||'rain',100,{preserveCurrent:false})
-    if(items?.length) await selectMediaTrack(items[0],true)
+  const queries=plan.queries||[plan.query||'']
+  const randomized=[...queries].sort(()=>Math.random()-0.5)
+  const attempts=randomized.slice(0,Math.min(4,randomized.length))
+  for(const query of attempts){
+    const mode=plan.mode
+    const options={preserveCurrent:false}
+    if(mode==='devotional'){
+      mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
+      mediaPlayerState.devotionalQuery=query
+      Object.assign(options,{tradition:mediaPlayerState.devotionalTradition,language:mediaPlayerState.devotionalLanguage,countrycode:mediaPlayerState.radioCountry,sort:'popular'})
+    }else if(mode==='music') options.sort='relevant'
+    const items=await loadMediaLibrary(mode,query,mode==='music'?50:100,options)
+    if(request!==moodPlaybackRequest) return false
+    const usable=(items||[]).filter(item=>item?.url&&item.id!==previousMoodTrackId)
+    const candidates=usable.length?usable:(items||[]).filter(item=>item?.url)
+    if(candidates.length){
+      const item=candidates[Math.floor(Math.random()*Math.min(candidates.length,15))]
+      await selectMediaTrack(item,true)
+      if(request!==moodPlaybackRequest) return false
+      previousMoodTrackId=item.id
+      return !mediaAudio()?.paused
+    }
   }
+  return false
 }
 
 async function playMemoryMix(){
@@ -3437,11 +3446,14 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
+  let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
+    const homeRequest=++latestHomeMoodRequest
     const mood=button.dataset.moodCheckin
     document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
     try{
       await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
+      if(homeRequest!==latestHomeMoodRequest) return
       const response=document.getElementById('moodResponse')
       const text=document.getElementById('moodResponseText')
       if(text) text.textContent=`Remembered. You are feeling ${String(moodCatalog[mood]?.label||mood).toLowerCase()} today.`
@@ -3450,7 +3462,7 @@ async function home(){
       if(play) play.onclick=async()=>{
         play.disabled=true
         play.textContent='Finding something...'
-        try{await playForMood(mood);play.textContent='Playing'}catch{play.disabled=false;play.textContent='Try audio'}
+        try{const started=await playForMood(mood);play.textContent=started?'Playing':'Tap Play in the player';play.disabled=false}catch{play.disabled=false;play.textContent='Try audio'}
       }
     }catch(error){toast(error.message||'Could not save mood check-in')}
   })
