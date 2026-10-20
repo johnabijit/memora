@@ -2620,7 +2620,7 @@ async function signInUsingPasskey(){
   }
 }
 async function authScreen(mode='login'){
-  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
+  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo"><img src="icon.svg" alt=""></div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2631,7 +2631,7 @@ async function authScreen(mode='login'){
   app.innerHTML=`
   <div class="auth-wrap">
     <div class="glass auth-card">
-      <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
+      <div class="brand"><div class="logo"><img src="icon.svg" alt=""></div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
       <div class="eyebrow">Your memory, beautifully organized</div>
       <h2>${mode==='login'?'Welcome back':'Create an account'}</h2>
       <p class="muted">${mode==='login'?'Sign in securely to your private memories.':'Keep your memories safe and easy to find.'}</p>
