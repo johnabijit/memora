@@ -2224,7 +2224,7 @@ async function openSoundscapePicker(){
         <summary>Playback and visual settings</summary>
         <div class="audio-library-footer">
           <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-          <label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
+          <label class="setting-switch"><input id="startupAutoplayToggle" type="checkbox" ${localStore.getItem('memora-startup-autoplay')==='1'?'checked':''}><span>Play a random music selection when I open Memora (browser permission may require a tap)</span></label><label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
         </div>
       </details>
     </div>
@@ -2539,6 +2539,7 @@ async function openSoundscapePicker(){
   }
   volume.onchange=event=>saveExperiencePreferences({volume:Number(event.target.value)})
   box.querySelector('#dynamicBackgroundToggle').onchange=event=>saveExperiencePreferences({dynamicBackground:event.target.checked})
+  box.querySelector('#startupAutoplayToggle').onchange=event=>localStore.setItem('memora-startup-autoplay',event.target.checked?'1':'0')
 
   syncToolbar(currentMode)
   await runLoad(currentMode)
@@ -2546,7 +2547,7 @@ async function openSoundscapePicker(){
 
 function setupAmbientUnlock(){
   const unlock=async()=>{
-    if(!user||!ambientPreferences.enabled) return
+    if(!user||!ambientPreferences.enabled||localStore.getItem('memora-startup-autoplay')!=='1')return
     ensureMediaPlayer()
     const audio=mediaAudio()
     if(audio&&audio.paused){
@@ -6308,7 +6309,7 @@ async function prepareSignedIn(){
       sort:mediaPlayerState.musicSort,
       genre:mediaPlayerState.musicGenre
     }).then(items=>{
-      if(items?.length) selectMediaTrack(items[0],false)
+      if(items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
     }).catch(()=>{})
   }else{
     const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
@@ -6320,7 +6321,7 @@ async function prepareSignedIn(){
       language:preferredMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
     })
       .then(items=>{
-        if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[0],false)
+        if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
       })
       .catch(()=>{})
   }
