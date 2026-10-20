@@ -4172,6 +4172,22 @@ async function openEditMemory(memoryId){
   }
 }
 
+const memoraDailyQuotes={
+ great:['Enjoy this momentum. Make something meaningful with it.','A good day becomes a lasting memory when you notice it.','Celebrate progress, however small.'],
+ calm:['Stillness can be a kind of strength.','Give yourself room to notice the beautiful details.','A quiet moment can make space for a clear thought.'],
+ okay:['Small steps are still forward motion.','You do not need a perfect day to make progress.','Ordinary moments are worth remembering.'],
+ low:['Start with one gentle step. That is enough for now.','Rest is part of moving forward.','There is no deadline for finding your rhythm.'],
+ stressed:['Choose one thing to focus on, then the next.','You can move thoughtfully, even when life moves quickly.','Make space for a moment of quiet between tasks.'],
+ tired:['Rest can be the most useful thing you do today.','You have permission to slow your pace.','Tomorrow offers another fresh beginning.'],
+ prayerful:['Let gratitude and hope guide your next step.','A reflective moment can give the day meaning.','Make room for what matters most to you.'],
+ general:['Every moment holds a detail worth remembering.','Curiosity can turn an ordinary day into a discovery.','A meaningful life is made of many small moments.','The next chapter begins with what you choose today.','Notice what brings you joy and carry it forward.','New possibilities often start with a single question.','Your story grows with every thoughtful step.','Remember the good, learn from the hard, welcome what comes next.']
+}
+function dailyMemoraQuote(mood){
+ const group=memoraDailyQuotes[mood]||memoraDailyQuotes.general
+ const day=Math.floor(Date.now()/86400000)
+ const seed=String(user?.id||'memora').split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)
+ return {quote:group[(day+seed)%group.length],mood:mood||'general'}
+}
 async function home(){
   const [{count:memoryCount},{count:thingCount},{count:docCount},{data:recent},{data:profile}]=await Promise.all([
     supabase.from('memories').select('*',{count:'exact',head:true}),
@@ -4215,6 +4231,7 @@ async function home(){
       <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
+    <section class="glass daily-quote" id="dailyQuote" aria-label="Quote of the day"><div class="quote-heading"><span class="eyebrow">A MOMENT OF INSPIRATION</span><span class="quote-date">Quote of the day</span></div><blockquote id="dailyQuoteText">“${esc(dailyMemoraQuote(latestMood?.mood).quote)}”</blockquote><div class="quote-actions"><span id="dailyQuoteMood">Inspired by ${esc(latestMood?.mood||'today')}</span><button class="btn compact" id="nextDailyQuote" type="button">Another thought</button></div></section>
     <section class="glass home-hub">
       <div class="home-hub-head">
         <div><div class="eyebrow">Your memory space</div><h3>Everything organized, nothing dumped.</h3></div>
@@ -4285,6 +4302,8 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
+  let quoteOffset=0
+  document.getElementById('nextDailyQuote')?.addEventListener('click',()=>{quoteOffset++;const options=memoraDailyQuotes[latestMood?.mood]||memoraDailyQuotes.general;document.getElementById('dailyQuoteText').textContent='“'+options[(Math.floor(Date.now()/86400000)+quoteOffset)%options.length]+'”'})
   let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
     const request=++latestHomeMoodRequest
@@ -4296,6 +4315,10 @@ async function home(){
     }}
     document.getElementById('moodResponse')?.classList.remove('hidden')
     const mood=button.dataset.moodCheckin
+    const quote=document.getElementById('dailyQuoteText')
+    if(quote)quote.textContent='“'+dailyMemoraQuote(mood).quote+'”'
+    const quoteMood=document.getElementById('dailyQuoteMood')
+    if(quoteMood)quoteMood.textContent='Inspired by '+mood
     document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
     try{
       await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
