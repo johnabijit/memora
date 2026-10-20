@@ -2481,12 +2481,21 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
+  const worldMode=localStore.getItem('memora-world-mode')||
+    (localStore.getItem('memora-theme')&&localStore.getItem('memora-theme')!=='auto'?'classic':'auto')
+  if(worldMode!=='classic'){
+    applyVisualWorld(selectedVisualWorld())
+    lastThemeHour=new Date().getHours()
+    updateVisualScene()
+    return
+  }
+  applyVisualWorld(null)
   const mode=localStore.getItem('memora-theme')||'auto'
-  if(mode==='auto') adaptiveTheme()
-  else {
+  if(mode==='auto')adaptiveTheme()
+  else{
     const theme=manualThemes[mode]||themeCatalog[0]
     applyTheme(theme,theme.label)
-    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id||mode))
+    if(document.documentElement.dataset.audioPlaying!=='true')loadSceneBackdrop(sceneForTheme(theme.id||mode))
   }
 }
 
@@ -2501,9 +2510,10 @@ function setupAtmosphere(){
     document.documentElement.style.setProperty('--pointer-y',`${y}%`)
   },{passive:true})
   setInterval(()=>{
-    const mode=localStore.getItem('memora-theme')||'auto'
+    const mode=localStore.getItem('memora-world-mode')||'auto'
     const hour=new Date().getHours()
-    if(mode==='auto'&&hour!==lastThemeHour) adaptiveTheme()
+    if(mode==='auto'&&hour!==lastThemeHour)updateTheme()
+    else if(mode==='classic'&&localStore.getItem('memora-theme')==='auto'&&hour!==lastThemeHour)adaptiveTheme()
     else updateVisualScene()
     if(ambientPreferences.enabled&&ambientPreferences.scene==='auto'&&ambientAudioContext?.state==='running'){
       const nextScene=resolveAmbientScene()
@@ -2513,35 +2523,99 @@ function setupAtmosphere(){
 }
 
 function openThemePicker(){
-  const current=localStore.getItem('memora-theme')||'auto'
+  const worldMode=localStore.getItem('memora-world-mode')||'auto'
+  const favorite=localStore.getItem('memora-world')||'midnight-studio'
+  const region=localStore.getItem('memora-world-region')||'auto'
+  const festival=localStore.getItem('memora-world-festival')||'none'
+  const worldMarkup=visualWorlds.map(world=>{
+    const [c1,c2,c3]=world.palette
+    const [bg0,bg1,bg2]=world.bg
+    return `<button type="button" class="world-card ${favorite===world.id&&worldMode==='manual'?'selected':''}"
+      data-world-select="${world.id}" data-world-category="${world.group}" data-world-name="${esc(world.name.toLowerCase())}"
+      style="--world-a:${c1};--world-b:${c2};--world-c:${c3};--world-bg0:${bg0};--world-bg1:${bg1};--world-bg2:${bg2}">
+        <span class="world-preview"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
+        <span class="world-title">${esc(world.name)}</span><small>${esc(world.group)}</small>
+      </button>`
+  }).join('')
   const body=`
-    <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
-    <div class="theme-picker-tools">
-      <input class="input" id="themeSearch" placeholder="Search Ocean, Velvet, Sakura, Galaxy...">
-      <button class="btn" id="randomTheme">Surprise me</button>
-      <button class="btn ${current==='auto'?'primary':''}" data-theme="auto">Adaptive hourly</button>
+    <div class="world-intro"><p>Choose a genuine visual world, not just another color combination. You stay in control.</p>
+      <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
     </div>
-    <div class="theme-gallery" id="themeGallery">
-      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
-    </div>`
-  const box=modal('Theme Universe',body)
-
-  const choose=id=>{
-    localStore.setItem('memora-theme',id)
+    <div class="world-preferences">
+      <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+    </div>
+    <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Memora does not need precise location or your religious preferences.</p>
+    <div class="world-search-row">
+      <input class="input" type="search" id="worldSearch" placeholder="Search spring, festival, coastal, minimal...">
+      <button class="btn" id="worldSurprise" type="button">Surprise me</button>
+    </div>
+    <div class="world-categories" role="group" aria-label="Visual world category">
+      ${['All','Modern','Minimal','Nature','Seasons','Festivals','Creative','Editorial'].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
+    </div>
+    <div class="world-grid" id="visualWorldGrid">${worldMarkup}</div>
+    <details class="world-classic">
+      <summary>Classic Memora: 120 color palettes</summary>
+      <p class="small muted">Your original combinations are preserved here.</p>
+      <div class="theme-gallery" id="themeGallery">
+        ${themeCatalog.map(t=>`<button class="theme-card" data-theme="${t.id}" aria-label="${esc(t.label)}" style="--t1:${t.c1};--t2:${t.c2};--t3:${t.c3};--tb:${t.bg1}"><span></span><small>${esc(t.label)}</small></button>`).join('')}
+      </div>
+    </details>
+    <div class="world-selection-status" role="status" id="worldSelectionStatus">Changes apply immediately. Close this window when you're happy.</div>
+  `
+  const box=modal('Memora Visual Worlds',body)
+  box.querySelector('.modal')?.classList.add('visual-world-dialog')
+  const status=box.querySelector('#worldSelectionStatus')
+  const applied=(message)=>{
     updateTheme()
-    box.remove()
-    toast(id==='auto'?'Adaptive hourly theme enabled':'Theme updated')
+    status.textContent=message
+    box.querySelectorAll('[data-world-select]').forEach(button=>
+      button.classList.toggle('selected',localStore.getItem('memora-world-mode')==='manual'&&
+        button.dataset.worldSelect===localStore.getItem('memora-world')))
+    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto')
   }
-
-  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>choose(button.dataset.theme))
-  box.querySelector('#randomTheme').onclick=()=>{
-    const theme=themeCatalog[Math.floor(Math.random()*themeCatalog.length)]
-    choose(theme.id)
+  box.querySelector('#worldAuto').onclick=()=>{
+    localStore.setItem('memora-world-mode','auto')
+    applied('Adaptive themes now follow your device time, season and optional region.')
   }
-  box.querySelector('#themeSearch').oninput=event=>{
-    const term=event.target.value.trim().toLowerCase()
-    box.querySelectorAll('.theme-card').forEach(card=>card.classList.toggle('hidden',term&&!card.dataset.themeName.includes(term)))
+  box.querySelectorAll('[data-world-select]').forEach(button=>button.onclick=()=>{
+    localStore.setItem('memora-world',button.dataset.worldSelect)
+    localStore.setItem('memora-world-mode','manual')
+    applied('Visual world selected: '+worldById[button.dataset.worldSelect].name)
+  })
+  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
+    localStore.setItem('memora-world-mode','classic')
+    localStore.setItem('memora-theme',button.dataset.theme)
+    applied('Classic Memora palette selected.')
+  })
+  box.querySelector('#worldRegion').onchange=event=>{
+    localStore.setItem('memora-world-region',event.target.value)
+    applied('Region saved. No GPS or precise location is used.')
   }
+  box.querySelector('#worldFestival').onchange=event=>{
+    localStore.setItem('memora-world-festival',event.target.value)
+    localStore.setItem('memora-world-mode','auto')
+    applied('Optional festival preference updated.')
+  }
+  box.querySelector('#worldSurprise').onclick=()=>{
+    const chosen=visualWorlds[Math.floor(Math.random()*visualWorlds.length)]
+    box.querySelector('[data-world-select="'+chosen.id+'"]').click()
+  }
+  let group='All'
+  const filter=()=>{
+    const q=box.querySelector('#worldSearch').value.trim().toLowerCase()
+    box.querySelectorAll('[data-world-select]').forEach(card=>{
+      const matchCategory=group==='All'||card.dataset.worldCategory===group
+      const matchQuery=!q||(card.dataset.worldName+' '+card.dataset.worldCategory).toLowerCase().includes(q)
+      card.hidden=!(matchCategory&&matchQuery)
+    })
+  }
+  box.querySelector('#worldSearch').oninput=filter
+  box.querySelectorAll('[data-world-group]').forEach(button=>button.onclick=()=>{
+    group=button.dataset.worldGroup
+    box.querySelectorAll('[data-world-group]').forEach(x=>x.classList.toggle('active',x===button))
+    filter()
+  })
 }
 
 let authProviderCache=null
