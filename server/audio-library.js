@@ -322,7 +322,7 @@ const DEVOTIONAL_LIBRARY={
   },
   hindu:{
     label:'Hindu',
-    terms:['hindu','bhajan','kirtan','mantra','bhakti','hindu devotional','devotional songs','temple music','aarti'],
+    terms:['hindu','bhajan','bhakti','aarti','mantra','kirtan','krishna bhajan','sai bhajan','shiva devotional','murugan devotional','vishnu sahasranamam','hindu devotional'],
     description:'Bhajan, kirtan, mantra, bhakti and Hindu devotional music'
   },
   carnatic_devotional:{
@@ -448,6 +448,12 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
         item.country,
         item.state
       ].filter(Boolean).join(' ').toLowerCase()
+
+      // Protect faith-specific searches from returning popular but
+      // unrelated stations, a recurring problem for Hindu radio discovery.
+      // Name and station tags are stronger signals than region or language.
+      const genreEvidence=[item.title,...(item.tags||[])].filter(Boolean).join(' ').toLowerCase()
+      if(key==='hindu'&&!/\b(hindu|bhajan|bhakti|aarti|mantra|krishna|vishnu|shiva|siva|murugan|ganesh|ganesha|sai|vedic|sanatan|devotional|sanskrit)\b/i.test(genreEvidence)) continue
 
       let relevance=0
       for(const term of allTerms){
