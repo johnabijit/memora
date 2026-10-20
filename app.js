@@ -2619,8 +2619,8 @@ function wire(){
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('topThemes')?.addEventListener('click',openThemePicker)
-  document.getElementById('topMusic')?.addEventListener('click',()=>renderAudio())
-  document.getElementById('sideMusic')?.addEventListener('click',()=>renderAudio())
+  document.getElementById('topMusic')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('sideMusic')?.addEventListener('click',openSoundscapePicker)
   const side=document.getElementById('sidebarNav')
   const toggle=document.getElementById('sidebarToggle')
   if(side&&toggle){
@@ -2629,7 +2629,7 @@ function wire(){
     toggle.onclick=()=>{side.hidden=!side.hidden;toggle.setAttribute('aria-expanded',String(!side.hidden))}
     document.getElementById('sidebarPin').onclick=()=>{const pinned=localStorage.getItem('memora-sidebar-pinned')==='1';localStorage.setItem('memora-sidebar-pinned',pinned?'0':'1');side.hidden=pinned;toggle.setAttribute('aria-expanded',String(!pinned))}
   }
-  document.getElementById('soundButton')?.addEventListener('click',()=>renderAudio())
+  document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
     if(window.history.length>1) window.history.back()
