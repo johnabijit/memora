@@ -2412,3 +2412,10 @@ html[data-appearance="light"] .glass{color:var(--text)}
 html[data-appearance="light"] .topbar,html[data-appearance="light"] .topbar button{color:#f4f6ff}
 html[data-appearance="light"] .world-card{color:#fff}
 @media(max-width:640px){.world-preview{height:90px}.world-card{min-height:138px}}
+
+/* Header accessibility and responsive menu v44 */
+.header-menu-trigger{display:inline-flex!important;align-items:center;justify-content:center;white-space:nowrap;min-height:42px;font-weight:700}
+.back-btn{color:#12243a!important;background:#b8e7f7!important;border:1px solid #dbf7ff!important;border-radius:11px!important;padding-inline:12px!important;min-width:76px}
+.back-btn:disabled{opacity:.44;cursor:default}
+.top-actions .sound-label{white-space:nowrap}
+@media(max-width:720px){.header-menu-trigger{font-size:10px;min-height:36px;padding:5px 8px!important}.back-btn{min-width:68px!important;padding:5px!important}.top-left{gap:4px!important}}
