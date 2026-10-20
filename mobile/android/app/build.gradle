@@ -21,5 +21,6 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.biometric:biometric:1.1.0'\n    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'androidx.biometric:biometric:1.1.0' 
+    implementation 'androidx.browser:browser:1.8.0'
 }
