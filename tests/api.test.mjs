@@ -276,3 +276,21 @@ test('Hindu devotional discovery excludes unrelated stations and retains authent
     assert.ok(calls>0)
   })
 })
+
+
+test('Hindu radio search uses the devotional engine and excludes unrelated radio stations',async()=>{
+  await withFetch(async url=>{
+    assert.match(String(url),/radio-browser/)
+    return json([
+      {stationuuid:'bhajan-verified',name:'Bhakti Bhajan Radio',tags:'hindu,bhajan,devotional',url_resolved:'https://example.test/hindu',lastcheckok:1,countrycode:'IN',language:'hindi',clickcount:45},
+      {stationuuid:'sports-unrelated',name:'World Sports FM',tags:'football,sports',url_resolved:'https://example.test/sports',lastcheckok:1,countrycode:'IN',clickcount:99999}
+    ])
+  },async()=>{
+    const response=await audio({request:request('audio-library?mode=radio&q=Hindu%20Devotional%20Radio&limit=20')})
+    assert.equal(response.status,200)
+    const result=await response.json()
+    assert.equal(result.category,'Hindu devotional')
+    assert.ok(result.items.some(item=>item.title==='Bhakti Bhajan Radio'))
+    assert.ok(result.items.every(item=>item.title!=='World Sports FM'))
+  })
+})
