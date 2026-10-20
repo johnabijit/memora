@@ -2700,9 +2700,17 @@ function openThemePicker(){
         ${themeCatalog.map(t=>`<button class="theme-card" data-theme="${t.id}" aria-label="${esc(t.label)}" style="--t1:${t.c1};--t2:${t.c2};--t3:${t.c3};--tb:${t.bg1}"><span></span><small>${esc(t.label)}</small></button>`).join('')}
       </div>
     </details>
-    <div class="world-selection-status" role="status" id="worldSelectionStatus">Changes apply immediately. Close this window when you're happy.</div>
+    <div class="world-selection-status" role="status" id="worldSelectionStatus">Preview your choices, then select Apply changes to save.</div><div class="world-commit-actions"><button class="btn" type="button" id="worldCancel">Cancel and close</button><button class="btn primary" type="button" id="worldApply">Apply changes</button></div>
   `
   const box=modal('Memora Visual Worlds',body)
+  const themeKeys=['memora-world-mode','memora-world','memora-auto-rotate','memora-world-region','memora-world-festival','memora-theme','memora-appearance']
+  const original=Object.fromEntries(themeKeys.map(k=>[k,localStore.getItem(k)]))
+  let committed=false
+  const restore=()=>{if(committed)return;for(const [key,value] of Object.entries(original)){if(value===null)localStore.removeItem(key);else localStore.setItem(key,value)}updateTheme()}
+  const watcher=new MutationObserver(()=>{if(!box.isConnected){restore();watcher.disconnect()}})
+  watcher.observe(document.body,{childList:true,subtree:true})
+  box.querySelector('#worldCancel').onclick=()=>{restore();committed=true;box.remove()}
+  box.querySelector('#worldApply').onclick=()=>{committed=true;box.remove();toast('Theme and appearance applied')}
   const appearanceSelect=box.querySelector('#worldAppearance')
   appearanceSelect.value=localStore.getItem('memora-appearance')||'system'
   appearanceSelect.onchange=()=>{localStore.setItem('memora-appearance',appearanceSelect.value);updateTheme()}
