@@ -44,16 +44,18 @@ export const worldRegions=[
  {id:'south-america',name:'South America',hemisphere:'south',tropical:true},
  {id:'southeast-asia',name:'Southeast Asia',hemisphere:'north',tropical:true}
 ]
-export function suggestedWorld(date=new Date(),region='global'){
+export function suggestedWorld(date=new Date(),region='global',includeCelebrations=false){
  const d=date instanceof Date?date:new Date(date)
  if(!Number.isFinite(d.getTime()))return 'gallery'
  const month=d.getMonth()+1,day=d.getDate()
  const place=worldRegions.find(r=>r.id===region)||worldRegions[0]
  // Only fixed-date civil holidays are applied automatically. Dates for
  // Deepavali, Eid, Onam and other moveable festivals require manual selection.
- if(month===1&&day<=2)return 'new-year'
- if(month===12&&day>=20&&day<=27)return 'christmas'
- if(month===10&&day>=28&&day<=31&&(region==='us'||region==='uk'))return 'halloween'
+ if(includeCelebrations){
+  if(month===1&&day<=2)return 'new-year'
+  if(month===12&&day>=20&&day<=27)return 'christmas'
+  if(month===10&&day>=28&&day<=31&&(region==='us'||region==='uk'))return 'halloween'
+ }
  if(place.tropical){
    if(month>=6&&month<=9)return region==='india'?'monsoon':'tropical'
    return month>=3&&month<=5?'summer':'forest'
