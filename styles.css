@@ -1880,3 +1880,7 @@ html[data-appearance="light"] .topbar{color:#eef6ff}
 html[data-appearance="light"] .sidebar-nav{color:var(--text)}
 @media(max-width:1120px){.desktop-top-nav{display:none}.theme-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:660px){.theme-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar-nav{top:65px;left:5px}.top-left{gap:4px}#sidebarToggle{font-size:11px;padding:7px}}
+
+/* Memora ribbon visual identity */
+.logo{background:#0a1b33 url('./assets/memora-mark.svg') center/cover no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
+.logo::before,.logo::after{display:none!important}
