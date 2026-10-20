@@ -445,7 +445,7 @@ test('Memora Visual Worlds has real theme families manual region festival and Cl
    api.openThemePicker()
    const picker=w.document.querySelector('.visual-world-dialog')
    assert.ok(picker)
-   assert.equal(picker.querySelectorAll('[data-world-select]').length,318)
+   assert.equal(picker.querySelectorAll('[data-world-select]').length,333)
    assert.equal(picker.querySelectorAll('[data-theme]').length,120)
    assert.ok(picker.querySelector('#worldRegion'))
    assert.ok(picker.querySelector('#worldFestival'))

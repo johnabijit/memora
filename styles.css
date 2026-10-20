@@ -2419,3 +2419,70 @@ html[data-appearance="light"] .world-card{color:#fff}
 .back-btn:disabled{opacity:.44;cursor:default}
 .top-actions .sound-label{white-space:nowrap}
 @media(max-width:720px){.header-menu-trigger{font-size:10px;min-height:36px;padding:5px 8px!important}.back-btn{min-width:68px!important;padding:5px!important}.top-left{gap:4px!important}}
+
+/* v45 contrast and visual architecture */
+.back-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;width:auto!important;min-width:84px!important;height:40px!important;padding:0 12px!important;line-height:1!important;font-size:13px!important;white-space:nowrap!important;overflow:visible!important;position:relative!important;transform:none!important}
+.back-btn span{position:static!important;display:inline!important;line-height:1!important;letter-spacing:normal!important;font-size:inherit!important;color:inherit!important}
+.back-btn span:first-child{font-size:20px!important}
+.back-btn:disabled{opacity:.6}
+#soundButton{display:inline-flex;align-items:center;gap:7px;min-width:116px;font-size:12px;font-weight:700}
+#soundButton .sound-icon{font-size:14px;width:22px;height:22px;display:grid;place-items:center;border-radius:7px;background:var(--c1);color:#101622}
+html[data-appearance="light"]{color-scheme:light;--text:#14233b!important;--muted:#39495d!important;--glass:rgba(255,255,255,.94)!important;--glass2:rgba(249,251,255,.98)!important;--line:rgba(27,50,75,.21)!important}
+html[data-appearance="light"] body{color:#14233b!important;background:#edf2f8!important}
+html[data-appearance="light"] .main,html[data-appearance="light"] .page-head,html[data-appearance="light"] .page-head h2,html[data-appearance="light"] .page-head p{color:#14233b!important}
+html[data-appearance="light"] .glass,html[data-appearance="light"] .modal,html[data-appearance="light"] .visual-world-dialog{background:#f7f9fd!important;color:#17253c!important;border-color:#aebac9!important;box-shadow:0 16px 65px #26334a2b}
+html[data-appearance="light"] .visual-world-dialog :is(h2,h3,p,small,label,.world-privacy-note,.world-intro,.muted,.small,.eyebrow){color:#24364c!important;opacity:1!important}
+html[data-appearance="light"] .visual-world-dialog .btn,html[data-appearance="light"] .visual-world-dialog .chip{color:#14233b!important;background:#e4eaf2!important;border-color:#a7b4c3!important}
+html[data-appearance="light"] .visual-world-dialog .btn.primary,html[data-appearance="light"] .visual-world-dialog .chip.active{background:#174e7a!important;color:#fff!important}
+html[data-appearance="light"] .visual-world-dialog .input{background:#fff!important;color:#12233b!important;border:1px solid #92a5bc!important}
+html[data-appearance="light"] .visual-world-dialog .input::placeholder{color:#566780!important}
+html[data-appearance="light"] .visual-world-dialog .world-card{background:#f2f5f9!important;border-color:#a2b2c6!important;color:#15263b!important}
+html[data-appearance="light"] .visual-world-dialog .world-card :is(.world-title,small){color:#1a2e46!important}
+html[data-appearance="light"] .visual-world-dialog .world-card.selected{border-color:#1269b3!important;box-shadow:0 0 0 2px #1269b340}
+html[data-appearance="light"] .visual-world-dialog .world-selection-status{color:#213d5a!important;background:#dfeafa!important}
+html[data-appearance="light"] .memora-player{background:#f8fbff!important;color:#182942!important;border-color:#8296ae!important}
+html[data-appearance="light"] .memora-player *{color:inherit}
+html[data-appearance="light"] :is(.memory-card,.home-panel,.overview-card,.home-metric,.stat-card){background:#fff!important;color:#16283e!important;border-color:#bac6d2!important}
+html[data-appearance="light"] :is(.memory-card,.home-panel,.overview-card,.home-metric,.stat-card) :is(h2,h3,h4,b,strong,p,small){color:#16283e!important}
+html[data-appearance="light"] .input{color:#142940}
+html[data-appearance="light"] .scene-photo-layer{opacity:.14!important}
+html[data-appearance="light"] .scene-layer{opacity:.08!important}
+html[data-appearance="light"] .topbar,html[data-appearance="light"] .topbar *{color:#f5f8ff}
+html[data-appearance="light"] .topbar .back-btn,html[data-appearance="light"] .topbar .back-btn *{color:#102638!important}
+html[data-visual-style="illustrated"] .hero,html[data-visual-style="anime"] .hero{border-radius:38px 14px 38px 14px!important;box-shadow:11px 11px 0 color-mix(in srgb,var(--c1) 19%,transparent)}
+html[data-visual-style="noir"] .hero,html[data-visual-style="cosmic"] .hero{border-radius:4px!important;border-left:5px solid var(--c1)!important;box-shadow:0 16px 45px #0008}
+html[data-visual-style="sunrise"] .hero,html[data-visual-style="coastal"] .hero{border-radius:70px 24px 70px 24px!important;backdrop-filter:blur(24px)}
+html[data-visual-style="photo"] .hero,html[data-visual-style="mountain"] .hero{border-radius:20px!important;border-bottom:5px solid var(--c2)!important}
+html[data-visual-style="festival"] .hero{border-radius:22px!important;outline:2px dashed color-mix(in srgb,var(--c3) 65%,transparent);outline-offset:5px}
+html[data-visual-style="illustrated"] .memory-card,html[data-visual-style="illustrated"] .glass{border-radius:24px 6px 24px 6px}
+html[data-visual-style="noir"] .memory-card,html[data-visual-style="noir"] .glass{border-radius:2px}
+html[data-visual-style="sunrise"] .memory-card{border-radius:32px}
+html[data-visual-style="festival"] .memory-card{border-radius:6px 32px 6px 32px}
+html[data-visual-style="cosmic"] .scene-layer{animation:memora-drift 25s ease-in-out infinite alternate}
+html[data-visual-style="festival"] .scene-layer{animation:memora-drift 16s ease-in-out infinite alternate}
+html[data-visual-style="sunrise"] .scene-layer{animation:memora-breathe 13s ease-in-out infinite alternate}
+@keyframes memora-drift{from{transform:translate3d(-2%,0,0) scale(1.03)}to{transform:translate3d(2%,-2%,0) scale(1.07)}}
+@keyframes memora-breathe{from{opacity:.25;transform:scale(1)}to{opacity:.66;transform:scale(1.07)}}
+@media(prefers-reduced-motion:reduce){html[data-visual-style] .scene-layer{animation:none!important}}
+@media(max-width:760px){.back-btn{min-width:71px!important;font-size:11px!important;height:35px!important;padding:0 7px!important}.back-btn span:first-child{font-size:16px!important}#soundButton{min-width:auto}}
+
+/* v45 theme genres: distinct ambient scene and layout designs */
+html[data-world-group="music"] .scene-layer{background:repeating-linear-gradient(90deg,transparent 0 20px,color-mix(in srgb,var(--c2) 18%,transparent) 20px 28px,transparent 28px 44px);mask-image:linear-gradient(transparent,black,transparent);animation:musicEqualizer 9s ease-in-out infinite alternate}
+html[data-world-group="space"] .scene-layer{background-image:radial-gradient(#dceeff 1px,transparent 2px),radial-gradient(var(--c1) 2px,transparent 3px);background-size:27px 34px,78px 94px;animation:memora-drift 30s linear infinite alternate}
+html[data-world-group="creative"] .scene-layer{background:repeating-conic-gradient(from 0deg at 50% 50%,color-mix(in srgb,var(--c1) 18%,transparent) 0deg 20deg,transparent 21deg 45deg);mask-image:linear-gradient(90deg,black,transparent);animation:memora-drift 28s ease-in-out infinite alternate}
+html[data-world-group="places"] .scene-layer{background:linear-gradient(140deg,transparent 38%,color-mix(in srgb,var(--c1) 18%,transparent) 40%,transparent 45%),repeating-linear-gradient(90deg,transparent 0 60px,color-mix(in srgb,var(--c2) 10%,transparent) 60px 63px)}
+html[data-world-group="nature"] .scene-layer{background:repeating-radial-gradient(ellipse at 50% 120%,transparent 0 70px,color-mix(in srgb,var(--c2) 15%,transparent) 72px 80px,transparent 83px 150px);animation:memora-breathe 16s ease-in-out infinite alternate}
+html[data-world-group="festivals"] .scene-layer{background:radial-gradient(circle at 9% 14%,var(--c1) 0 2px,transparent 3px),radial-gradient(circle at 82% 33%,var(--c3) 0 3px,transparent 4px),radial-gradient(circle at 47% 76%,var(--c2) 0 3px,transparent 4px);background-size:76px 82px;animation:memora-drift 18s linear infinite alternate}
+html[data-world-group="editorial"] .hero{font-family:Georgia,serif;letter-spacing:-.03em}
+html[data-world-group="creative"] .hero h2{letter-spacing:-.065em;text-transform:none}
+html[data-world-group="places"] .hero{border-radius:4px 48px 4px 48px!important}
+html[data-world-group="music"] .hero{border-radius:28px!important;box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--c1) 35%,transparent),0 22px 65px #0005}
+html[data-world-group="nature"] .hero{border-radius:40px 40px 12px 12px!important}
+html[data-world-group="space"] .hero{border-radius:42px!important;border:1px solid color-mix(in srgb,var(--c1) 55%,transparent);box-shadow:0 0 40px color-mix(in srgb,var(--c2) 14%,transparent)}
+html[data-world-group="festivals"] .hero{border-radius:10px 32px 10px 32px!important}
+html[data-world-group="music"] .memory-card{border-radius:10px!important}
+html[data-world-group="places"] .memory-card{border-radius:4px 24px!important}
+html[data-world-group="nature"] .memory-card{border-radius:30px 10px!important}
+html[data-world-group="space"] .memory-card{border-radius:26px!important}
+@keyframes musicEqualizer{0%{transform:scaleY(.4) translateY(20%)}100%{transform:scaleY(1.15) translateY(-5%)}}
+@media(prefers-reduced-motion:reduce){html[data-world-group] .scene-layer{animation:none!important}}

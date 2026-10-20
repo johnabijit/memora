@@ -287,7 +287,7 @@ for(const [id,name,group,h,scene] of worldSubjects){
     visualWorlds.push({id:`world-${id}-${look.id}`,name:`${name} · ${look.name}`,group,scene:`${scene} ${look.suffix}`,style:look.style,palette,bg})
   }
 }
-const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
+
 const worldRegions=[
   ['auto','My current local time'],['IN','India'],['US','United States'],['GB','United Kingdom'],
   ['AE','United Arab Emirates'],['CA','Canada'],['AU','Australia'],['NZ','New Zealand'],
@@ -296,8 +296,32 @@ const worldRegions=[
 ]
 const worldFestivals=[
   ['none','No festival theme'],['diwali-lights','Diwali'],['christmas-cabin','Christmas'],
-  ['eid-moon','Eid'],['pongal-harvest','Pongal'],['onam-bloom','Onam']
+  ['eid-moon','Eid'],['pongal-harvest','Pongal'],['onam-bloom','Onam'],
+  ['lunar-new-year','Lunar New Year'],['hanukkah','Hanukkah'],['vesak','Vesak'],
+  ['holi','Holi'],['songkran','Songkran'],['carnival','Carnival'],['thanksgiving','Thanksgiving'],
+  ['halloween','Halloween'],['nowruz','Nowruz'],['mid-autumn','Mid-Autumn Festival'],
+  ['day-of-dead','Day of the Dead'],['oktoberfest','Oktoberfest'],['lantern-festival','Lantern Festival'],
+  ['ethiopian-new-year','Enkutatash'],['bastille-day','Bastille Day']
 ]
+const festivalWorlds=[
+ ['lunar-new-year','Lunar New Year','red lanterns Chinese Lunar New Year celebration',8],
+ ['hanukkah','Hanukkah','Hanukkah menorah candlelight winter evening',219],
+ ['vesak','Vesak','Vesak Buddhist lanterns temple celebration',42],
+ ['holi','Holi','Holi colorful powder celebration festival',308],
+ ['songkran','Songkran','Thai Songkran water festival streets',195],
+ ['carnival','Carnival','Rio de Janeiro carnival colorful costumes street parade',322],
+ ['thanksgiving','Thanksgiving','autumn harvest Thanksgiving table',28],
+ ['halloween','Halloween','Halloween pumpkins moonlit autumn village',21],
+ ['nowruz','Nowruz','Nowruz Persian spring haft sin flowers',109],
+ ['mid-autumn','Mid-Autumn Festival','mid autumn mooncakes lantern moon festival',42],
+ ['day-of-dead','Day of the Dead','Mexican Dia de Muertos marigold celebration',28],
+ ['oktoberfest','Oktoberfest','Bavarian Oktoberfest festival tents and lights',37],
+ ['lantern-festival','Lantern Festival','glowing lanterns floating in evening sky',33],
+ ['ethiopian-new-year','Enkutatash','Ethiopian new year yellow flowers celebration',53],
+ ['bastille-day','Bastille Day','French Bastille Day fireworks Paris skyline',220]
+]
+for(const [id,name,scene,h] of festivalWorlds)visualWorlds.push({id,name,group:'Festivals',scene,style:'festival',palette:[`hsl(${h} 90% 70%)`,`hsl(${(h+40)%360} 80% 70%)`,'#fff1c4'],bg:['#101729','#26324a','#34425b']})
+const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
 function selectedVisualWorld(){
   const mode=localStore.getItem('memora-world-mode')||'auto'
   if(mode==='classic')return null
@@ -311,6 +335,7 @@ function selectedVisualWorld(){
   const south=['AU','NZ','ZA','BR'].includes(region)
   const localWinter=south?month>=6&&month<=8:(month===12||month<=2)
   const localAutumn=south?month>=3&&month<=5:(month>=9&&month<=11)
+  if(localStore.getItem('memora-auto-rotate')==='1')return visualWorlds[Math.floor(Date.now()/3600000)%visualWorlds.length]
   if(localWinter)return worldById['winter-frost']
   if(localAutumn)return worldById['autumn-editorial']
   if(region==='IN'&&month>=6&&month<=9)return worldById['monsoon-diary']
@@ -330,6 +355,8 @@ function applyVisualWorld(world){
   }
   root.dataset.visualWorld=world.id
   root.dataset.visualStyle=world.style
+  root.dataset.worldGroup=world.group.toLowerCase().replace(/[^a-z]/g,'')
+  root.dataset.worldSubject=world.id.replace(/^world-/,'').split('-')[0]
   const [c1,c2,c3]=world.palette
   const [bg0,bg1,bg2]=world.bg
   const light=root.dataset.appearance==='light'
@@ -1770,9 +1797,9 @@ function updateSoundButton(){
   const active=ambientPreferences.enabled&&audio&&!audio.muted
   if(button){
     button.dataset.enabled=active?'true':'false'
-    button.title=active?'Open Memora Audio':'Audio is muted'
+    button.title='Open music player and search music'
     const label=button.querySelector('.sound-label')
-    if(label) label.textContent=active?'Audio':'Muted'
+    if(label) label.textContent='Play music'
   }
 }
 
@@ -2647,7 +2674,7 @@ function openThemePicker(){
   }).join('')
   const body=`
     <div class="world-intro"><p>Explore ${visualWorlds.length} visual worlds with different subjects, compositions and photographic or illustrated scenes. The original 120 palettes remain available too.</p>
-      <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
+      <button id="worldAuto" class="btn ${worldMode==='auto'&&localStore.getItem('memora-auto-rotate')!=='1'?'primary':''}" type="button">✦ Follow seasons</button><button id="worldRotate" class="btn ${worldMode==='auto'&&localStore.getItem('memora-auto-rotate')==='1'?'primary':''}" type="button">↻ New world every hour</button>
     </div>
     <div class="world-preferences">
       <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
@@ -2683,14 +2710,24 @@ function openThemePicker(){
     box.querySelectorAll('[data-world-select]').forEach(button=>
       button.classList.toggle('selected',localStore.getItem('memora-world-mode')==='manual'&&
         button.dataset.worldSelect===localStore.getItem('memora-world')))
-    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto')
+    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto'&&localStore.getItem('memora-auto-rotate')!=='1')
+    box.querySelector('#worldRotate').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto'&&localStore.getItem('memora-auto-rotate')==='1')
   }
   box.querySelector('#worldAuto').onclick=()=>{
+    localStore.setItem('memora-world-festival','none')
+    localStore.setItem('memora-auto-rotate','0')
     localStore.setItem('memora-world-mode','auto')
-    applied('Adaptive themes now follow your device time, season and optional region.')
+    applied('Seasonal mode active. Memora uses your device date, local time and optional region.')
+  }
+  box.querySelector('#worldRotate').onclick=()=>{
+    localStore.setItem('memora-world-festival','none')
+    localStore.setItem('memora-auto-rotate','1')
+    localStore.setItem('memora-world-mode','auto')
+    applied('Automatic world rotation enabled. A different world is chosen each hour.')
   }
   box.querySelectorAll('[data-world-select]').forEach(button=>button.onclick=()=>{
     localStore.setItem('memora-world',button.dataset.worldSelect)
+    localStore.setItem('memora-auto-rotate','0')
     localStore.setItem('memora-world-mode','manual')
     applied('Visual world selected: '+worldById[button.dataset.worldSelect].name)
   })
@@ -2709,7 +2746,9 @@ function openThemePicker(){
     applied('Optional festival preference updated.')
   }
   box.querySelector('#worldSurprise').onclick=()=>{
-    const chosen=visualWorlds[Math.floor(Math.random()*visualWorlds.length)]
+    const previous=localStore.getItem('memora-world')
+    const choices=visualWorlds.filter(w=>w.id!==previous)
+    const chosen=choices[Math.floor(Math.random()*choices.length)]
     box.querySelector('[data-world-select="'+chosen.id+'"]').click()
   }
   let group='All'
@@ -2992,7 +3031,7 @@ function shell(content,title,subtitle=''){
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left"><button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
-        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>← Back</button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
@@ -3004,7 +3043,7 @@ function shell(content,title,subtitle=''){
         </form>
         <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
         
-        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Play music</span></button>
+        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
