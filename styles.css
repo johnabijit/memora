@@ -2240,3 +2240,31 @@ body.has-memora-player .ask-main{height:clamp(320px,calc(100dvh - 355px),645px)}
  .composer-submit-group{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}
  .composer-submit-group .btn{min-width:0;padding:10px 7px}
 }
+
+
+/* Memora v2 responsive navigation and persistent player placement */
+.top-primary-nav{display:flex;align-items:center;gap:3px;flex-wrap:nowrap}
+.top-primary-nav button{border:0;background:transparent;color:#cbd4df;border-radius:11px;padding:10px 11px;min-height:44px;cursor:pointer;font-weight:650;font-size:12px;white-space:nowrap}
+.top-primary-nav button:hover,.top-primary-nav button:focus-visible{background:rgba(255,255,255,.10);color:#fff}
+.topbar{gap:12px}
+.top-left{flex-shrink:0}
+.global-search-trigger{min-width:210px;justify-content:flex-start;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18)}
+.brand .logo{display:grid;place-items:center}
+.brand .logo svg{max-width:100%;height:auto}
+.back-btn:disabled{opacity:.35;cursor:default}
+.memora-player{position:fixed!important;z-index:110!important;bottom:max(18px,env(safe-area-inset-bottom))!important;pointer-events:auto;visibility:visible;opacity:1}
+body.has-memora-player .app{padding-bottom:calc(var(--dock-h) + 190px)!important}
+body.has-memora-player .main{padding-bottom:190px!important}
+body.has-memora-player .modal-backdrop{padding-bottom:108px}
+body.has-memora-player .modal{max-height:calc(100dvh - 165px)}
+body.has-memora-player .modal-backdrop .memora-player{z-index:110}
+.memora-player #playerPlay svg,.memora-player #playerPrevious svg,.memora-player #playerNext svg{display:block;margin:auto}
+@media(max-width:1350px){.top-primary-nav button{padding:9px 7px}.global-search-trigger{min-width:145px}}
+@media(max-width:1150px){.top-primary-nav{display:none}.global-search-trigger{min-width:170px}}
+@media(max-width:760px){
+ .global-search-trigger{min-width:0}
+ .memora-player{bottom:calc(var(--dock-h) + 10px + env(safe-area-inset-bottom))!important;z-index:110!important}
+ body.has-memora-player .modal-backdrop{padding-bottom:calc(var(--dock-h) + 100px)}
+ body.has-memora-player .modal{max-height:calc(100dvh - var(--dock-h) - 130px)}
+ body.has-memora-player .main{padding-bottom:165px!important}
+}
