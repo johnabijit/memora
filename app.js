@@ -4500,14 +4500,19 @@ async function answer(question){
     return {text:`The most recent relevant memory is: “${cleanAnswerText(relevant[0].summary||relevant[0].original_text)}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
   }
 
-  if(aiUnavailable) return {
-    text:'AI reasoning is currently unavailable. Check your AI provider connection in Sources and try again. You can still ask for specific saved details, such as your manager or an item’s location.',
-    source:'AI connection unavailable'
+  // Do not give up on stored memories merely because the AI provider failed.
+  // Search the saved vault first, and tell the user the difference between
+  // missing evidence and a temporarily unavailable reasoning service.
+  let data=[]
+  try {
+    data=await smartMemorySearch(q,8)
+  } catch(error) {
+    console.warn('Local memory search failed',error)
   }
-
-  const data=await smartMemorySearch(q,8)
   const relevant=data.filter(result=>resultRelevant(q,result))
-  if(!relevant.length) return {text:"I don't have a relevant memory for that question yet."}
+  if(!relevant.length) return aiUnavailable
+    ? {text:'AI reasoning is temporarily unavailable, and I could not find a matching saved memory. You can still ask me about saved facts, people, and item locations. Check Sources for the AI connection status.',source:'AI unavailable; saved memory search checked'}
+    : {text:"I don't have a relevant memory for that question yet."}
   const best=relevant[0]
   conversationContext.lastMemoryId=best.id
   conversationContext.subject=best.summary||conversationContext.subject
@@ -4609,6 +4614,7 @@ async function ask({reload=true}={}){
             <button class="chip" data-ask-suggestion="How are you?">Talk</button>
             <button class="chip" data-ask-suggestion="What do you remember about me?">About me</button>
             <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
+            <button class="chip" data-nav="people">People</button>
             <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
           </div>
           <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>How is your day going?</strong>Talk naturally, share something you want remembered, ask a question, or let Memora search your private memory vault when it is relevant.</div>'}</div>
@@ -4844,8 +4850,13 @@ async function vault(){
 
 async function people(){
   await reindexVaultFromMemories()
-  const {data}=await supabase.from('people').select('*').order('name')
-  app.innerHTML=shell(`<div class="vault-grid">${data?.length?data.map(p=>`<div class="glass vault-card"><div class="vault-icon">◎</div><h3>${esc(p.name)}</h3><p>${esc(p.relationship||'Person from your memories')}</p><div class="memory-meta">Last seen ${when(p.last_seen_at||p.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No people yet</strong>Mention someone in a memory and they can appear here.</div>'}</div>`,'People')
+  const {data,error}=await supabase.from('people').select('*').order('name')
+  const peopleContent=error
+    ? '<div class="glass empty"><strong>Unable to load People</strong>Check your session and try again. Your saved records have not been deleted.</div>'
+    : data?.length
+      ? data.map(p=>`<div class="glass vault-card"><div class="vault-icon">◎</div><h3>${esc(p.name)}</h3><p>${esc(p.relationship||'Person from your memories')}</p><div class="memory-meta">Last seen ${when(p.last_seen_at||p.created_at)}</div></div>`).join('')
+      : '<div class="glass empty"><strong>No people yet</strong>Mention someone in a memory and they can appear here.</div>'
+  app.innerHTML=shell(`<div class="vault-grid">${peopleContent}</div>`,'People')
   wire()
 }
 
