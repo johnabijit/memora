@@ -44,3 +44,7 @@ jobs:
             sleep 7
             adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 200; exit 1)
             echo "Memora native activity started and remained running"
+            adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'memora://auth/callback?code=0123456789abcdef' com.memora.mobile
+            sleep 5
+            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 200; exit 1)
+            echo "Memora remained running after Android OAuth callback deep link"
