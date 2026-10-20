@@ -5,7 +5,7 @@ import android.content.Context;
 import androidx.fragment.app.FragmentActivity;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
-import androidx.core.content.ContextCompat;
+import androidx.core.content.ContextCompat;\nimport androidx.browser.customtabs.CustomTabsIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -64,7 +64,7 @@ public class MainActivity extends FragmentActivity {
         webView.setBackgroundColor(Color.rgb(12,16,25));
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
-        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.3");
+        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.6");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
@@ -293,7 +293,7 @@ public class MainActivity extends FragmentActivity {
         }
         if ("https".equalsIgnoreCase(scheme) && host != null) {
             // The only pages displayed inside the WebView are Memora pages.
-            // All external identity-provider and third-party pages open in the phone browser.
+            // Identity providers open securely inside an in-app Custom Tab, never in the WebView.
             if (host.equalsIgnoreCase("memora-37z.pages.dev")) return false;
             openExternally(uri);
             return true;
@@ -305,7 +305,7 @@ public class MainActivity extends FragmentActivity {
         return false;
     }
 
-    private void openExternally(Uri uri) {
+    private boolean isIdentityProvider(Uri uri) {\n        String host = uri.getHost();\n        if (host == null || !"https".equalsIgnoreCase(uri.getScheme())) return false;\n        String h = host.toLowerCase(java.util.Locale.ROOT);\n        return h.equals("accounts.google.com") || h.equals("login.microsoftonline.com")\n            || h.equals("appleid.apple.com") || h.equals("www.facebook.com")\n            || h.equals("github.com") || h.equals("ueinbsvqihczmxpkctcq.supabase.co");\n    }\n\n    private void openIdentityTab(Uri uri) {\n        try {\n            CustomTabsIntent customTab = new CustomTabsIntent.Builder()\n                .setShowTitle(true)\n                .setToolbarColor(Color.rgb(12, 23, 42))\n                .setShareState(CustomTabsIntent.SHARE_STATE_OFF)\n                .build();\n            customTab.launchUrl(this, uri);\n        } catch (Exception error) {\n            openExternally(uri);\n        }\n    }\n\n    private void openExternally(Uri uri) {
         try { startActivity(new Intent(Intent.ACTION_VIEW,uri)); }
         catch (Exception ignored) { Toast.makeText(this,"No application can open this link",Toast.LENGTH_LONG).show(); }
     }
