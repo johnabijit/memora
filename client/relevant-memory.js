@@ -91,10 +91,13 @@ const events={
  appointment:/\b(appointment|meeting|consultation)\b/i
 }
 function eventPassages(text,topic){
- const clauses=String(text||'').replace(/[\n\r]+/g,' ').split(/(?<=[.!?;])\s+|\s+and\s+(?=(?:the\s+)?(?:my\s+)?(?:reception|wedding|marriage|appointment|engagement)\b)/i).filter(Boolean)
+ const clauses=String(text||'').replace(/[\n\r]+/g,' ').split(/(?<=[.!?;])\s+|[,;]\s*(?=(?:the\s+)?(?:my\s+)?(?:reception|wedding|marriage|engagement)\b)|\s+and\s+(?=(?:the\s+)?(?:my\s+)?(?:reception|wedding|marriage|appointment|engagement)\b)/i).filter(Boolean)
  const found=[]
  for(let i=0;i<clauses.length;i++){
   if(!events[topic]?.test(clauses[i]))continue
+  // "wedding reception" describes the reception, not the ceremony.
+  if(topic==='wedding'&&/\bwedding\s+reception\b/i.test(clauses[i])&&
+     !/\b(ceremony|marriage|married|nuptials)\b/i.test(clauses[i]))continue
   let part=clauses[i]
   if(!firstDate(part)&&i+1<clauses.length&&!Object.values(events).some(r=>r.test(clauses[i+1])))part+=' '+clauses[i+1]
   found.push(part)
