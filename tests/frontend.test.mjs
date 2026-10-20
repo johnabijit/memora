@@ -13,7 +13,7 @@ const facts=[
   {fact_key:'family.sister.2',category:'family',predicate:'sister',value_text:'Dana',ordinal:2,age_relation:'younger'}
 ]
 
-async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvailable=false}={}) {
+async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvailable=false,memoryRows=[]}={}) {
   const dom=new JSDOM('<div id="app"></div>',{url:'https://memora.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()})
   const w=dom.window
   w.SUPABASE_URL='https://fixture.supabase.co'
@@ -37,13 +37,13 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
       signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}}),
       signInWithPasskey:passkeyAvailable?async()=>({data:null,error:{code:'passkey_disabled',message:'Passkey authentication disabled'}}):undefined,
       registerPasskey:passkeyAvailable?async()=>({data:null,error:{code:'passkey_disabled',message:'Passkey authentication disabled'}}):undefined,
-      signInWithOtp:async payload=>{w.memoraOtpRequests.push(payload);return {error:null}},
+      signInWithOtp:async()=>({error:null}),
       verifyOtp:async payload=>({data:{session:{user:{id:'fixture-user'}},user:{id:'fixture-user'}},error:null}),
       resend:async payload=>({error:null})
     },
     from(table){
       const chain=new Proxy({}, {get(_,key){
-        if(key==='then') return resolve=>resolve({data:table==='memory_facts'?facts:[],error:null})
+        if(key==='then') return resolve=>resolve({data:table==='memory_facts'?facts:table==='memories'?memoryRows:[],error:null})
         if(key==='maybeSingle'||key==='single') return async()=>({data:null,error:null})
         return ()=>chain
       }})
@@ -294,4 +294,30 @@ test('email and social sign-in remain, while SMS signup and phone linking are co
     await api.settings()
     for(const id of ['linkMobileNumber','linkedPhoneState','linkPhoneStart'])assert.equal(w.document.getElementById(id),null)
   }finally{dom.window.close()}
+})
+
+test('Ask Memora answers paraphrased wedding questions from saved memory without AI credits',async()=>{
+ const {dom,api}=await appFixture({memoryRows:[
+   {id:'wedding-1',original_text:'My marriage was at Divine Mercy Church on 21 December 2026 at 4:00 PM.',
+     created_at:'2026-10-20T10:00:00Z',occurred_at:'2026-10-20T10:00:00Z'},
+   {id:'pickup-1',original_text:'I collect Ahay at 4:50 pm on workdays.'}
+ ]})
+ try{
+   api.setUser()
+   const answer=await api.answer('What is my wedding date?')
+   assert.match(answer.text,/21 December 2026/)
+   assert.doesNotMatch(answer.text,/4:50 pm/i)
+   const place=await api.answer('Where was my marriage?')
+   assert.match(place.text,/Divine Mercy Church/)
+   const followup=await api.answer('At what time?')
+   assert.match(followup.text,/4:00 PM/i)
+ }finally{dom.window.close()}
+})
+test('Ask Memora refuses to invent a missing wedding date',async()=>{
+ const {dom,api}=await appFixture({memoryRows:[{id:'wedding',original_text:'My marriage was at Divine Mercy Church.'}]})
+ try{
+   api.setUser()
+   const a=await api.answer('What is my wedding date?')
+   assert.match(a.text,/does not state a clear date/)
+ }finally{dom.window.close()}
 })
