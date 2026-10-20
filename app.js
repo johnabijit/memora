@@ -6327,14 +6327,14 @@ async function prepareSignedIn(){
   }else{
     const preferredQuery=mediaPlayerState.query||(preferredMode==='nature'?'rain':'')
     loadMediaLibrary(preferredMode,preferredQuery,100,{
-      preserveCurrent:preferredMode==='nature',
+      preserveCurrent:false,
       countrycode:mediaPlayerState.radioCountry,
       sort:mediaPlayerState.radioSort,
       tradition:mediaPlayerState.devotionalTradition,
       language:preferredMode==='devotional'?mediaPlayerState.devotionalLanguage:mediaPlayerState.radioLanguage
     })
       .then(items=>{
-        if(['radio','devotional'].includes(preferredMode)&&items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
+        if(items?.length) selectMediaTrack(items[Math.floor(Math.random()*items.length)],false)
       })
       .catch(()=>{})
   }
