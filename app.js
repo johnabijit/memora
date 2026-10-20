@@ -2331,7 +2331,7 @@ function applyTheme(values,label){
   const root=document.documentElement
   Object.entries(values).forEach(([key,value])=>root.style.setProperty(`--${key}`,value))
   root.dataset.themeLabel=label
-  const isLight=Number((values.bg0.match(/ (\\d+)%\\)$/)||[])[1]||0)>50
+  const isLight=String(values.bg0||'').includes(' 76%)')||String(values.bg0||'').includes(' 89%)')
   root.dataset.colorMode=isLight?'light':'dark'
   root.dataset.worldStyle=values.look||'classic'
   root.dataset.worldCategory=values.category||'classic'
