@@ -957,15 +957,16 @@ function ensureMediaPlayer(){
       <span class="player-art-fallback"><i></i><i></i><i></i></span>
     </button>
     <button class="player-track player-track-button" id="playerTrackOpen" aria-label="Open Now Playing">
-      <small id="playerSource">Nature · Wikimedia Commons</small>
+      <small class="player-kicker">NOW PLAYING · <span id="playerSource">Nature · Wikimedia Commons</span></small>
       <strong id="playerTitle">Rain, thunder and birds</strong>
       <span id="playerStatus">Ready</span>
     </button>
     <div class="player-actions mini-actions">
-      <button class="player-action primary" id="playerPlay" aria-label="Play or pause">▶</button>
-      <button class="player-action" id="playerNext" aria-label="Next">››</button>
-      <button class="player-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
-      <button class="player-action expand-action" id="playerExpand" aria-label="Expand Now Playing">⌃</button>
+      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous">❮❮</button>
+      <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause">▶</button>
+      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next">❯❯</button>
+      <button class="player-action expand-action" id="playerExpand" aria-label="Open Now Playing" title="Open player">⌃</button>
+      <button class="player-action player-mute-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
     </div>
   `
   document.body.appendChild(player)
@@ -1002,6 +1003,7 @@ function ensureMediaPlayer(){
     else refreshMediaPlayerUI()
   })
 
+  document.getElementById('playerPrevious').onclick=()=>previousMediaTrack(true)
   document.getElementById('playerPlay').onclick=toggleMediaPlayback
   document.getElementById('playerNext').onclick=()=>nextMediaTrack(true)
   document.getElementById('playerMute').onclick=toggleMediaMute
@@ -2710,7 +2712,7 @@ function shell(content,title,subtitle=''){
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
+        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search or Ask</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
@@ -2798,24 +2800,49 @@ function openMusicFinder(initial=''){
   update()
 }
 
-function openGlobalSearch(){
-  const wrap=modal('Search',`
+function openGlobalSearch(initial=''){
+  const wrap=modal('Search or Ask',`
     <form class="global-search-form">
-      <label for="globalSearchScope">Search in</label>
-      <select class="input" id="globalSearchScope"><option value="memories">Saved memories, people and things</option><option value="music">Music and songs</option><option value="web">The web</option></select>
+      <p class="muted search-intro">Find a saved detail, listen to music or radio, or ask Memora directly.</p><label for="globalSearchScope" class="sr-only">Search in</label>
+      <select class="input unified-scope-select" id="globalSearchScope"><option value="memories">My memories</option><option value="music">Music and songs</option><option value="radio">Live radio</option><option value="web">The web</option></select><div class="unified-scope-tabs" role="group" aria-label="Search category"><button type="button" class="scope-chip active" data-search-category="memories">My memories</button><button type="button" class="scope-chip" data-search-category="music">Music</button><button type="button" class="scope-chip" data-search-category="radio">Radio</button><button type="button" class="scope-chip" data-search-category="web">Web</button></div>
       <label for="globalSearchQuery">What are you looking for?</label>
-      <input class="input" id="globalSearchQuery" type="search" maxlength="200" required placeholder="Search by name, title or keyword">
-      <button class="btn primary" type="submit">Search</button>
+      <input class="input unified-search-input" id="globalSearchQuery" type="search" maxlength="300" required placeholder="My wedding date, Anirudh songs, Hindu radio...">
+      <div class="unified-search-actions"><button class="btn primary" type="submit">Find matches</button><button type="button" class="btn" id="globalAskButton">Ask Memora →</button></div>
     </form>
-    <p class="small muted" id="globalSearchNote">Search your saved information privately. Public searches run only when you choose Music or The web.</p>
+    <p class="small muted" id="globalSearchNote">Private by default. Only Music, Radio or Web searches contact public services.</p>
     <p role="status" aria-live="polite" id="globalSearchStatus"></p>
-    <button class="btn" id="globalMusicFinder">Find artists, movie songs, albums & playlists</button>
+    <button class="btn" id="globalMusicFinder" hidden>Find more songs on YouTube</button>
     <div class="global-search-results"></div>`)
-  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder(wrap.querySelector('input').value)
+  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder(wrap.querySelector('#globalSearchQuery').value)
   const scope=wrap.querySelector('select'), input=wrap.querySelector('input')
   const results=wrap.querySelector('.global-search-results'), status=wrap.querySelector('[role="status"]')
   let request=0
-  scope.onchange=()=>{request++;results.replaceChildren();status.textContent=''}
+  const setCategory=()=>{
+    request++
+    results.replaceChildren()
+    status.textContent=''
+    wrap.querySelector('#globalMusicFinder').hidden=scope.value!=='music'
+    wrap.querySelectorAll('[data-search-category]').forEach(button=>{
+      const active=button.dataset.searchCategory===scope.value
+      button.classList.toggle('active',active)
+      button.setAttribute('aria-pressed',String(active))
+    })
+  }
+  scope.onchange=setCategory
+  wrap.querySelectorAll('[data-search-category]').forEach(button=>button.onclick=()=>{
+    scope.value=button.dataset.searchCategory
+    setCategory()
+    input.focus()
+  })
+  wrap.querySelector('#globalAskButton').onclick=async()=>{
+    const q=input.value.trim()
+    if(!q)return input.focus()
+    if(looksLikeSecret(q))return toast('Credentials cannot be submitted as a question.')
+    wrap.remove()
+    await go('ask')
+    const askInput=document.getElementById('askInput')
+    if(askInput){askInput.value=q;askInput.focus()}
+  }
   const link=(url,label)=>`<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`
   wrap.querySelector('form').onsubmit=async event=>{
     event.preventDefault()
@@ -2827,26 +2854,61 @@ function openGlobalSearch(){
     results.innerHTML=links
     if(mode==='web'){status.textContent='Ready to search the web';return}
     try{
-      const musicData=mode==='music'?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'})):null
-      const items=musicData?musicData.items||[]:await smartMemorySearch(query,20)
+      const devotional=/\b(hindu|bhajan|bhakti|mantra|aarti|kirtan|shiva|krishna|murugan)\b/i.test(query)?'hindu':
+        /\b(christian|gospel|worship)\b/i.test(query)?'christian':null
+      const radioParams=new URLSearchParams({mode:devotional?'devotional':'radio',q:query,limit:'30'})
+      if(devotional){
+        radioParams.set('tradition',devotional)
+        radioParams.set('q',query.replace(/\b(radio|fm|stations?|hindu|christian|devotional)\b/gi,'').trim())
+      }
+      const mediaData=mode==='music'
+        ?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'}))
+        :mode==='radio'?await fetchApi('/api/audio-library?'+radioParams):null
+      const items=mediaData?mediaData.items||[]:await smartMemorySearch(query,20)
       if(id!==request||!wrap.isConnected) return
-      status.textContent=items.length?`${items.length} results${musicData&&musicData.matchedQuery!==input.value.trim()?' for “'+musicData.matchedQuery+'”':''}`:mode==='music'?'No matches in the built-in open catalogs. This does not mean the songs are unavailable. Try YouTube above.':'No matching results. Try another title or keyword.'
+      status.textContent=items.length?`${items.length} results${mediaData?.matchedQuery&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Memora.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
         const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
-        const detail=document.createElement('p');detail.textContent=mode==='music'?[item.artist,item.source,item.license].filter(Boolean).join(' · '):memorySearchSnippet(item);card.append(detail)
-        if(mode==='music'&&item.url){
-          const play=document.createElement('button');play.className='btn';play.textContent='Play'
+        const detail=document.createElement('p');detail.textContent=mode==='music'||mode==='radio'?[item.artist,item.country,item.language,item.source,item.license].filter(Boolean).join(' · '):memorySearchSnippet(item);card.append(detail)
+        if((mode==='music'||mode==='radio')&&item.url){
+          const play=document.createElement('button');play.className='btn';play.textContent='▶ Play now'
           play.onclick=async()=>{mediaPlayerState.library=items;mediaPlayerState.query=query;await selectMediaTrack(item,true);status.textContent=ambientPreferences.enabled?`Selected ${item.title}`:'Track selected. Turn on Audio to listen.'}
           card.append(play)
           if(/^https?:\/\//i.test(item.sourcePage||'')){const source=document.createElement('a');source.href=item.sourcePage;source.target='_blank';source.rel='noopener noreferrer';source.textContent='Source & credits ↗';card.append(source)}
         }
         results.append(card)
+        if(mode==='memories'){
+          const browseResult=document.createElement('button')
+          browseResult.className='btn primary'
+          browseResult.textContent='Open in Memories'
+          browseResult.onclick=async()=>{
+            wrap.remove()
+            await go('memories')
+            const field=document.getElementById('memorySearch')
+            if(field){field.value=query;document.getElementById('searchMemory')?.click()}
+          }
+          card.append(browseResult)
+          const askResult=document.createElement('button')
+          askResult.className='btn'
+          askResult.textContent='Ask about this'
+          askResult.onclick=()=>wrap.querySelector('#globalAskButton').click()
+          card.append(askResult)
+        }
       })
     }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
   }
+  setCategory()
+  if(initial)input.value=initial
   setTimeout(()=>input.focus(),30)
 }
+
+// Ctrl+K / Cmd+K provides a fast, always-available search entry.
+document.addEventListener('keydown',event=>{
+  if(!user||event.defaultPrevented||!(event.ctrlKey||event.metaKey)||event.altKey||event.key.toLowerCase()!=='k')return
+  event.preventDefault()
+  if(!document.querySelector('.global-search-form')) openGlobalSearch()
+})
 
 function openExploreMenu(){
   const wrap=modal('Explore Memora',`
@@ -3774,7 +3836,7 @@ async function home(){
               <input class="hidden" id="photoInput" type="file" accept="image/*" multiple>
               <input class="hidden" id="videoInput" type="file" accept="video/*" capture="environment">
             </div>
-            <button class="btn primary" id="saveMemory">Remember this</button>
+            <div class="composer-submit-group"><button class="btn" id="askFromMemoryInput" type="button">Ask instead →</button><button class="btn primary" id="saveMemory">Remember this</button></div>
           </div>
         </div>
       </div>
@@ -3783,7 +3845,7 @@ async function home(){
     <nav class="home-quick-nav" aria-label="Quick destinations">
       <button class="btn" data-nav="memories">Browse memories</button>
       <button class="btn" data-nav="ask">Ask Memora</button>
-      <button class="btn" data-nav="people">People</button>
+      <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
     <section class="glass home-hub">
@@ -3841,6 +3903,15 @@ async function home(){
   renderPending()
 
   document.getElementById('homeMusicQuick')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('homeSearchQuick')?.addEventListener('click',openGlobalSearch)
+  document.getElementById('askFromMemoryInput')?.addEventListener('click',async()=>{
+    const question=document.getElementById('memoryInput')?.value.trim()
+    if(!question)return document.getElementById('memoryInput')?.focus()
+    if(looksLikeSecret(question))return toast('Credentials cannot be submitted as questions.')
+    await go('ask')
+    const field=document.getElementById('askInput')
+    if(field){field.value=question;field.focus()}
+  })
   document.querySelectorAll('[data-home-tab]').forEach(button=>button.onclick=()=>{
     document.querySelectorAll('[data-home-tab]').forEach(x=>x.classList.toggle('active',x===button))
     document.querySelectorAll('[data-home-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.homePanel===button.dataset.homeTab))
@@ -3899,7 +3970,7 @@ async function memories(){
   app.innerHTML=shell(`
     <div class="glass" style="padding:16px;border-radius:22px">
       <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
-        <input class="input" id="memorySearch" placeholder="Search a person, place, object, activity or phrase">
+        <input class="input" id="memorySearch" type="search" aria-label="Search your saved memories" placeholder="Try wedding date, a person, a place or any detail">
         <button class="btn primary" id="searchMemory">Search</button>
       </div>
       <div class="filter-row" style="margin-top:12px">
@@ -3928,6 +3999,9 @@ async function memories(){
     bindDeletes()
     bindMemoryViews(filtered)
     await hydrateMemoryExtras(filtered)
+  })
+  document.getElementById('memorySearch')?.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();document.getElementById('searchMemory')?.click()}
   })
   document.getElementById('searchMemory').onclick=async()=>{
     const q=document.getElementById('memorySearch').value.trim()
@@ -4864,7 +4938,7 @@ async function ask({reload=true}={}){
   `).join('')
 
   app.innerHTML=shell(`
-    <div class="ask-layout">
+    <div class="ask-layout" aria-label="Your Memora conversations">
       <button class="chat-drawer-scrim" id="chatDrawerScrim" aria-label="Close chats"></button>
       <aside class="glass chat-sidebar" id="chatSidebar">
         <div class="chat-sidebar-head">
@@ -4880,26 +4954,26 @@ async function ask({reload=true}={}){
           <div class="intelligence-orb"><span></span></div>
           <div class="ask-title-block">
             <strong>${esc(currentThread.title||'New chat')}</strong>
-            <small>Shared memory vault, separate conversation context</small>
+            <small>Ask about a saved detail. See evidence with every answer.</small>
           </div>
-          <span class="status live" title="Your saved-memory vault is available. AI reasoning requires a working provider.">Memory ready</span>
+          <span class="ask-memory-status" title="Memory search works separately from AI reasoning.">Saved memories</span>
         </div>
 
         <div class="glass chat-panel">
           <div class="filter-row ask-suggestions">
-            <button class="chip" data-ask-suggestion="How are you?">Talk</button>
+            <button class="chip" data-ask-suggestion="What is my wedding date?">Wedding date</button>
             <button class="chip" data-ask-suggestion="What do you remember about me?">About me</button>
-            <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
-            <button class="chip" data-nav="people">People</button>
-            <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
+            <button class="chip" data-ask-suggestion="Where did I keep my things?">Find a thing</button>
+            <button class="chip" data-nav="memories">Browse memories</button>
           </div>
-          <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>How is your day going?</strong>Talk naturally, share something you want remembered, ask a question, or let Memora search your private memory vault when it is relevant.</div>'}</div>
+          <div class="chat" id="chat" role="log" aria-live="polite">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>What would you like to know?</strong>Ask about a person, date, place or anything you saved. Memora will explain when information is missing.</div>'}</div>
         </div>
 
         <div class="glass ask-box">
-          <input class="input" id="askInput" autocomplete="off" placeholder="Talk to Memora or ask anything">
+          <textarea class="input" id="askInput" rows="2" maxlength="4000" aria-label="Your question" placeholder="Ask about a memory, person, date or place..."></textarea>
           <button class="btn voice-btn" id="askVoice" aria-label="Speak to Memora">Mic</button>
-          <button class="btn primary" id="askButton">Ask</button>
+          <button class="btn primary" id="askButton">Ask →</button>
+          <p class="ask-hint">Enter to send · Shift+Enter for a new line. Your saved memories stay private.</p>
         </div>
       </div>
     </div>
@@ -4918,7 +4992,7 @@ async function ask({reload=true}={}){
 
   requestAnimationFrame(()=>{
     const chatEl=document.getElementById('chat')
-    if(chatEl) chatEl.scrollTop=chatEl.scrollHeight
+    if(chatEl?.parentElement) chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight
   })
 
   document.getElementById('newChatButton').onclick=async()=>{

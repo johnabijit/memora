@@ -44,14 +44,14 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
     from(table){
       const chain=new Proxy({}, {get(_,key){
         if(key==='then') return resolve=>resolve({data:table==='memory_facts'?facts:table==='memories'?memoryRows:[],error:null})
-        if(key==='maybeSingle'||key==='single') return async()=>({data:null,error:null})
+        if(key==='maybeSingle'||key==='single') return async()=>({data:key==='single'&&table==='chat_threads'?{id:'fixture-thread',title:'New chat'}:null,error:null})
         return ()=>chain
       }})
       return chain
     }
   })
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -319,5 +319,83 @@ test('Ask Memora refuses to invent a missing wedding date',async()=>{
    api.setUser()
    const a=await api.answer('What is my wedding date?')
    assert.match(a.text,/does not state a clear date/)
+ }finally{dom.window.close()}
+})
+
+
+test('global search exposes explicit memories music radio and web categories without leaking personal searches',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   let publicRequests=[]
+   w.fetch=async url=>{publicRequests.push(String(url));return Response.json({items:[{id:'r1',title:'Bhakti Bhajan Live',url:'https://fixture.test/bhajan.mp3',type:'radio',country:'India'}]})}
+   api.openGlobalSearch()
+   const form=w.document.querySelector('.global-search-form')
+   const input=w.document.getElementById('globalSearchQuery')
+   input.value='my marriage date'
+   await form.onsubmit({preventDefault(){}})
+   assert.equal(publicRequests.length,0)
+   assert.equal(w.document.getElementById('globalSearchScope').value,'memories')
+   const tabs=w.document.querySelectorAll('[data-search-category]')
+   assert.equal(tabs.length,4)
+   w.document.querySelector('[data-search-category="radio"]').click()
+   assert.equal(w.document.getElementById('globalSearchScope').value,'radio')
+   input.value='Hindu radio'
+   await form.onsubmit({preventDefault(){}})
+   assert.equal(publicRequests.length,1)
+   assert.match(publicRequests[0],/api\/audio-library\?/)
+   assert.match(publicRequests[0],/mode=devotional/)
+   assert.match(publicRequests[0],/tradition=hindu/)
+   assert.match(w.document.querySelector('.global-search-results').textContent,/Bhakti Bhajan Live/)
+   assert.equal(w.document.querySelector('.global-search-results .btn').textContent,'▶ Play now')
+ }finally{dom.window.close()}
+})
+test('search or ask routes questions to Ask without starting a public media search',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   let externalRequests=0
+   w.fetch=async()=>{externalRequests++;return Response.json({items:[]})}
+   api.openGlobalSearch()
+   const input=w.document.getElementById('globalSearchQuery')
+   input.value='What is my wedding date?'
+   const callback=w.document.getElementById('globalAskButton').onclick
+   assert.equal(typeof callback,'function')
+   await callback()
+   assert.equal(externalRequests,0)
+   const routed=w.document.getElementById('askInput')
+   assert.ok(routed)
+   assert.equal(routed.value,'What is my wedding date?')
+ }finally{dom.window.close()}
+})
+test('now playing mini player has labeled previous play next and expanded player controls',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   api.ensureMediaPlayer()
+   const previous=w.document.getElementById('playerPrevious')
+   const play=w.document.getElementById('playerPlay')
+   const next=w.document.getElementById('playerNext')
+   const expanded=w.document.getElementById('playerExpand')
+   for(const control of [previous,play,next,expanded]) {
+     assert.ok(control)
+     assert.ok(control.getAttribute('aria-label'))
+   }
+   assert.match(w.document.querySelector('.player-kicker').textContent,/NOW PLAYING/)
+ }finally{dom.window.close()}
+})
+
+test('Remember composer offers a safe Ask instead path without saving another memory',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   await api.home()
+   const ask=w.document.getElementById('askFromMemoryInput')
+   const save=w.document.getElementById('saveMemory')
+   assert.ok(ask)
+   assert.ok(save)
+   w.document.getElementById('memoryInput').value='Where did I print my wedding invitations?'
+   ask.click()
+   await new Promise(resolve=>setTimeout(resolve,30))
+   assert.equal(w.document.getElementById('askInput').value,'Where did I print my wedding invitations?')
  }finally{dom.window.close()}
 })
