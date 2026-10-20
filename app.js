@@ -169,6 +169,80 @@ const themeCatalog=themeFamilies.flatMap((family)=>themeMoods.map((mood,index)=>
 }))
 const manualThemes=Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
 
+const visualWorlds=[
+  {id:'midnight-studio',name:'Midnight Studio',group:'Modern',scene:'cinematic modern dark editorial architecture',style:'studio',palette:['#b5d4ff','#91e6d8','#eac58d'],bg:['#080f1b','#111e2c','#172639']},
+  {id:'paper-atelier',name:'Paper Atelier',group:'Minimal',scene:'handmade linen paper botanical flat lay elegant',style:'paper',palette:['#d6a260','#7b9f85','#cebba4'],bg:['#383027','#615244','#826b54']},
+  {id:'zen-sakura',name:'Zen Sakura',group:'Nature',scene:'Japanese sakura blossoms serene temple spring morning',style:'zen',palette:['#f7aec7','#c8dffb','#d6f6d9'],bg:['#241927','#393147','#554158']},
+  {id:'coastal-glass',name:'Coastal Glass',group:'Nature',scene:'beautiful turquoise ocean coast cliffs sunlight calm',style:'coastal',palette:['#7adeea','#b4efdf','#ffe4ad'],bg:['#0c2639','#10445c','#156078']},
+  {id:'monsoon-diary',name:'Monsoon Diary',group:'Seasons',scene:'lush Indian Kerala monsoon rainforest rainy window',style:'rain',palette:['#a0ead4','#a3c3ef','#d6ecc7'],bg:['#0b2025','#153f40','#285452']},
+  {id:'winter-frost',name:'Winter Frost',group:'Seasons',scene:'quiet snowy forest blue frozen sunrise mountains',style:'frost',palette:['#b4e7fd','#dce6fa','#b4e7e9'],bg:['#182a44','#2f4462','#365e72']},
+  {id:'autumn-editorial',name:'Autumn Editorial',group:'Seasons',scene:'fall forest orange leaves golden mist photography',style:'autumn',palette:['#f7c17a','#e9ae8f','#b9d4a4'],bg:['#251811','#4b3026','#58452b']},
+  {id:'desert-silk',name:'Desert Silk',group:'Nature',scene:'golden desert dunes sunset architectural luxury',style:'desert',palette:['#f0c49c','#eeb17c','#f6e3c5'],bg:['#2d1e22','#62443b','#765647']},
+  {id:'mountain-dawn',name:'Mountain Dawn',group:'Nature',scene:'sunrise golden mist layered mountain valley lake',style:'mountain',palette:['#e5ccab','#b0efdf','#cbbde5'],bg:['#182433','#3f4855','#57625a']},
+  {id:'aurora-skies',name:'Aurora Skies',group:'Seasons',scene:'bright aurora northern lights over Nordic fjord',style:'aurora',palette:['#8ef4b7','#92bcff','#d3b4fd'],bg:['#10152c','#142d3e','#173d39']},
+  {id:'diwali-lights',name:'Diwali Lights',group:'Festivals',scene:'beautiful Indian Diwali diya lamps warm lights festive',style:'festival',palette:['#ffcf76','#ff9a8b','#f6dcad'],bg:['#31140f','#56301e','#6e3924']},
+  {id:'christmas-cabin',name:'Christmas Cabin',group:'Festivals',scene:'warm Christmas decorated cozy alpine cabin snow',style:'festival',palette:['#fee6ad','#cceab8','#ffc0ae'],bg:['#18271c','#344832','#543d35']},
+  {id:'eid-moon',name:'Eid Moon',group:'Festivals',scene:'crescent moon ornate lantern lights blue night mosque skyline',style:'festival',palette:['#e6d29d','#b1ebea','#f4d0bf'],bg:['#101c34','#223955','#334350']},
+  {id:'pongal-harvest',name:'Pongal Harvest',group:'Festivals',scene:'Tamil Nadu village Pongal harvest kolam sugarcane sunrise',style:'festival',palette:['#f5c87e','#d6ed93','#f9ded0'],bg:['#312615','#4b4625','#6a5934']},
+  {id:'onam-bloom',name:'Onam Bloom',group:'Festivals',scene:'Kerala Onam pookalam flower carpet festive traditional',style:'festival',palette:['#ffcf8b','#edb5ba','#b7e0b1'],bg:['#262519','#4c3c2b','#4f5533']},
+  {id:'retro-wave',name:'Retro Wave',group:'Creative',scene:'synthwave retro gradient sunset purple neon mountains',style:'retro',palette:['#ff8fbe','#7dccfe','#f2b6ef'],bg:['#1b1032','#36194f','#382452']},
+  {id:'cosmic-orbit',name:'Cosmic Orbit',group:'Creative',scene:'starfield galaxy nebula space aurora purple blue',style:'cosmic',palette:['#c8b7ff','#77c4ff','#ffb7e7'],bg:['#0d1025','#222443','#281e46']},
+  {id:'nordic-calm',name:'Nordic Calm',group:'Minimal',scene:'minimal Scandinavian home Nordic warm calm neutral interior',style:'nordic',palette:['#e5d3b8','#b7d1c2','#d2c9dd'],bg:['#302d2a','#484940','#5d5b52']},
+  {id:'botanical-story',name:'Botanical Story',group:'Nature',scene:'beautiful lush botanical greenhouse garden sunlight',style:'botanical',palette:['#c7e4a0','#a9d5c0','#f2d6a9'],bg:['#142b1e','#244a36','#345f47']},
+  {id:'cyber-city',name:'Cyber City',group:'Creative',scene:'modern cinematic cyberpunk Tokyo neon city night',style:'cyber',palette:['#6feeff','#c99bff','#ff9fcf'],bg:['#0c122c','#18234c','#241641']},
+  {id:'old-library',name:'Old Library',group:'Editorial',scene:'cozy vintage library warm wooden shelves lamplight',style:'library',palette:['#eac58c','#cfb89a','#c0d3b1'],bg:['#271c17','#423025','#5e4938']},
+  {id:'rainy-cafe',name:'Rainy Cafe',group:'Editorial',scene:'rainy cozy cafe window warm lights cinematic',style:'cafe',palette:['#efc5a0','#b2d0d8','#f2cf9a'],bg:['#1d2429','#343b3c','#504840']}
+]
+const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
+const worldRegions=[
+  ['auto','My current local time'],['IN','India'],['US','United States'],['GB','United Kingdom'],
+  ['AE','United Arab Emirates'],['CA','Canada'],['AU','Australia'],['NZ','New Zealand'],
+  ['JP','Japan'],['SG','Singapore'],['MY','Malaysia'],['DE','Germany'],['ZA','South Africa'],
+  ['BR','Brazil'],['GLOBAL','Global / worldwide']
+]
+const worldFestivals=[
+  ['none','No festival theme'],['diwali-lights','Diwali'],['christmas-cabin','Christmas'],
+  ['eid-moon','Eid'],['pongal-harvest','Pongal'],['onam-bloom','Onam']
+]
+function selectedVisualWorld(){
+  const mode=localStore.getItem('memora-world-mode')||'auto'
+  if(mode==='classic')return null
+  if(mode==='manual')return worldById[localStore.getItem('memora-world')||'midnight-studio']||visualWorlds[0]
+  const region=localStore.getItem('memora-world-region')||'auto'
+  const optedFestival=localStore.getItem('memora-world-festival')||'none'
+  if(optedFestival!=='none'&&worldById[optedFestival])return worldById[optedFestival]
+  const today=new Date()
+  const month=today.getMonth()+1
+  const hour=today.getHours()
+  const south=['AU','NZ','ZA','BR'].includes(region)
+  const localWinter=south?month>=6&&month<=8:(month===12||month<=2)
+  const localAutumn=south?month>=3&&month<=5:(month>=9&&month<=11)
+  if(localWinter)return worldById['winter-frost']
+  if(localAutumn)return worldById['autumn-editorial']
+  if(region==='IN'&&month>=6&&month<=9)return worldById['monsoon-diary']
+  if(['AE'].includes(region)&&hour>=8&&hour<=18)return worldById['desert-silk']
+  if(['JP'].includes(region)&&month>=3&&month<=5)return worldById['zen-sakura']
+  if(hour<5||hour>=22)return worldById['cosmic-orbit']
+  if(hour<9)return worldById['mountain-dawn']
+  if(hour>=17)return worldById['coastal-glass']
+  return worldById['botanical-story']
+}
+function applyVisualWorld(world){
+  const root=document.documentElement
+  if(!world){
+    delete root.dataset.visualWorld
+    delete root.dataset.visualStyle
+    return
+  }
+  root.dataset.visualWorld=world.id
+  root.dataset.visualStyle=world.style
+  const [c1,c2,c3]=world.palette
+  const [bg0,bg1,bg2]=world.bg
+  applyTheme({c1,c2,c3,bg0,bg1,bg2},world.name)
+  if(root.dataset.audioPlaying!=='true')loadSceneBackdrop(world.scene)
+}
+
+
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
 const secretPatterns=[
   /sk-[A-Za-z0-9_-]{20,}/g,
