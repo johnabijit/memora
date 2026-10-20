@@ -2674,7 +2674,7 @@ function openThemePicker(){
   }).join('')
   const body=`
     <div class="world-intro"><p>Explore ${visualWorlds.length} visual worlds with different subjects, compositions and photographic or illustrated scenes. The original 120 palettes remain available too.</p>
-      <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
+      <button id="worldAuto" class="btn ${worldMode==='auto'&&localStore.getItem('memora-auto-rotate')!=='1'?'primary':''}" type="button">✦ Follow seasons</button><button id="worldRotate" class="btn ${worldMode==='auto'&&localStore.getItem('memora-auto-rotate')==='1'?'primary':''}" type="button">↻ New world every hour</button>
     </div>
     <div class="world-preferences">
       <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
@@ -2710,13 +2710,20 @@ function openThemePicker(){
     box.querySelectorAll('[data-world-select]').forEach(button=>
       button.classList.toggle('selected',localStore.getItem('memora-world-mode')==='manual'&&
         button.dataset.worldSelect===localStore.getItem('memora-world')))
-    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto')
+    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto'&&localStore.getItem('memora-auto-rotate')!=='1')
+    box.querySelector('#worldRotate').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto'&&localStore.getItem('memora-auto-rotate')==='1')
   }
   box.querySelector('#worldAuto').onclick=()=>{
     localStore.setItem('memora-world-festival','none')
+    localStore.setItem('memora-auto-rotate','0')
+    localStore.setItem('memora-world-mode','auto')
+    applied('Seasonal mode active. Memora uses your device date, local time and optional region.')
+  }
+  box.querySelector('#worldRotate').onclick=()=>{
+    localStore.setItem('memora-world-festival','none')
     localStore.setItem('memora-auto-rotate','1')
     localStore.setItem('memora-world-mode','auto')
-    applied('Adaptive themes now follow your device time, season and optional region.')
+    applied('Automatic world rotation enabled. A different world is chosen each hour.')
   }
   box.querySelectorAll('[data-world-select]').forEach(button=>button.onclick=()=>{
     localStore.setItem('memora-world',button.dataset.worldSelect)
