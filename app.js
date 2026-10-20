@@ -3962,7 +3962,7 @@ async function memories(){
   app.innerHTML=shell(`
     <div class="glass" style="padding:16px;border-radius:22px">
       <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
-        <input class="input" id="memorySearch" placeholder="Search a person, place, object, activity or phrase">
+        <input class="input" id="memorySearch" type="search" aria-label="Search your saved memories" placeholder="Try wedding date, a person, a place or any detail">
         <button class="btn primary" id="searchMemory">Search</button>
       </div>
       <div class="filter-row" style="margin-top:12px">
@@ -3991,6 +3991,9 @@ async function memories(){
     bindDeletes()
     bindMemoryViews(filtered)
     await hydrateMemoryExtras(filtered)
+  })
+  document.getElementById('memorySearch')?.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();document.getElementById('searchMemory')?.click()}
   })
   document.getElementById('searchMemory').onclick=async()=>{
     const q=document.getElementById('memorySearch').value.trim()
