@@ -1,0 +1,23 @@
+name: Validate Memora Navigation Player v2
+on:
+  push:
+    branches: [memora-navigation-player-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm test
+      - run: npm run build
+      - run: test -s dist/index.html
+      - run: test -s dist/icon.svg
+      - run: test -s dist/apple-touch-icon.png
