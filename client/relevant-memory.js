@@ -2,7 +2,7 @@
 // A memory must match the topic, not merely words such as "date" or "time".
 const topicAliases={
   wedding:['wedding','marriage','married','weds','wed','nuptials','reception','ceremony','kalyanam','thirumanam'],
-  pickup:['pickup','pick up','picking up','collect','collection','school pickup','pick-up'],
+  pickup:['pickup','pick','picked','picking','pick up','picking up','collect','collection','school pickup','pick-up'],
   birthday:['birthday','born','birth','date of birth','dob'],
   appointment:['appointment','meeting','session','consultation','visit'],
   location:['location','place','address','venue','where'],
