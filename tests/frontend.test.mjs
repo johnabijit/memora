@@ -430,7 +430,8 @@ test('Memora v2 has a visible top Home Back search bar music and Themes navigati
    for(const id of ['brandHome','appBackButton','topGlobalSearchForm','topSearchInput','topAudioNav','topThemeNav']){
      assert.ok(w.document.getElementById(id),id+' missing from navigation')
    }
-   assert.equal(w.document.querySelectorAll('.top-primary-nav [data-nav]').length>=3,true)
+   assert.ok(w.document.querySelector('.header-home-button[data-nav="home"]'))
+   assert.equal(w.document.querySelectorAll('.top-primary-nav button').length>=4,true)
    assert.match(w.document.querySelector('.brand-symbol img').getAttribute('src'),/icon\.svg/)
    const search=w.document.getElementById('topGlobalSearchForm')
    w.document.getElementById('topSearchInput').value='my wedding date'

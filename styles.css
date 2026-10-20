@@ -2486,3 +2486,25 @@ html[data-world-group="nature"] .memory-card{border-radius:30px 10px!important}
 html[data-world-group="space"] .memory-card{border-radius:26px!important}
 @keyframes musicEqualizer{0%{transform:scaleY(.4) translateY(20%)}100%{transform:scaleY(1.15) translateY(-5%)}}
 @media(prefers-reduced-motion:reduce){html[data-world-group] .scene-layer{animation:none!important}}
+
+/* v46 remove the shared globe, orb and concentric rings across visual worlds */
+html[data-visual-world] .hero:before,html[data-visual-world] .hero:after,
+html[data-visual-world] .home-hero:before,html[data-visual-world] .home-hero:after{content:none!important;display:none!important;animation:none!important}
+html[data-visual-world] .scene-layer span:nth-child(-n+3){display:none!important}
+html[data-visual-world] .scene-layer:before{border-radius:0!important}
+html[data-world-group="nature"] .scene-layer{background:linear-gradient(155deg,transparent 30%,color-mix(in srgb,var(--c2) 13%,transparent) 31%,transparent 32%),repeating-linear-gradient(145deg,transparent 0 110px,color-mix(in srgb,var(--c1) 7%,transparent) 110px 114px)!important}
+html[data-world-group="space"] .scene-layer{background:radial-gradient(#fff9 1px,transparent 1.5px),radial-gradient(var(--c1) 1.5px,transparent 2.5px)!important;background-size:37px 53px,131px 107px!important}
+html[data-world-group="music"] .scene-layer{background:repeating-linear-gradient(90deg,transparent 0 24px,color-mix(in srgb,var(--c2) 16%,transparent) 25px 31px,transparent 32px 64px)!important}
+html[data-world-group="creative"] .scene-layer{background:repeating-conic-gradient(from 45deg at 50% 50%,transparent 0deg 28deg,color-mix(in srgb,var(--c1) 12%,transparent) 29deg 44deg)!important}
+html[data-world-group="places"] .scene-layer{background:repeating-linear-gradient(90deg,transparent 0 90px,color-mix(in srgb,var(--c1) 10%,transparent) 90px 93px)!important}
+html[data-world-group="festivals"] .scene-layer{background-image:radial-gradient(var(--c1) 1px,transparent 2px),radial-gradient(var(--c3) 2px,transparent 3px)!important;background-size:37px 47px,81px 107px!important}
+html[data-world-group="minimal"] .scene-layer{background:repeating-linear-gradient(0deg,transparent 0 79px,color-mix(in srgb,var(--c1) 7%,transparent) 80px 81px)!important}
+.topbar .top-left{order:0;flex-shrink:0;gap:9px}
+.topbar .top-actions{order:1;display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
+.topbar .top-actions .top-global-search{order:0;min-width:145px;flex:1 1 240px;max-width:390px}
+.topbar .top-actions .top-primary-nav{order:1;flex:0 0 auto}
+.topbar .top-actions #soundButton{order:2}
+.topbar .top-actions #settingsButton{order:3}
+.header-home-button{display:inline-flex;align-items:center;justify-content:center;min-height:39px;font-size:12px;font-weight:700}
+@media(max-width:1160px){.topbar .top-actions .top-primary-nav{display:none!important}}
+@media(max-width:780px){.header-home-button{font-size:11px;min-height:35px}.topbar .top-actions .top-global-search{display:none}.topbar .top-actions{flex:0 1 auto}}
