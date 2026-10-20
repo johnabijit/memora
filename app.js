@@ -1,6 +1,7 @@
 import { normalizeMusicQuery } from './shared/music-search.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
+import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
 const localStore = safeStorage('localStorage')
@@ -2491,7 +2492,7 @@ async function magicLink(email){
   finally{if(button) button.disabled=false}
 }
 
-async function authScreen(mode='login'){
+async function authScreen(mode='login',method='email'){
   app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
 
@@ -2515,18 +2516,41 @@ async function authScreen(mode='login'){
         ${socialButton('facebook','Facebook')}
         ${socialButton('github','GitHub')}
       </div>
-      <div class="divider">OR USE EMAIL</div>
-      <form id="authForm">
+      <div class="divider">OR CONTINUE WITH</div>
+      <div class="filter-row" style="margin:12px 0 14px" role="group" aria-label="Choose sign-in method">
+        <button class="btn ${method==='email'?'primary':''}" id="authEmailTab" type="button" aria-pressed="${method==='email'}">Email</button>
+        <button class="btn ${method==='phone'?'primary':''}" id="authPhoneTab" type="button" aria-pressed="${method==='phone'}">Mobile number</button>
+      </div>
+      <form id="phoneAuthForm" ${method==='phone'?'':'hidden'}>
+        <p class="small muted">Enter your number with international country code. We will text you a one-time code.</p>
+        ${mode==='signup'?'<input class="input" id="phoneDisplayName" name="displayName" autocomplete="name" maxlength="100" placeholder="Your name (optional)">':''}
+        <label class="small muted" for="phoneNumber">Mobile number with country code</label>
+        <input class="input" id="phoneNumber" name="phone" type="tel" inputmode="tel" autocomplete="tel" aria-label="International mobile number" placeholder="+91 98765 43210" maxlength="32" required>
+        <button class="btn primary" id="sendPhoneOtp" type="submit">${mode==='signup'?'Create account with SMS':'Continue with SMS'}</button>
+      </form>
+      <form id="phoneOtpForm" hidden>
+        <p class="small muted" id="phoneOtpDestination">Enter the SMS verification code sent to your phone.</p>
+        <label class="small muted" for="phoneOtpCode">One-time SMS code</label>
+        <input class="input" id="phoneOtpCode" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" placeholder="6-digit code" required>
+        <button class="btn primary" type="submit" id="confirmPhoneOtp">Verify and continue</button>
+        <div class="filter-row" style="margin-top:10px">
+          <button class="btn" id="resendPhoneOtp" type="button" disabled>Resend SMS code</button>
+          <button class="btn" id="changePhoneNumber" type="button">Change number</button>
+        </div>
+      </form>
+      <p id="phoneAuthMsg" class="small muted" role="status" aria-live="polite" ${method==='phone'?'':'hidden'}></p>
+      ${mode==='signup'&&method==='phone'?'<p class="small muted">Already have memories saved with Google or email? Sign in with your existing method to keep the same memory vault. A new mobile-number signup creates a separate account.</p>':''}
+      <form id="authForm" ${method==='email'?'':'hidden'}>
         ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
         <input class="input" id="email" name="email" type="email" autocomplete="username" aria-label="Email" placeholder="Email" required>
         <input class="input" id="password" name="password" type="password" autocomplete="${mode==='signup'?'new-password':'current-password'}" aria-label="Password" ${mode==='signup'?'minlength="8"':''} placeholder="Password" required>
         <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create account'}</button>
       </form>
       <div class="grid two" style="margin-top:9px">
-        <button class="btn" id="magicLink">Email me a magic link</button>
+        <button class="btn" id="magicLink" ${method==='email'?'':'hidden'}>Email me a magic link</button>
         <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
       </div>
-      <p class="small muted">A magic link signs you in from your email inbox. No password is needed. Request a new link if yours expires.</p>
+      <p class="small muted" ${method==='email'?'':'hidden'}>A magic link signs you in from your email inbox. No password is needed. Request a new link if yours expires.</p>
       <p id="authMsg" class="muted" role="status" aria-live="polite"></p>
 
       <div class="auth-public-footer">
@@ -2559,7 +2583,90 @@ async function authScreen(mode='login'){
     })
   })
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
-  document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login')
+  document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login',method)
+  document.getElementById('authEmailTab').onclick=()=>authScreen(mode,'email')
+  document.getElementById('authPhoneTab').onclick=()=>authScreen(mode,'phone')
+
+  const phoneForm=document.getElementById('phoneAuthForm')
+  const otpForm=document.getElementById('phoneOtpForm')
+  const phoneMsg=document.getElementById('phoneAuthMsg')
+  const resendButton=document.getElementById('resendPhoneOtp')
+  let pendingPhone=''
+  let lastSmsRequestAt=0
+  let resendClock=null
+  const showPhoneError=error=>{phoneMsg.textContent=phoneAuthError(error)}
+  const updateResend=()=>{
+    if(!resendButton.isConnected){
+      if(resendClock) clearInterval(resendClock)
+      resendClock=null
+      return
+    }
+    const remaining=Math.max(0,Math.ceil((60000-(Date.now()-lastSmsRequestAt))/1000))
+    resendButton.disabled=remaining>0
+    resendButton.textContent=remaining?`Resend in ${remaining}s`:'Resend SMS code'
+    if(!remaining&&resendClock){clearInterval(resendClock);resendClock=null}
+  }
+  const startResendClock=()=>{
+    lastSmsRequestAt=Date.now()
+    updateResend()
+    if(resendClock) clearInterval(resendClock)
+    resendClock=setInterval(updateResend,1000)
+  }
+  phoneForm.onsubmit=async event=>{
+    event.preventDefault()
+    const sendButton=document.getElementById('sendPhoneOtp')
+    if(sendButton.disabled) return
+    sendButton.disabled=true
+    phoneMsg.textContent='Requesting a secure SMS code...'
+    try{
+      pendingPhone=await requestPhoneOtp(supabase.auth,{
+        phone:document.getElementById('phoneNumber').value,
+        createAccount:mode==='signup',
+        displayName:document.getElementById('phoneDisplayName')?.value||''
+      })
+      phoneForm.hidden=true
+      otpForm.hidden=false
+      document.getElementById('phoneOtpDestination').textContent=`Enter the verification code sent to ${pendingPhone}.`
+      phoneMsg.textContent='SMS requested. Delivery time depends on your mobile carrier.'
+      startResendClock()
+      document.getElementById('phoneOtpCode').focus()
+    }catch(error){showPhoneError(error)}
+    finally{sendButton.disabled=false}
+  }
+  otpForm.onsubmit=async event=>{
+    event.preventDefault()
+    const verifyButton=document.getElementById('confirmPhoneOtp')
+    if(verifyButton.disabled||!pendingPhone) return
+    verifyButton.disabled=true
+    phoneMsg.textContent='Verifying your code...'
+    try{
+      const data=await confirmPhoneOtp(supabase.auth,{phone:pendingPhone,code:document.getElementById('phoneOtpCode').value})
+      if(resendClock) clearInterval(resendClock)
+      user=data.user||data.session.user
+      await bootstrapSignedIn()
+    }catch(error){showPhoneError(error)}
+    finally{verifyButton.disabled=false}
+  }
+  document.getElementById('changePhoneNumber').onclick=()=>{
+    if(resendClock) clearInterval(resendClock)
+    resendClock=null
+    pendingPhone=''
+    document.getElementById('phoneOtpCode').value=''
+    otpForm.hidden=true
+    phoneForm.hidden=false
+    phoneMsg.textContent=''
+    document.getElementById('phoneNumber').focus()
+  }
+  resendButton.onclick=async()=>{
+    if(resendButton.disabled||!pendingPhone) return
+    resendButton.disabled=true
+    phoneMsg.textContent='Resending SMS code...'
+    try{
+      await resendPhoneOtp(supabase.auth,{phone:pendingPhone})
+      phoneMsg.textContent='Another code was requested. Check your messages.'
+      startResendClock()
+    }catch(error){showPhoneError(error);updateResend()}
+  }
   document.getElementById('authForm').onsubmit=async event=>{
     event.preventDefault()
     const email=document.getElementById('email').value.trim()
