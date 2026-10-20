@@ -5,6 +5,9 @@ on:
     branches: [auth-passkeys]
     paths:
       - 'package.json'
+      - 'package-lock.json'
+      - 'app.js'
+      - 'tests/**'
       - '.github/workflows/update-passkey-sdk-lock.yml'
   workflow_dispatch:
 
