@@ -1197,7 +1197,7 @@ function refreshMediaPlayerUI(){
     else if(!ambientPreferences.enabled||audio.muted) status.textContent='Muted'
     else status.textContent='Paused'
   }
-  if(play) play.textContent=playing?'Ⅱ':'▶'
+  if(play){play.innerHTML=playing?'<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>';play.setAttribute('aria-label',playing?'Pause audio':'Play audio')}
   if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
 
   const artworkUrl=nowPlayingArtwork(current)
@@ -2936,6 +2936,8 @@ function wire(){
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('topAudioNav')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('topThemeNav')?.addEventListener('click',openThemePicker)
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
