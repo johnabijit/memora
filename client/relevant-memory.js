@@ -86,7 +86,7 @@ const events={
  wedding:/\b(wedding|marriage|married|marry|nuptials|matrimony|kalyanam|thirumanam|shaadi|shadi|vivah|tied the knot|got married|wedding ceremony)\b/i,
  reception:/\b(reception)\b/i,
  engagement:/\b(engagement|engaged|betrothal)\b/i,
- pickup:/\b(pick up|pickup|pick-up|collect|picking)\b/i,
+ pickup:/\b(pick up|pickup|pick-up|picked|pick|collect|picking)\b/i,
  birthday:/\b(birthday|born|birth)\b/i,
  appointment:/\b(appointment|meeting|consultation)\b/i
 }
