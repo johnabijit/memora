@@ -2063,3 +2063,35 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   transition:background-color 9999s ease-out 0s;
 }
 .auth-card input::placeholder{color:#8894a6;opacity:1}
+
+/* Memora compact navigation and audio discovery: October 2026 */
+.topbar{padding:10px clamp(12px,2.5vw,26px);gap:8px;background:rgba(9,13,22,.9)}
+.topbar .top-actions{gap:6px;flex-wrap:nowrap}
+.topbar .icon-btn{padding:9px 12px;border-radius:12px;font-size:13px;white-space:nowrap}
+.page-head{margin:8px 0 14px}
+.page-head h2{font-size:clamp(27px,3.6vw,39px);line-height:1.1;letter-spacing:-1.1px}
+.page-head p{margin:6px 0 0}
+.main{max-width:1160px;padding-top:8px}
+.main .section{margin-top:20px}
+.memora-explore-grid .btn{min-height:58px}
+.audio-for-you{margin-block:10px}
+.audio-hub .audio-mode-panel{padding-top:10px}
+.audio-presets,.radio-country-quick{max-height:88px;overflow:auto;scrollbar-width:thin}
+.audio-hub-modal .audio-library-results{scrollbar-width:thin}
+@media(max-width:760px){
+  .topbar{padding:8px 10px}
+  .topbar .top-actions #settingsButton{display:none}
+  .topbar .top-actions .icon-btn{padding:8px 9px;font-size:12px}
+  .topbar .top-actions #soundButton{padding:8px 9px}
+  .topbar .brand strong{font-size:14px}
+  .topbar .logo{width:32px;height:32px}
+  .page-head{margin:7px 0 12px}
+  .page-head h2{font-size:28px}
+  .audio-presets,.radio-country-quick{max-height:72px}
+  .memora-explore-grid .btn{min-height:55px;padding:10px 11px}
+}
+@media(max-width:430px){
+  .topbar .global-search-label{display:none}
+  .topbar .top-actions #soundButton{display:none}
+  .topbar .top-actions{margin-left:auto}
+}
