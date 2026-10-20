@@ -2864,7 +2864,7 @@ function shell(content,title,subtitle=''){
       </div>
       <div class="top-actions">
         <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
-        <nav class="header-shortcuts" aria-label="Memory collections"><button class="icon-btn" data-nav="memories">Memories</button><button class="icon-btn" data-nav="people">People</button><button class="icon-btn" data-nav="vault">Vault</button></nav>
+        <button class="icon-btn" id="memoraExploreButton" aria-label="Explore Memora features">Explore ▾</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
@@ -3001,7 +3001,27 @@ function openGlobalSearch(){
   setTimeout(()=>input.focus(),30)
 }
 
+function openExploreMenu(){
+  const wrap=modal('Explore Memora',`
+    <p class="small muted">Everything in Memora, grouped in one place.</p>
+    <div class="memora-explore-grid">
+      <button class="btn" data-explore="home">Home <small>Capture and overview</small></button>
+      <button class="btn" data-explore="memories">Memories <small>Search, edit and review</small></button>
+      <button class="btn" data-explore="ask">Ask Memora <small>Questions and chat history</small></button>
+      <button class="btn" data-explore="people">People <small>Saved names and relationships</small></button>
+      <button class="btn" data-explore="vault">Vault <small>Places, things and files</small></button>
+      <button class="btn" data-explore="timeline">Timeline <small>Life events in order</small></button>
+      <button class="btn" id="exploreAudio">Music and radio <small>Worldwide stations and devotionals</small></button>
+      <button class="btn" id="exploreSearch">Search everything <small>Memories, music and web</small></button>
+      <button class="btn" data-explore="sources">AI and Sources <small>Connected services and AI status</small></button>
+      <button class="btn" data-explore="settings">Profile and settings <small>Preferences and privacy</small></button>
+    </div>`)
+  wrap.querySelectorAll('[data-explore]').forEach(button=>button.onclick=()=>{wrap.remove();go(button.dataset.explore)})
+  wrap.querySelector('#exploreAudio').onclick=()=>{wrap.remove();openSoundscapePicker()}
+  wrap.querySelector('#exploreSearch').onclick=()=>{wrap.remove();openGlobalSearch()}
+}
 function wire(){
+  document.getElementById('memoraExploreButton')?.addEventListener('click',openExploreMenu)
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
