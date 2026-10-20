@@ -2857,13 +2857,16 @@ function openGlobalSearch(initial=''){
       const devotional=/\b(hindu|bhajan|bhakti|mantra|aarti|kirtan|shiva|krishna|murugan)\b/i.test(query)?'hindu':
         /\b(christian|gospel|worship)\b/i.test(query)?'christian':null
       const radioParams=new URLSearchParams({mode:devotional?'devotional':'radio',q:query,limit:'30'})
-      if(devotional)radioParams.set('tradition',devotional)
+      if(devotional){
+        radioParams.set('tradition',devotional)
+        radioParams.set('q',query.replace(/\b(radio|fm|stations?|hindu|christian|devotional)\b/gi,'').trim())
+      }
       const mediaData=mode==='music'
         ?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'}))
         :mode==='radio'?await fetchApi('/api/audio-library?'+radioParams):null
       const items=mediaData?mediaData.items||[]:await smartMemorySearch(query,20)
       if(id!==request||!wrap.isConnected) return
-      status.textContent=items.length?`${items.length} results${mediaData&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Memora.'
+      status.textContent=items.length?`${items.length} results${mediaData?.matchedQuery&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Memora.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
         const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
@@ -2876,6 +2879,16 @@ function openGlobalSearch(initial=''){
         }
         results.append(card)
         if(mode==='memories'){
+          const browseResult=document.createElement('button')
+          browseResult.className='btn primary'
+          browseResult.textContent='Open in Memories'
+          browseResult.onclick=async()=>{
+            wrap.remove()
+            await go('memories')
+            const field=document.getElementById('memorySearch')
+            if(field){field.value=query;document.getElementById('searchMemory')?.click()}
+          }
+          card.append(browseResult)
           const askResult=document.createElement('button')
           askResult.className='btn'
           askResult.textContent='Ask about this'
@@ -2889,6 +2902,13 @@ function openGlobalSearch(initial=''){
   if(initial)input.value=initial
   setTimeout(()=>input.focus(),30)
 }
+
+// Ctrl+K / Cmd+K provides a fast, always-available search entry.
+document.addEventListener('keydown',event=>{
+  if(!user||event.defaultPrevented||!(event.ctrlKey||event.metaKey)||event.altKey||event.key.toLowerCase()!=='k')return
+  event.preventDefault()
+  if(!document.querySelector('.global-search-form')) openGlobalSearch()
+})
 
 function openExploreMenu(){
   const wrap=modal('Explore Memora',`
@@ -4961,7 +4981,7 @@ async function ask({reload=true}={}){
 
   requestAnimationFrame(()=>{
     const chatEl=document.getElementById('chat')
-    if(chatEl) chatEl.scrollTop=chatEl.scrollHeight
+    if(chatEl?.parentElement) chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight
   })
 
   document.getElementById('newChatButton').onclick=async()=>{
