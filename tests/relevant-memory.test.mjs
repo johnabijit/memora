@@ -66,3 +66,14 @@ test('semantic retrieval works for pickup schedule',()=>{
  const m=[{id:'b',original_text:'I collect Ahay at 4:50 pm.'}]
  assert.match(answerFromEventMemory('pick up time',m).text,/4:50 pm/i)
 })
+
+test('a wedding reception alone cannot supply the ceremony date',()=>{
+ const m=[{id:'reception',original_text:'My wedding reception was on 22 December 2026 at CR Garden.'}]
+ assert.equal(answerFromEventMemory('What was my wedding date?',m),null)
+ assert.match(answerFromEventMemory('What was my reception date?',m).text,/22 December 2026/)
+})
+test('a comma-delimited separate reception date is never assigned to the ceremony',()=>{
+ const m=[{id:'both',original_text:'Wedding at Divine Mercy Church on December 21, 2026, reception at CR Garden on December 22, 2026.'}]
+ assert.match(answerFromEventMemory('What was the wedding date?',m).text,/December 21, 2026/)
+ assert.match(answerFromEventMemory('What was the reception date?',m).text,/December 22, 2026/)
+})
