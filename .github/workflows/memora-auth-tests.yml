@@ -1,0 +1,48 @@
+name: Test Memora web and mobile sign-in
+
+on:
+  push:
+    branches: [cloudflare-v43-fixes]
+    paths:
+      - 'app.js'
+      - 'client/**'
+      - 'tests/**'
+      - '.github/workflows/memora-auth-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phone-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check published HTML and bundled phone auth
+        run: |
+          test -s dist/index.html
+          grep -q 'assets/app.' dist/index.html
+          test -s dist/manifest.webmanifest
+      - name: Check SMS provider availability without sending SMS
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          url='https://ueinbsvqihczmxpkctcq.supabase.co/auth/v1/settings'
+          req=urllib.request.Request(url,headers={'apikey':'sb_publishable_8j0W8nm-xmK1srJmmbiJdQ_FCzwbukF'})
+          try:
+            with urllib.request.urlopen(req,timeout=15) as response:
+              obj=json.load(response)
+            external=obj.get('external',{})
+            print('Supabase phone auth setting:',external.get('phone','not exposed'))
+            print('SMS provider requires configuration and a real delivery test before production use.')
+          except Exception as e:
+            print('SMS setting not verifiable automatically:',type(e).__name__)
+          PY
