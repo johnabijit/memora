@@ -51,6 +51,7 @@ let experiencePreferences={
   contextualScenery:true
 }
 let latestMood=null
+let moodActionSequence=0
 let sceneBackdropState={query:'',url:'',sourcePage:'',artist:'',license:'',loading:false}
 
 const moodCatalog={
@@ -738,6 +739,7 @@ function detectMoodStatement(value){
 
 async function recordMood(mood,note='',source='chat'){
   if(!user||!experiencePreferences.moodCheckinsEnabled||!moodCatalog[mood]) return null
+  const action=++moodActionSequence
   const now=new Date().toISOString()
   const label=moodCatalog[mood].label
   const {data:memory,error:memoryError}=await supabase.from('memories').insert({
@@ -762,8 +764,7 @@ async function recordMood(mood,note='',source='chat'){
     created_at:now
   }).select().single()
   if(error) throw error
-  latestMood=data
-  maybeApplyContextScene(mood)
+  if(action===moodActionSequence){latestMood=data;maybeApplyContextScene(mood)}
   return data
 }
 
