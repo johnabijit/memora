@@ -1,7 +1,11 @@
 package com.memora.mobile;
 
 import android.Manifest;
-import android.app.Activity;
+import android.content.Context;
+import androidx.fragment.app.FragmentActivity;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -26,7 +30,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class MainActivity extends FragmentActivity {
     private static final String HOME = "https://memora-37z.pages.dev/";
     private static final int FILE_PICK_REQUEST = 1001;
     private static final int MEDIA_PERMISSION_REQUEST = 1002;
@@ -37,6 +41,9 @@ public class MainActivity extends Activity {
     private PermissionRequest mediaRequest;
     private String[] mediaResources;
     private ProgressBar loading;
+    private View lockCover;
+    private boolean authInProgress=false;
+    private boolean unlockedThisResume=false;
 
     @Override
     public void onCreate(Bundle state) {
@@ -57,7 +64,7 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.rgb(12,16,25));
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
-        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.2");
+        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.3");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
@@ -100,6 +107,10 @@ public class MainActivity extends Activity {
         errorPanel.addView(browser);
         frame.addView(errorPanel,new android.widget.FrameLayout.LayoutParams(-1,-1));
         errorPanel.setVisibility(View.GONE);
+        lockCover=createLockOverlay();
+        frame.addView(lockCover,new android.widget.FrameLayout.LayoutParams(-1,-1));
+        if(!deviceLockEnabled()) lockCover.setVisibility(View.GONE);
+        else webView.setVisibility(View.INVISIBLE);
         setContentView(frame);
 
         webView.setWebViewClient(new WebViewClient() {
@@ -168,11 +179,118 @@ public class MainActivity extends Activity {
         if (url != null) openAuthCallback(url);
     }
 
+    private boolean deviceLockEnabled(){
+        return getSharedPreferences("memora-security",Context.MODE_PRIVATE)
+            .getBoolean("device-lock-enabled",false);
+    }
+
+    private View createLockOverlay(){
+        LinearLayout cover=new LinearLayout(this);
+        cover.setBackgroundColor(Color.rgb(12,16,25));
+        cover.setGravity(Gravity.CENTER);
+        cover.setOrientation(LinearLayout.VERTICAL);
+        cover.setPadding(dp(30),dp(30),dp(30),dp(30));
+        TextView title=new TextView(this);
+        title.setText("Memora is locked");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(25);
+        title.setGravity(Gravity.CENTER);
+        cover.addView(title,new LinearLayout.LayoutParams(-1,dp(64)));
+        TextView note=new TextView(this);
+        note.setText("Unlock using your phone's fingerprint, face or screen lock.");
+        note.setTextColor(Color.LTGRAY);
+        note.setGravity(Gravity.CENTER);
+        cover.addView(note,new LinearLayout.LayoutParams(-1,dp(80)));
+        Button unlock=new Button(this);
+        unlock.setText("Unlock Memora");
+        unlock.setOnClickListener(view->requestDeviceAuth("unlock"));
+        cover.addView(unlock);
+        return cover;
+    }
+
+    private void revealWebView(){
+        unlockedThisResume=true;
+        if(webView!=null)webView.setVisibility(View.VISIBLE);
+        if(lockCover!=null)lockCover.setVisibility(View.GONE);
+    }
+
+    private void requestDeviceAuth(String purpose){
+        if(authInProgress)return;
+        int accepted=BiometricManager.Authenticators.BIOMETRIC_STRONG |
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL;
+        int available=BiometricManager.from(this).canAuthenticate(accepted);
+        if(available!=BiometricManager.BIOMETRIC_SUCCESS){
+            Toast.makeText(this,"Set up a device PIN and fingerprint or face unlock in Android Settings first.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        authInProgress=true;
+        BiometricPrompt prompt=new BiometricPrompt(this,ContextCompat.getMainExecutor(this),
+            new BiometricPrompt.AuthenticationCallback(){
+                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result){
+                    super.onAuthenticationSucceeded(result);
+                    authInProgress=false;
+                    if("enable".equals(purpose)){
+                        getSharedPreferences("memora-security",Context.MODE_PRIVATE).edit()
+                            .putBoolean("device-lock-enabled",true).apply();
+                        Toast.makeText(MainActivity.this,"Device unlock enabled for Memora",Toast.LENGTH_LONG).show();
+                    }else if("disable".equals(purpose)){
+                        getSharedPreferences("memora-security",Context.MODE_PRIVATE).edit()
+                            .putBoolean("device-lock-enabled",false).apply();
+                        Toast.makeText(MainActivity.this,"Memora device unlock disabled",Toast.LENGTH_LONG).show();
+                    }
+                    revealWebView();
+                }
+                @Override public void onAuthenticationError(int errorCode,CharSequence errString){
+                    super.onAuthenticationError(errorCode,errString);
+                    authInProgress=false;
+                    if(deviceLockEnabled()&&!unlockedThisResume){
+                        if(lockCover!=null)lockCover.setVisibility(View.VISIBLE);
+                        if(webView!=null)webView.setVisibility(View.INVISIBLE);
+                    }
+                }
+            });
+        BiometricPrompt.PromptInfo info=new BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Memora device security")
+            .setSubtitle("Confirm your device identity")
+            .setAllowedAuthenticators(accepted).build();
+        try{prompt.authenticate(info);}
+        catch(Exception e){
+            authInProgress=false;
+            Toast.makeText(this,"Device authentication is not available. Check Android security settings.",Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override protected void onPause(){
+        if(deviceLockEnabled()){
+            unlockedThisResume=false;
+            if(webView!=null)webView.setVisibility(View.INVISIBLE);
+            if(lockCover!=null)lockCover.setVisibility(View.VISIBLE);
+        }
+        super.onPause();
+    }
+
+    @Override protected void onResume(){
+        super.onResume();
+        if(deviceLockEnabled()&&!unlockedThisResume&&!authInProgress){
+            if(webView!=null)webView.setVisibility(View.INVISIBLE);
+            if(lockCover!=null)lockCover.setVisibility(View.VISIBLE);
+            requestDeviceAuth("unlock");
+        }
+    }
+
     private int dp(int value) { return (int)(getResources().getDisplayMetrics().density * value + .5f); }
 
     private boolean handleNavigation(Uri uri) {
         String scheme = uri.getScheme();
         String host = uri.getHost();
+        if("memora".equalsIgnoreCase(scheme)&&"security".equalsIgnoreCase(host)){
+            String path=uri.getPath();
+            // An OS-verified prompt is always required before changing the
+            // device-lock preference. No JavaScript bridge exposes credentials.
+            if("/enable".equals(path)){runOnUiThread(()->requestDeviceAuth("enable"));return true;}
+            if("/disable".equals(path)){runOnUiThread(()->requestDeviceAuth("disable"));return true;}
+            return true;
+        }
         if ("https".equalsIgnoreCase(scheme) && host != null) {
             // The only pages displayed inside the WebView are Memora pages.
             // All external identity-provider and third-party pages open in the phone browser.
