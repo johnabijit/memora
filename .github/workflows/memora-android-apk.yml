@@ -5,6 +5,8 @@ on:
     paths:
       - 'mobile/android/**'
       - '.github/workflows/memora-android-apk.yml'
+  pull_request:
+    branches: [mobile-installers]
   workflow_dispatch:
 jobs:
   android-apk:
