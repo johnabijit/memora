@@ -957,15 +957,16 @@ function ensureMediaPlayer(){
       <span class="player-art-fallback"><i></i><i></i><i></i></span>
     </button>
     <button class="player-track player-track-button" id="playerTrackOpen" aria-label="Open Now Playing">
-      <small id="playerSource">Nature · Wikimedia Commons</small>
+      <small class="player-kicker">NOW PLAYING · <span id="playerSource">Nature · Wikimedia Commons</span></small>
       <strong id="playerTitle">Rain, thunder and birds</strong>
       <span id="playerStatus">Ready</span>
     </button>
     <div class="player-actions mini-actions">
-      <button class="player-action primary" id="playerPlay" aria-label="Play or pause">▶</button>
-      <button class="player-action" id="playerNext" aria-label="Next">››</button>
-      <button class="player-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
-      <button class="player-action expand-action" id="playerExpand" aria-label="Expand Now Playing">⌃</button>
+      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous">❮❮</button>
+      <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause">▶</button>
+      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next">❯❯</button>
+      <button class="player-action expand-action" id="playerExpand" aria-label="Open Now Playing" title="Open player">⌃</button>
+      <button class="player-action player-mute-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
     </div>
   `
   document.body.appendChild(player)
@@ -1002,6 +1003,7 @@ function ensureMediaPlayer(){
     else refreshMediaPlayerUI()
   })
 
+  document.getElementById('playerPrevious').onclick=()=>previousMediaTrack(true)
   document.getElementById('playerPlay').onclick=toggleMediaPlayback
   document.getElementById('playerNext').onclick=()=>nextMediaTrack(true)
   document.getElementById('playerMute').onclick=toggleMediaMute
@@ -2710,7 +2712,7 @@ function shell(content,title,subtitle=''){
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
+        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search or Ask</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
@@ -3783,7 +3785,7 @@ async function home(){
     <nav class="home-quick-nav" aria-label="Quick destinations">
       <button class="btn" data-nav="memories">Browse memories</button>
       <button class="btn" data-nav="ask">Ask Memora</button>
-      <button class="btn" data-nav="people">People</button>
+      <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
     <section class="glass home-hub">
@@ -3841,6 +3843,7 @@ async function home(){
   renderPending()
 
   document.getElementById('homeMusicQuick')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('homeSearchQuick')?.addEventListener('click',openGlobalSearch)
   document.querySelectorAll('[data-home-tab]').forEach(button=>button.onclick=()=>{
     document.querySelectorAll('[data-home-tab]').forEach(x=>x.classList.toggle('active',x===button))
     document.querySelectorAll('[data-home-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.homePanel===button.dataset.homeTab))
@@ -4864,7 +4867,7 @@ async function ask({reload=true}={}){
   `).join('')
 
   app.innerHTML=shell(`
-    <div class="ask-layout">
+    <div class="ask-layout" aria-label="Your Memora conversations">
       <button class="chat-drawer-scrim" id="chatDrawerScrim" aria-label="Close chats"></button>
       <aside class="glass chat-sidebar" id="chatSidebar">
         <div class="chat-sidebar-head">
@@ -4880,26 +4883,26 @@ async function ask({reload=true}={}){
           <div class="intelligence-orb"><span></span></div>
           <div class="ask-title-block">
             <strong>${esc(currentThread.title||'New chat')}</strong>
-            <small>Shared memory vault, separate conversation context</small>
+            <small>Ask about a saved detail. See evidence with every answer.</small>
           </div>
-          <span class="status live" title="Your saved-memory vault is available. AI reasoning requires a working provider.">Memory ready</span>
+          <span class="ask-memory-status" title="Memory search works separately from AI reasoning.">Saved memories</span>
         </div>
 
         <div class="glass chat-panel">
           <div class="filter-row ask-suggestions">
-            <button class="chip" data-ask-suggestion="How are you?">Talk</button>
+            <button class="chip" data-ask-suggestion="What is my wedding date?">Wedding date</button>
             <button class="chip" data-ask-suggestion="What do you remember about me?">About me</button>
-            <button class="chip" data-ask-suggestion="Who is my manager?">My manager</button>
-            <button class="chip" data-nav="people">People</button>
-            <button class="chip" data-ask-suggestion="What can you tell me about my latest image?">Latest image</button>
+            <button class="chip" data-ask-suggestion="Where did I keep my things?">Find a thing</button>
+            <button class="chip" data-nav="memories">Browse memories</button>
           </div>
-          <div class="chat" id="chat">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>How is your day going?</strong>Talk naturally, share something you want remembered, ask a question, or let Memora search your private memory vault when it is relevant.</div>'}</div>
+          <div class="chat" id="chat" role="log" aria-live="polite">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>What would you like to know?</strong>Ask about a person, date, place or anything you saved. Memora will explain when information is missing.</div>'}</div>
         </div>
 
         <div class="glass ask-box">
-          <input class="input" id="askInput" autocomplete="off" placeholder="Talk to Memora or ask anything">
+          <textarea class="input" id="askInput" rows="2" maxlength="4000" aria-label="Your question" placeholder="Ask about a memory, person, date or place..."></textarea>
           <button class="btn voice-btn" id="askVoice" aria-label="Speak to Memora">Mic</button>
-          <button class="btn primary" id="askButton">Ask</button>
+          <button class="btn primary" id="askButton">Ask →</button>
+          <p class="ask-hint">Enter to send · Shift+Enter for a new line. Your saved memories stay private.</p>
         </div>
       </div>
     </div>
