@@ -4803,6 +4803,19 @@ async function answer(question){
   }
 
   const clean=cleanAnswerText(best.original_text||best.summary||'')
+  const evidenceSource=`Verified against saved text · ${shortDate(best.occurred_at)}`
+  // When reasoning is down, answer only fields literally present in the
+  // matching user statement. Never infer dates or locations from unrelated
+  // reminders, or turn a fuzzy match into a fabricated personal fact.
+  if(/\b(?:wedding|marriage|married|ceremony|reception)\b/i.test(searchQuestion)&&/\b(?:date|when|day)\b/i.test(q)){
+    const date=clean.match(/\b(?:[0-3]?\d)(?:st|nd|rd|th)?[\s,/.-]+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,/.-]+\d{4}\b/i)
+      ||clean.match(/\b\d{4}-[01]\d-[0-3]\d\b/)
+    if(date)return {text:`Your saved wedding or marriage date is ${date[0]}.`,source:evidenceSource}
+  }
+  if(/\b(?:pick.?up|pick|collect)\b/i.test(searchQuestion)&&/\b(?:time|when|hour)\b/i.test(q)){
+    const time=clean.match(/\b(?:at\s+)?(?:[01]?\d|2[0-3]):[0-5]\d\s*(?:am|pm)?\b/i)
+    if(time)return {text:`Your saved pickup time is ${time[0].replace(/^at\s+/i,'')}.`,source:evidenceSource}
+  }
   return {text:clean?`I found a matching saved memory: ${clean}`:"I found a matching saved memory, but it does not contain a clear answer.",source:`Saved memory (AI reasoning ${aiUnavailable?'unavailable':'not used'}) · ${shortDate(best.occurred_at)}`}
 }
 function thinkingMarkup(){
