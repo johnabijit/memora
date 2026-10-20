@@ -2372,3 +2372,39 @@ html[data-world="desert"] .glass,html[data-world="sunset"] .glass,html[data-worl
 html[data-world="monsoon"] .glass,html[data-world="forest"] .glass,html[data-world="tropical"] .glass{background:linear-gradient(145deg,#102822e9,#101b26e9);border-color:#8cd4a448}
 html[data-world="winter"] .glass,html[data-world="mountain"] .glass{background:linear-gradient(145deg,#17253ae9,#15243be9);border-color:#b9daec48}
 html[data-world="birthday"] .glass,html[data-world="new-year"] .glass{background:linear-gradient(125deg,#2b1b41e7,#192c3fe9);border-color:#f2bc9580}
+
+
+/* Unified visual density for Memora Audio. */
+.audio-hub .audio-library-head{margin-bottom:10px;align-items:center}
+.audio-hub .audio-library-head h3{font-size:clamp(22px,3vw,29px);margin:2px 0 4px;letter-spacing:-.5px}
+.audio-hub .audio-library-head .eyebrow{font-size:9px;letter-spacing:.13em}
+.audio-hub .audio-library-head p{font-size:12px;margin:0;line-height:1.45}
+.audio-hub .audio-mode-tabs{position:sticky;top:0;z-index:5;background:rgba(16,23,36,.97);margin:10px 0;padding:4px;border-radius:14px}
+.audio-hub .audio-mode-tab{min-height:43px;font-size:12px;border-radius:11px}
+.audio-hub .audio-for-you{padding:10px 12px;gap:10px;min-height:0;margin:10px 0 13px;border-radius:14px;box-shadow:none}
+.audio-hub .audio-for-you .eyebrow{font-size:9px}
+.audio-hub .audio-for-you strong{font-size:12px;margin:1px 0;display:block}
+.audio-hub .audio-for-you small{font-size:10px}
+.audio-hub .audio-for-you-actions .btn{min-height:39px;font-size:11px}
+.audio-hub .audio-mode-panel{padding:10px 0 5px}
+.audio-hub .audio-section-intro{padding:12px;margin-bottom:10px;border-radius:14px}
+.audio-hub .audio-search-row{gap:8px;grid-template-columns:minmax(0,1fr) auto}
+.audio-hub .audio-search-row .input{min-height:49px;font-size:14px}
+.audio-hub .audio-search-row .btn{min-height:49px;font-size:12px}
+.audio-hub .radio-country-quick{display:flex;flex-wrap:nowrap;overflow-x:auto;max-height:49px;scrollbar-width:thin}
+.audio-hub .radio-country-quick .chip{white-space:nowrap;flex:0 0 auto}
+.audio-hub .audio-presets{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;max-height:54px;gap:7px}
+.audio-hub .audio-presets .chip{flex:0 0 auto;white-space:nowrap}
+.audio-hub .audio-library-toolbar{position:sticky;top:46px;z-index:3;min-height:45px;background:rgba(13,18,29,.94);backdrop-filter:blur(13px);border-radius:11px;padding:8px}
+.audio-hub .audio-library-results{display:grid;gap:7px;padding:5px 0 16px}
+.world-celebration-switch{display:flex;align-items:center;gap:10px;font-size:12px}
+.world-celebration-switch input{width:18px;height:18px;accent-color:var(--c1)}
+.auth-card .logo img,.auth-wrap .logo img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+@media(max-width:760px){
+ .audio-hub .audio-library-head{flex-direction:row;align-items:center;gap:8px}
+ .audio-hub .audio-library-head p{display:none}
+ .audio-hub .audio-library-head h3{font-size:22px}
+ .audio-hub .audio-for-you{flex-direction:column;align-items:stretch}
+ .audio-hub .audio-for-you-actions{justify-content:space-between}
+ .audio-hub .audio-search-row .btn{padding:9px;font-size:11px}
+}
