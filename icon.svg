@@ -1,1 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><linearGradient id="g" x1="12" y1="8" x2="118" y2="122" gradientUnits="userSpaceOnUse"><stop stop-color="#b39aff"/><stop offset=".5" stop-color="#7667ef"/><stop offset="1" stop-color="#4dd7cb"/></linearGradient><radialGradient id="r" cx="0" cy="0" r="1" gradientTransform="translate(91 28) rotate(128) scale(76)"><stop stop-color="#ff83bd" stop-opacity=".65"/><stop offset="1" stop-color="#ff83bd" stop-opacity="0"/></radialGradient></defs><rect width="128" height="128" rx="34" fill="#0c1019"/><rect x="6" y="6" width="116" height="116" rx="30" fill="url(#g)"/><rect x="6" y="6" width="116" height="116" rx="30" fill="url(#r)"/><path d="M34 88V40h12l18 27 18-27h12v48H82V59L64 85 46 59v29H34Z" fill="white"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Memora blooming memory icon">
+<defs>
+ <linearGradient id="night" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#17233a"/><stop offset="1" stop-color="#08101c"/></linearGradient>
+ <linearGradient id="petal1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd66a"/><stop offset="1" stop-color="#fb5b76"/></linearGradient>
+ <linearGradient id="petal2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fa69bf"/><stop offset="1" stop-color="#c63c91"/></linearGradient>
+ <linearGradient id="petal3" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#86e9ff"/><stop offset="1" stop-color="#287ada"/></linearGradient>
+ <linearGradient id="petal4" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7df6cc"/><stop offset="1" stop-color="#289eae"/></linearGradient>
+</defs>
+<rect x="3" y="3" width="122" height="122" rx="32" fill="url(#night)" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
+<g stroke="#ffffff" stroke-opacity=".13" stroke-width="1.2">
+ <path d="M64 72C48 51 49 31 64 13C79 31 80 51 64 72Z" fill="url(#petal1)"/>
+ <path d="M64 79C35 76 25 58 27 37C50 42 63 54 64 79Z" fill="url(#petal2)"/>
+ <path d="M64 79C93 76 103 58 101 37C78 42 65 54 64 79Z" fill="url(#petal4)"/>
+ <path d="M64 85C36 96 17 83 14 63C39 58 59 68 64 85Z" fill="url(#petal2)"/>
+ <path d="M64 85C92 96 111 83 114 63C89 58 69 68 64 85Z" fill="url(#petal3)"/>
+ <path d="M64 90C48 112 28 104 22 91C43 81 59 84 64 90Z" fill="url(#petal1)"/>
+ <path d="M64 90C80 112 100 104 106 91C85 81 69 84 64 90Z" fill="url(#petal3)"/>
+</g>
+<path d="M64 68C57 80 57 89 64 101C71 89 71 80 64 68Z" fill="#f5f8ff" opacity=".84"/>
+<circle cx="64" cy="85" r="6" fill="#fbffff"/>
+</svg>
