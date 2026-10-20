@@ -2163,6 +2163,23 @@ async function openSoundscapePicker(){
         }
       }else if(mode==='radio'){
         const query=box.querySelector('#radioSearch')?.value.trim()||''
+        // A query such as "Hindu radio" is about a devotional tradition.
+        // Redirect discovery into the specialized radio directory rather
+        // than searching a literal station name containing the whole phrase.
+        const devotionalIntent=/\b(hindu|bhajan|bhakti|aarti|krishna|shiva|murugan|mantra)\b/i.test(query)?'hindu'
+          :/\b(gurbani|sikh|shabad)\b/i.test(query)?'sikh'
+          :/\b(quran|islamic|nasheed)\b/i.test(query)?'islamic'
+          :/\b(christian|gospel|worship|hymns)\b/i.test(query)?'christian':null
+        if(devotionalIntent){
+          const languageMatch=query.match(/\b(tamil|malayalam|hindi|telugu|kannada|punjabi|bengali|english)\b/i)
+          const requestedLanguage=languageMatch?languageMatch[1][0].toUpperCase()+languageMatch[1].slice(1).toLowerCase():''
+          setDevotional(devotionalIntent,'',requestedLanguage||null)
+          box.querySelector('#devotionalSearch').value=''
+          if(devotionalCountry) devotionalCountry.value=radioCountry?.value||''
+          setMode('devotional')
+          await runLoad('devotional')
+          return
+        }
         mediaPlayerState.radioCountry=radioCountry?.value||''
         mediaPlayerState.radioLanguage=radioLanguage?.value||''
         mediaPlayerState.radioSort=activeRadioSort()
