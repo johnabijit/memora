@@ -3836,7 +3836,7 @@ async function home(){
               <input class="hidden" id="photoInput" type="file" accept="image/*" multiple>
               <input class="hidden" id="videoInput" type="file" accept="video/*" capture="environment">
             </div>
-            <button class="btn primary" id="saveMemory">Remember this</button>
+            <div class="composer-submit-group"><button class="btn" id="askFromMemoryInput" type="button">Ask instead →</button><button class="btn primary" id="saveMemory">Remember this</button></div>
           </div>
         </div>
       </div>
@@ -3904,6 +3904,14 @@ async function home(){
 
   document.getElementById('homeMusicQuick')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('homeSearchQuick')?.addEventListener('click',openGlobalSearch)
+  document.getElementById('askFromMemoryInput')?.addEventListener('click',async()=>{
+    const question=document.getElementById('memoryInput')?.value.trim()
+    if(!question)return document.getElementById('memoryInput')?.focus()
+    if(looksLikeSecret(question))return toast('Credentials cannot be submitted as questions.')
+    await go('ask')
+    const field=document.getElementById('askInput')
+    if(field){field.value=question;field.focus()}
+  })
   document.querySelectorAll('[data-home-tab]').forEach(button=>button.onclick=()=>{
     document.querySelectorAll('[data-home-tab]').forEach(x=>x.classList.toggle('active',x===button))
     document.querySelectorAll('[data-home-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.homePanel===button.dataset.homeTab))
