@@ -1797,9 +1797,13 @@ function updateSoundButton(){
   const active=ambientPreferences.enabled&&audio&&!audio.muted
   if(button){
     button.dataset.enabled=active?'true':'false'
-    button.title='Open music player and search music'
+    const playing=Boolean(audio&&!audio.paused&&!audio.muted)
+    button.title=playing?'Pause music':'Play music'
+    button.setAttribute('aria-label',button.title)
     const label=button.querySelector('.sound-label')
-    if(label) label.textContent='Play music'
+    const symbol=button.querySelector('.sound-icon')
+    if(label) label.textContent=playing?'Pause music':'Play music'
+    if(symbol) symbol.textContent=playing?'Ⅱ':'▶'
   }
 }
 
@@ -3030,11 +3034,14 @@ function shell(content,title,subtitle=''){
     <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
-      <div class="top-left"><button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
-        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
+      <div class="top-left">
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="icon-btn header-home-button" data-nav="home">Home</button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
+        <button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
       </div>
-      <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
+      <div class="top-actions">
+
         <form class="top-global-search" id="topGlobalSearchForm" role="search">
           <label class="sr-only" for="topSearchInput">Search your memories or find music</label>
           <span class="top-search-symbol" aria-hidden="true">⌕</span>
@@ -3042,6 +3049,7 @@ function shell(content,title,subtitle=''){
           <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
         </form>
         <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
+        <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav>
         
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
@@ -3284,7 +3292,20 @@ function wire(){
   document.getElementById('topSearchInput')?.addEventListener('focus',event=>{
     event.target.select()
   })
-  document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('soundButton')?.addEventListener('click',async()=>{
+    ensureMediaPlayer()
+    const audio=mediaAudio()
+    if(!audio)return
+    if(!audio.paused){audio.pause();updateSoundButton();return}
+    if(!mediaPlayerState.current){
+      const items=await loadMediaLibrary('music','',30,{preserveCurrent:false}).catch(()=>[])
+      if(items?.length){await selectMediaTrack(items[Math.floor(Math.random()*items.length)],true);updateSoundButton();return}
+      return toast('No available music. Choose a track from Music.')
+    }
+    await setAmbientEnabled(true)
+    try{await audio.play()}catch{toast('Tap the player to start audio')}
+    updateSoundButton()
+  })
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
     if(window.history.length>1) window.history.back()
@@ -4267,6 +4288,13 @@ async function home(){
   let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
     const request=++latestHomeMoodRequest
+    const playButton=document.getElementById('moodPlayButton')
+    if(playButton){playButton.disabled=false;playButton.textContent='Play something for me';playButton.onclick=async()=>{
+      playButton.disabled=true;playButton.textContent='Finding something...'
+      try{const started=await playForMood(button.dataset.moodCheckin);playButton.textContent=started?'Playing':'Try another track'}catch{playButton.textContent='Try another track'}
+      playButton.disabled=false
+    }}
+    document.getElementById('moodResponse')?.classList.remove('hidden')
     const mood=button.dataset.moodCheckin
     document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
     try{
@@ -4343,7 +4371,11 @@ async function memories(){
     document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'))
     button.classList.add('active')
     const filter=button.dataset.filter
-    const filtered=filter==='all'?all:all.filter(m=>m.memory_type===filter)
+    const categories={
+      object:['object','thing','item'],activity:['activity','event','task','reminder'],
+      document:['document','file'],conversation:['conversation','chat','message']
+    }
+    const filtered=filter==='all'?all:all.filter(m=>(categories[filter]||[]).includes(String(m.memory_type||'').toLowerCase())||(filter==='document'&&Boolean(m.document_id)))
     document.getElementById('memoryList').innerHTML=filtered.length?filtered.map(memoryCard).join(''):'<div class="glass empty"><strong>No matches</strong>Nothing in this category yet.</div>'
     bindDeletes()
     bindMemoryViews(filtered)
