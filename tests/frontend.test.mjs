@@ -5,6 +5,7 @@ import { JSDOM, VirtualConsole } from 'jsdom'
 
 const source=(await readFile('app.js','utf8')).replace(/^import .*\n/gm,'')
 const runtime=(await readFile('client/runtime.js','utf8')).replace(/^export /gm,'')
+const worldsRuntime=(await readFile('client/visual-worlds.js','utf8')).replace(/^export /gm,'')
 const facts=[
   {fact_key:'work.manager',category:'work',value_text:'Alice'},
   {fact_key:'family.brother.1',category:'family',predicate:'brother',value_text:'Adam',ordinal:1,age_relation:'elder'},
@@ -51,7 +52,7 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
     }
   })
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+worldsRuntime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
