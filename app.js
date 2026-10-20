@@ -1875,8 +1875,8 @@ async function openSoundscapePicker(){
       <div class="audio-library-head compact-head">
         <div>
           <div class="eyebrow">Music · Radio · Devotional · Nature</div>
-          <h3>Your world of sound.</h3>
-          <p class="muted">A compact audio hub for open music tracks, real live radio, worldwide devotional discovery and open nature recordings.</p>
+          <h3>Find your sound.</h3>
+          <p class="muted">Play a track, tune into live radio, or choose a mood.</p>
         </div>
         <button class="btn ${ambientPreferences.enabled?'primary':''}" id="libraryMute">${ambientPreferences.enabled?'Mute':'Enable audio'}</button>
       </div>
@@ -1889,7 +1889,7 @@ async function openSoundscapePicker(){
       </div>
 
       <div class="audio-for-you">
-        <div><span class="eyebrow">Personalized audio</span><strong>${latestMood&&moodCatalog[latestMood.mood]?`Your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in can guide the next sound.`:'Personalized without clutter.'}</strong><small>Use your mood, recent memories, or discover a random live station from anywhere in the world.</small></div>
+        <div><span class="eyebrow">Quick picks</span><strong>${latestMood&&moodCatalog[latestMood.mood]?`Your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in can guide the next sound.`:'Personalized without clutter.'}</strong><small>Choose music for a mood, memory or surprise.</small></div>
         <div class="audio-for-you-actions">
           ${latestMood&&moodCatalog[latestMood.mood]?'<button class="btn primary compact" id="audioMoodForYou">For my mood</button>':''}
           <button class="btn compact" id="audioMemoryMix">Memory Mix</button>
@@ -2799,7 +2799,7 @@ function shell(content,title,subtitle=''){
         </nav>
         <button class="icon-btn header-theme" id="headerThemeButton" title="Appearance and themes" aria-label="Choose appearance and themes">◐ <span>Themes</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="More Memora sections">☰ <span>More</span></button>
-        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
+
         
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
