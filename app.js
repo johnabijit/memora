@@ -940,6 +940,29 @@ function mediaPlayerVisible(){
   return Boolean(document.getElementById('memoraMediaPlayer'))
 }
 
+let playerPlacementObserver=null
+function updatePlayerPlacement(){
+  const mini=document.getElementById('memoraMediaPlayer')
+  if(!mini||!user)return
+  // Fixed to document.body, never nested inside route views or search dialogs.
+  // Dialogs are padded so their action buttons cannot be covered.
+  const hasDialog=Boolean(document.querySelector('.modal-backdrop'))
+  document.body.classList.toggle('player-with-dialog',hasDialog)
+  const narrow=window.matchMedia?.('(max-width: 760px)')?.matches||false
+  const keyboardVisible=window.visualViewport&&window.visualViewport.height<
+    window.innerHeight*(narrow?0.72:0.62)
+  document.body.classList.toggle('player-keyboard-open',Boolean(keyboardVisible))
+  const playerHeight=Math.ceil(mini.getBoundingClientRect().height||72)
+  document.documentElement.style.setProperty('--active-player-height',playerHeight+'px')
+}
+function setupPlayerPlacement(){
+  if(playerPlacementObserver)return
+  playerPlacementObserver=new MutationObserver(updatePlayerPlacement)
+  playerPlacementObserver.observe(document.body,{childList:true})
+  window.addEventListener('resize',updatePlayerPlacement,{passive:true})
+  window.visualViewport?.addEventListener('resize',updatePlayerPlacement,{passive:true})
+}
+
 function ensureMediaPlayer(){
   if(!user) return null
   let player=document.getElementById('memoraMediaPlayer')
@@ -971,6 +994,8 @@ function ensureMediaPlayer(){
   `
   document.body.appendChild(player)
   document.body.classList.add('has-memora-player')
+  setupPlayerPlacement()
+  updatePlayerPlacement()
 
   const audio=mediaAudio()
   audio.volume=Math.max(0,Math.min(1,ambientPreferences.volume))
@@ -2712,7 +2737,13 @@ function shell(content,title,subtitle=''){
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo" aria-hidden="true"><svg viewBox="0 0 48 48" width="36" height="36"><path d="M8 35V13l16 13 16-13v22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="11" r="4" fill="currentColor"/></svg></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
-        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search memories, questions, music...</span></button>
+        <form class="top-global-search" id="topGlobalSearchForm" role="search">
+          <label class="sr-only" for="topSearchInput">Search your memories or find music</label>
+          <span class="top-search-symbol" aria-hidden="true">⌕</span>
+          <input id="topSearchInput" type="search" maxlength="300" autocomplete="off" placeholder="Search memories, questions, music...">
+          <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
+        </form>
+        <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
@@ -2941,6 +2972,14 @@ function wire(){
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
+  document.getElementById('topGlobalSearchForm')?.addEventListener('submit',event=>{
+    event.preventDefault()
+    const value=document.getElementById('topSearchInput')?.value.trim()||''
+    openGlobalSearch(value)
+  })
+  document.getElementById('topSearchInput')?.addEventListener('focus',event=>{
+    event.target.select()
+  })
   document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
@@ -2965,6 +3004,7 @@ async function renderRoute(next,focus=false){
     await renderPage()
   }
   removeStrayEscapedNewline()
+  if(user) { ensureMediaPlayer(); updatePlayerPlacement() }
   if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
 }
 
