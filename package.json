@@ -10,7 +10,7 @@
     "dev": "npm run build && wrangler pages dev dist",
     "deploy:cloudflare": "npm run build && wrangler pages deploy dist --project-name=memora --branch=cloudflare-v43-fixes"
   },
-  "dependencies": { "@supabase/supabase-js": "2.57.4" },
+  "dependencies": { "@supabase/supabase-js": "2.105.0" },
   "devDependencies": { "esbuild": "0.28.2", "jsdom": "30.1.2", "wrangler": "4.149.0" },
   "engines": { "node": ">=22" }
 }
