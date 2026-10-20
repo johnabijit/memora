@@ -2465,3 +2465,24 @@ html[data-visual-style="sunrise"] .scene-layer{animation:memora-breathe 13s ease
 @keyframes memora-breathe{from{opacity:.25;transform:scale(1)}to{opacity:.66;transform:scale(1.07)}}
 @media(prefers-reduced-motion:reduce){html[data-visual-style] .scene-layer{animation:none!important}}
 @media(max-width:760px){.back-btn{min-width:71px!important;font-size:11px!important;height:35px!important;padding:0 7px!important}.back-btn span:first-child{font-size:16px!important}#soundButton{min-width:auto}}
+
+/* v45 theme genres: distinct ambient scene and layout designs */
+html[data-world-group="music"] .scene-layer{background:repeating-linear-gradient(90deg,transparent 0 20px,color-mix(in srgb,var(--c2) 18%,transparent) 20px 28px,transparent 28px 44px);mask-image:linear-gradient(transparent,black,transparent);animation:musicEqualizer 9s ease-in-out infinite alternate}
+html[data-world-group="space"] .scene-layer{background-image:radial-gradient(#dceeff 1px,transparent 2px),radial-gradient(var(--c1) 2px,transparent 3px);background-size:27px 34px,78px 94px;animation:memora-drift 30s linear infinite alternate}
+html[data-world-group="creative"] .scene-layer{background:repeating-conic-gradient(from 0deg at 50% 50%,color-mix(in srgb,var(--c1) 18%,transparent) 0deg 20deg,transparent 21deg 45deg);mask-image:linear-gradient(90deg,black,transparent);animation:memora-drift 28s ease-in-out infinite alternate}
+html[data-world-group="places"] .scene-layer{background:linear-gradient(140deg,transparent 38%,color-mix(in srgb,var(--c1) 18%,transparent) 40%,transparent 45%),repeating-linear-gradient(90deg,transparent 0 60px,color-mix(in srgb,var(--c2) 10%,transparent) 60px 63px)}
+html[data-world-group="nature"] .scene-layer{background:repeating-radial-gradient(ellipse at 50% 120%,transparent 0 70px,color-mix(in srgb,var(--c2) 15%,transparent) 72px 80px,transparent 83px 150px);animation:memora-breathe 16s ease-in-out infinite alternate}
+html[data-world-group="festivals"] .scene-layer{background:radial-gradient(circle at 9% 14%,var(--c1) 0 2px,transparent 3px),radial-gradient(circle at 82% 33%,var(--c3) 0 3px,transparent 4px),radial-gradient(circle at 47% 76%,var(--c2) 0 3px,transparent 4px);background-size:76px 82px;animation:memora-drift 18s linear infinite alternate}
+html[data-world-group="editorial"] .hero{font-family:Georgia,serif;letter-spacing:-.03em}
+html[data-world-group="creative"] .hero h2{letter-spacing:-.065em;text-transform:none}
+html[data-world-group="places"] .hero{border-radius:4px 48px 4px 48px!important}
+html[data-world-group="music"] .hero{border-radius:28px!important;box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--c1) 35%,transparent),0 22px 65px #0005}
+html[data-world-group="nature"] .hero{border-radius:40px 40px 12px 12px!important}
+html[data-world-group="space"] .hero{border-radius:42px!important;border:1px solid color-mix(in srgb,var(--c1) 55%,transparent);box-shadow:0 0 40px color-mix(in srgb,var(--c2) 14%,transparent)}
+html[data-world-group="festivals"] .hero{border-radius:10px 32px 10px 32px!important}
+html[data-world-group="music"] .memory-card{border-radius:10px!important}
+html[data-world-group="places"] .memory-card{border-radius:4px 24px!important}
+html[data-world-group="nature"] .memory-card{border-radius:30px 10px!important}
+html[data-world-group="space"] .memory-card{border-radius:26px!important}
+@keyframes musicEqualizer{0%{transform:scaleY(.4) translateY(20%)}100%{transform:scaleY(1.15) translateY(-5%)}}
+@media(prefers-reduced-motion:reduce){html[data-world-group] .scene-layer{animation:none!important}}
