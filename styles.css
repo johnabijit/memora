@@ -2210,3 +2210,14 @@ body.has-memora-player .app{padding-bottom:calc(var(--dock-h) + 170px)}
  .scope-chip{font-size:11px;padding:8px 4px;min-height:42px}
  .unified-search-actions .btn{font-size:12px;padding:9px}
 }
+
+
+/* Keep the Ask composer ABOVE the persistent music player on short screens. */
+body.has-memora-player .ask-main{height:clamp(320px,calc(100dvh - 355px),645px)}
+@media(max-width:760px){
+ body.has-memora-player .ask-main{height:clamp(315px,calc(100dvh - 305px),560px)}
+}
+@media(max-width:430px){
+ body.has-memora-player .ask-main{height:clamp(290px,calc(100dvh - 320px),530px)}
+ .memora-player .player-track{min-width:76px}
+}
