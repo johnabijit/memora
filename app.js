@@ -1797,9 +1797,9 @@ function updateSoundButton(){
   const active=ambientPreferences.enabled&&audio&&!audio.muted
   if(button){
     button.dataset.enabled=active?'true':'false'
-    button.title=active?'Open Memora Audio':'Audio is muted'
+    button.title='Open music player and search music'
     const label=button.querySelector('.sound-label')
-    if(label) label.textContent=active?'Audio':'Muted'
+    if(label) label.textContent='Play music'
   }
 }
 
