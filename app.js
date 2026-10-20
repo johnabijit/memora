@@ -4606,7 +4606,7 @@ async function ask({reload=true}={}){
             <strong>${esc(currentThread.title||'New chat')}</strong>
             <small>Shared memory vault, separate conversation context</small>
           </div>
-          <span class="status live">Ready</span>
+          <span class="status live" title="Your saved-memory vault is available. AI reasoning requires a working provider.">Memory ready</span>
         </div>
 
         <div class="glass chat-panel">
@@ -5147,8 +5147,9 @@ async function sources(){
   const socialEnabled=['google','apple','facebook','azure','github'].filter(provider=>authProviders?.[provider]).length
   const aiHealthy=lastAi?.status==='success'
   const openAiConnected=connections.openai?.status==='connected'
-  const aiAvailable=Boolean(health.aiGateway||openAiConnected)
-  const aiLabel=aiHealthy?'Last call passed':openAiConnected?'OpenAI ready':lastAi?.status==='error'?'Last call failed':health.aiGateway?'Gateway ready':'Check setup'
+  const aiConfigured=Boolean(health.aiGateway||openAiConnected)
+  const aiAvailable=aiHealthy||(!lastAi&&aiConfigured)
+  const aiLabel=aiHealthy?'Last call passed':lastAi?.status==='error'?'Last call failed':openAiConnected?'OpenAI connected, untested':health.aiGateway?'Gateway configured':'Check setup'
 
   const providerButton=(provider,label)=>{
     const connection=connections[provider]
