@@ -1978,3 +1978,10 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .home-quick-nav{grid-template-columns:repeat(2,minmax(0,1fr))}
   .devotional-feature-row{grid-template-columns:1fr}
 }
+
+
+/* Every primary mobile destination must retain its label. */
+@media(max-width:430px){
+  .dock button:nth-child(2) small{display:block}
+  .dock button{gap:2px}
+}
