@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Memora | Your life, remembered beautifully</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Memora">
   <script>
     // The Android app signs in through the system browser and keeps its PKCE
     // verifier in the embedded WebView. Google returns to this existing,
@@ -32,7 +35,7 @@
         const panel = document.createElement('main');
         panel.style.cssText = 'max-width:360px;margin:24px;text-align:center;padding:32px;border:1px solid #363b48;border-radius:22px;background:#171c27';
         const logo = document.createElement('div');
-        logo.textContent = 'M';
+        logo.innerHTML = '<img src="icon.svg" alt="" style="height:100%;width:100%;object-fit:cover;border-radius:18px">';
         logo.style.cssText = 'margin:0 auto 20px;width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,#eab532,#a0c83b);display:grid;place-items:center;font-size:36px;font-weight:bold';
         const title = document.createElement('h1');
         title.textContent = 'Continue in Memora';
@@ -76,12 +79,12 @@
       requestAnimationFrame(scrub);
     })();
   </script>
-  <div id="app"><div class="auth-wrap"><div class="glass auth-card auth-loading" role="status"><div class="brand"><div class="logo">M</div><h1>Memora</h1></div><p>Opening your private universe...</p><div class="auth-loader"><span></span><span></span><span></span></div></div></div></div>
+  <div id="app"><div class="auth-wrap"><div class="glass auth-card auth-loading" role="status"><div class="brand"><div class="logo"><img src="icon.svg" alt=""></div><h1>Memora</h1></div><p>Opening your private universe...</p><div class="auth-loader"><span></span><span></span><span></span></div></div></div></div>
   <script>
     window.memoraReady = false;
     window.memoraStartupFailed = () => {
       if (window.memoraReady) return;
-      document.getElementById('app').innerHTML = '<div class="auth-wrap"><div class="glass auth-card"><div class="brand"><div class="logo">M</div><h1>Memora</h1></div><h2>Let’s try again</h2><p>Memora could not finish loading. Check your connection and retry.</p><button class="btn primary" id="retryStartup">Retry</button></div></div>';
+      document.getElementById('app').innerHTML = '<div class="auth-wrap"><div class="glass auth-card"><div class="brand"><div class="logo"><img src="icon.svg" alt=""></div><h1>Memora</h1></div><h2>Let’s try again</h2><p>Memora could not finish loading. Check your connection and retry.</p><button class="btn primary" id="retryStartup">Retry</button></div></div>';
       document.getElementById('retryStartup').onclick = () => location.reload();
     };
     window.addEventListener('error', event => {
