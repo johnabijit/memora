@@ -2445,9 +2445,25 @@ function setupAtmosphere(){
 }
 
 function openThemePicker(){
+  const worldMode=localStore.getItem('memora-visual-world')||'auto'
+  const selectedRegion=localStore.getItem('memora-world-region')||'global'
+  const worldGroups=[...new Set(visualWorlds.map(item=>item.group))]
+  const worldCardMarkup=worldGroups.map(group=>'<section class="world-group"><h4>'+esc(group)+'</h4><div class="world-card-grid">'+
+    visualWorlds.filter(item=>item.group===group).map(item=>'<button type="button" class="world-card '+(worldMode===item.id?'selected':'')+'" data-world-choice="'+esc(item.id)+'" data-world-label="'+esc((item.name+' '+item.note+' '+item.group).toLowerCase())+'"><span class="world-thumb" data-world-thumb="'+esc(item.style)+'"></span><strong>'+esc(item.name)+'</strong><small>'+esc(item.note)+'</small></button>').join('')+
+    '</div></section>').join('')
+  const regionOptions=worldRegions.map(region=>'<option value="'+esc(region.id)+'" '+(region.id===selectedRegion?'selected':'')+'>'+esc(region.name)+'</option>').join('')
   const current=localStore.getItem('memora-theme')||'auto'
   const body=`
-    <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
+    <div class="world-picker">
+      <p class="muted">Choose a completely different design world. Color palettes remain a separate option.</p>
+      <div class="world-actions"><button type="button" class="btn ${worldMode==='auto'?'primary':''}" id="worldAuto">Automatic: season and day</button><button type="button" class="btn" id="worldRandom">Surprise me</button></div>
+      <label class="world-field-label" for="worldRegion">Optional region for seasonal themes (no GPS)</label>
+      <select class="input" id="worldRegion">${regionOptions}</select>
+      <p class="small muted">No location tracking. Moving-date festivals can be selected manually, avoiding incorrect dates.</p>
+      <input class="input" id="worldSearch" type="search" placeholder="Find beach, winter, minimal, festival or forest..." aria-label="Search visual worlds">
+      <div class="world-groups">${worldCardMarkup}</div>
+      <details class="world-palettes"><summary>Fine-tune the colors (120 palettes)</summary>
+      <p class="small muted">The original 120 color variations work with any design world.</p>
     <div class="theme-picker-tools">
       <input class="input" id="themeSearch" placeholder="Search Ocean, Velvet, Sakura, Galaxy...">
       <button class="btn" id="randomTheme">Surprise me</button>
@@ -2455,9 +2471,30 @@ function openThemePicker(){
     </div>
     <div class="theme-gallery" id="themeGallery">
       ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
-    </div>`
-  const box=modal('Theme Universe',body)
+    </div></details></div>`
+  const box=modal('Memora Themes & Worlds',body)
 
+  const setWorld=id=>{
+    localStore.setItem('memora-visual-world',id)
+    applyVisualWorld()
+    box.remove()
+    toast(id==='auto'?'Seasonal worlds enabled':'Design: '+getVisualWorld(id).name)
+  }
+  box.querySelector('#worldAuto').onclick=()=>setWorld('auto')
+  box.querySelector('#worldRandom').onclick=()=>setWorld(visualWorlds[Math.floor(Math.random()*visualWorlds.length)].id)
+  box.querySelector('#worldRegion').onchange=event=>{
+    const region=event.target.value
+    if(!worldRegions.some(item=>item.id===region))return
+    localStore.setItem('memora-world-region',region)
+    if((localStore.getItem('memora-visual-world')||'auto')==='auto')applyVisualWorld()
+    toast('Region preference saved on this device')
+  }
+  box.querySelectorAll('[data-world-choice]').forEach(button=>button.onclick=()=>setWorld(button.dataset.worldChoice))
+  box.querySelector('#worldSearch').oninput=event=>{
+    const term=event.target.value.trim().toLowerCase()
+    box.querySelectorAll('.world-card').forEach(card=>card.classList.toggle('hidden',!!term&&!card.dataset.worldLabel.includes(term)))
+    box.querySelectorAll('.world-group').forEach(group=>group.classList.toggle('hidden',![...group.querySelectorAll('.world-card')].some(card=>!card.classList.contains('hidden'))))
+  }
   const choose=id=>{
     localStore.setItem('memora-theme',id)
     updateTheme()
