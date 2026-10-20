@@ -2717,7 +2717,33 @@ async function authScreen(mode='login',method='email'){
       const display_name=document.getElementById('name').value.trim()
       const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name},emailRedirectTo:window.location.origin}})
       if(error) return msg.textContent=error.message
-      if(data.session){user=data.user;await bootstrapSignedIn()}else msg.textContent='Account created. Check your email to confirm, then return here and sign in.'
+      if(data.session){
+        user=data.user
+        await bootstrapSignedIn()
+      }else{
+        // Email confirmation is a separate security step, not a signed-in session.
+        // Present an explicit next action rather than a small success sentence.
+        msg.classList.add('auth-confirmation')
+        msg.replaceChildren()
+        const heading=document.createElement('strong')
+        heading.textContent='Check your email to finish signup'
+        const guidance=document.createElement('p')
+        guidance.textContent='If this address can register, Memora will send a verification link. Open that link in your email, then return here and sign in. Check spam or promotions if needed.'
+        const resend=document.createElement('button')
+        resend.className='btn'
+        resend.type='button'
+        resend.textContent='Resend confirmation email'
+        resend.onclick=async()=>{
+          resend.disabled=true
+          try{
+            const {error:resendError}=await supabase.auth.resend({type:'signup',email})
+            if(resendError) throw resendError
+            guidance.textContent='Verification email requested. Check your inbox and spam folder.'
+          }catch(err){guidance.textContent=err.message||'Unable to resend now. Please try again later.'}
+          finally{setTimeout(()=>{if(resend.isConnected)resend.disabled=false},60000)}
+        }
+        msg.append(heading,guidance,resend)
+      }
     }else{
       const {data,error}=await supabase.auth.signInWithPassword({email,password})
       if(error) return msg.textContent=error.message
