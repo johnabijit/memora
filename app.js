@@ -2,6 +2,7 @@ import { normalizeMusicQuery } from './shared/music-search.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
 import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
+import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic } from './client/relevant-memory.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
 const localStore = safeStorage('localStorage')
@@ -3302,12 +3303,9 @@ function meaningfulTerms(question){
 }
 
 function resultRelevant(question,result){
-  if(!result) return false
-  if(Number(result.rank||0)>=0.32) return true
-  const terms=meaningfulTerms(question)
-  if(!terms.length) return Number(result.rank||0)>=0.18
-  const hay=(String(result.original_text||'')+' '+String(result.summary||'')).toLowerCase()
-  return terms.some(term=>hay.includes(term))&&Number(result.rank||0)>=0.12
+  // Backend fuzzy scores alone can select the wrong memory, particularly
+  // for generic attributes like "date", "time" and "location".
+  return memoryRelevance(question,result)>=0.7
 }
 
 async function upsertStructuredFact(memory,key,category,predicate,valueText,extra={}){
@@ -3846,9 +3844,8 @@ async function memories(){
   document.getElementById('searchMemory').onclick=async()=>{
     const q=document.getElementById('memorySearch').value.trim()
     if(!q) return memories()
-    const result=await supabase.rpc('search_memories',{search_query:q,result_limit:50})
-    const found=result.data||[]
-    document.getElementById('memoryList').innerHTML=result.error?esc(result.error.message):found.length?found.map(m=>memoryCard({...m,created_at:m.occurred_at})).join(''):'<div class="glass empty"><strong>Nothing matched</strong>Try another word or phrase.</div>'
+    const found=rankMemoryResults(q,all,80)
+    document.getElementById('memoryList').innerHTML=found.length?found.map(memoryCard).join(''):'<div class="glass empty"><strong>No matching memory</strong>Try a person, event, place, or another phrase. Memora will not display unrelated memories.</div>'
     bindDeletes()
     bindMemoryViews(found)
     await hydrateMemoryExtras(found)
@@ -4240,10 +4237,12 @@ function relationshipAnswer(relation,memories){
 
 async function smartMemorySearch(query,limit=8){
   const normalized=normalizeQuestion(query)
+  if(!questionNeedsMemoryTopic(normalized)) return []
   const expanded=expandSearchQuery(normalized)
-  const universe=await supabase.rpc('search_memory_universe',{search_query:expanded,result_limit:limit})
-  if(!universe.error&&universe.data?.length){
-    return universe.data.map(item=>({
+  let result=[]
+  try{
+    const universe=await supabase.rpc('search_memory_universe',{search_query:expanded,result_limit:Math.max(30,limit*3)})
+    if(!universe.error&&universe.data?.length) result=universe.data.map(item=>({
       id:item.entity_id,
       entity_type:item.entity_type,
       original_text:item.content||item.title,
@@ -4254,12 +4253,22 @@ async function smartMemorySearch(query,limit=8){
       metadata:item.metadata||{},
       rank:Number(item.rank||0)
     }))
+  }catch(error){console.warn('Universe search unavailable',error)}
+  const strong=rankMemoryResults(normalized,result,limit)
+  if(strong.length>=limit) return strong
+  // Fall back to the user's own records even when full-text SQL cannot
+  // understand natural phrases. This is read-only and protected by RLS.
+  try{
+    const memoryRows=await supabase.from('memories')
+      .select('id,original_text,summary,memory_type,occurred_at,created_at,provenance_kind')
+      .order('created_at',{ascending:false}).limit(300)
+    if(memoryRows.error) throw memoryRows.error
+    const combined=new Map([...strong,...(memoryRows.data||[])].map(item=>[String(item.id),item]))
+    return rankMemoryResults(normalized,[...combined.values()],limit)
+  }catch(error){
+    console.warn('Fallback memory lookup unavailable',error)
+    return strong
   }
-
-  const result=await supabase.rpc('search_memories_smart',{search_query:expanded,result_limit:limit})
-  if(!result.error&&result.data?.length) return result.data
-  const fallback=await supabase.rpc('search_memories',{search_query:expanded,result_limit:limit})
-  return fallback.data||[]
 }
 
 function cameraModalMarkup(mode){
@@ -4638,7 +4647,10 @@ async function answer(question){
   } catch(error) {
     console.warn('Local memory search failed',error)
   }
-  const relevant=data.filter(result=>resultRelevant(q,result))
+  const previousQuestion=chat.filter(item=>item.role==='user'&&item.text?.trim()!==rawQ).slice(-1)[0]?.text||''
+  const searchQuestion=questionNeedsMemoryTopic(q)?q:previousQuestion+' '+q
+  if(!questionNeedsMemoryTopic(q)&&previousQuestion) data=await smartMemorySearch(searchQuestion,8)
+  const relevant=rankMemoryResults(searchQuestion,data,8)
   if(!relevant.length) return aiUnavailable
     ? {text:'AI reasoning is temporarily unavailable, and I could not find a matching saved memory. You can still ask me about saved facts, people, and item locations. Check Sources for the AI connection status.',source:'AI unavailable; saved memory search checked'}
     : {text:"I don't have a relevant memory for that question yet."}
@@ -4661,8 +4673,8 @@ async function answer(question){
     return {text:`I found the document “${best.summary}” in your memory vault.`,source:'Your stored documents'}
   }
 
-  const clean=cleanAnswerText(best.summary||best.original_text||'')
-  return {text:clean?`I found this relevant memory: ${clean}`:"I found a relevant memory, but it does not contain a clean answer to that question.",source:`Stored memory from ${shortDate(best.occurred_at)}`}
+  const clean=cleanAnswerText(best.original_text||best.summary||'')
+  return {text:clean?`I found a matching saved memory: ${clean}`:"I found a matching saved memory, but it does not contain a clear answer.",source:`Saved memory (AI reasoning ${aiUnavailable?'unavailable':'not used'}) · ${shortDate(best.occurred_at)}`}
 }
 function thinkingMarkup(){
   return `
