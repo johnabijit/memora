@@ -2050,3 +2050,16 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
 @media (max-width:390px){
   .memora-explore-grid{grid-template-columns:1fr}
 }
+
+
+/* Keep browser autofill consistent with dark Memora login, including mobile Chrome. */
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#f5f7fb !important;
+  -webkit-box-shadow:0 0 0 1000px #101821 inset !important;
+  box-shadow:0 0 0 1000px #101821 inset !important;
+  caret-color:#f5f7fb;
+  transition:background-color 9999s ease-out 0s;
+}
+.auth-card input::placeholder{color:#8894a6;opacity:1}
