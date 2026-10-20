@@ -2,6 +2,7 @@ import { normalizeMusicQuery } from './shared/music-search.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
 import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
+import { PHONE_COUNTRIES, normalizeDialCode, composeInternationalNumber } from './client/phone-countries.js'
 import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic } from './client/relevant-memory.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
@@ -2522,6 +2523,12 @@ async function magicLink(email){
 async function authScreen(mode='login',method='email'){
   app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
+  const inferredRegion=String(navigator.language||'en-IN').split('-')[1]?.toUpperCase()||'IN'
+  const userCountry=PHONE_COUNTRIES.some(item=>item[0]===inferredRegion)?inferredRegion:'IN'
+  const countryOptions=PHONE_COUNTRIES.map(([iso,name,dial])=>
+    `<option value="${esc(iso)}" ${userCountry===iso?'selected':''}>${esc(name)} (+${dial})</option>`
+  ).join('')
+  const userDial=PHONE_COUNTRIES.find(row=>row[0]===userCountry)?.[2]||'91'
 
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2534,8 +2541,8 @@ async function authScreen(mode='login',method='email'){
     <div class="glass auth-card">
       <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
       <div class="eyebrow">Your memory, beautifully organized</div>
-      <h2>${mode==='login'?'Welcome back':'Create your private universe'}</h2>
-      <p class="muted">Memories can include text, photos, video, voice, places, files and connected sources.</p>
+      <h2>${mode==='login'?'Welcome back':'Create an account'}</h2>
+      <p class="muted">${mode==='login'?'Sign in securely to your private memories.':'Keep your memories safe and easy to find.'}</p>
       <div class="social-grid">
         ${socialButton('google','Google')}
         ${socialButton('azure','Microsoft')}
@@ -2544,19 +2551,27 @@ async function authScreen(mode='login',method='email'){
         ${socialButton('github','GitHub')}
       </div>
       <div class="divider">OR CONTINUE WITH</div>
-      <div class="filter-row" style="margin:12px 0 14px" role="group" aria-label="Choose sign-in method">
-        <button class="btn ${method==='email'?'primary':''}" id="authEmailTab" type="button" aria-pressed="${method==='email'}">Email</button>
-        <button class="btn ${method==='phone'?'primary':''}" id="authPhoneTab" type="button" aria-pressed="${method==='phone'}">Mobile number</button>
+      <div class="auth-method-tabs" role="group" aria-label="Choose sign-in method">
+        <button class="btn ${method==='email'?'active':''}" id="authEmailTab" type="button" aria-pressed="${method==='email'}">Email</button>
+        <button class="btn ${method==='phone'?'active':''}" id="authPhoneTab" type="button" aria-pressed="${method==='phone'}">Mobile number</button>
       </div>
       <form id="phoneAuthForm" ${method==='phone'?'':'hidden'}>
-        <p class="small muted">Enter your number with international country code. We will text you a one-time code.</p>
         ${mode==='signup'?'<input class="input" id="phoneDisplayName" name="displayName" autocomplete="name" maxlength="100" placeholder="Your name (optional)">':''}
-        <label class="small muted" for="phoneNumber">Mobile number with country code</label>
-        <input class="input" id="phoneNumber" name="phone" type="tel" inputmode="tel" autocomplete="tel" aria-label="International mobile number" placeholder="+91 98765 43210" maxlength="32" required>
-        <button class="btn primary" id="sendPhoneOtp" type="submit">${mode==='signup'?'Create account with SMS':'Continue with SMS'}</button>
+        <label class="small muted" for="phoneCountry">Country or region</label>
+        <div class="phone-field-row">
+          <select class="input" id="phoneCountry" aria-label="Select phone country">
+            ${countryOptions}
+            <option value="other">Other calling code</option>
+          </select>
+          <input class="input" id="phoneNumber" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" aria-label="Mobile number" placeholder="Mobile number" maxlength="32" required>
+        </div>
+        <label for="phoneCustomDial" class="small muted phone-extra-code" id="phoneDialLabel" hidden>Country calling code</label>
+        <input class="input phone-extra-code" id="phoneCustomDial" type="tel" inputmode="numeric" placeholder="+${userDial}" value="+${userDial}" hidden>
+        <p class="auth-help" id="phoneNumberPreview">Country code: +${userDial}. Enter your number without the country code.</p>
+        <button class="btn primary" id="sendPhoneOtp" type="submit" disabled>${mode==='signup'?'Continue with SMS':'Send verification code'}</button>
       </form>
       <form id="phoneOtpForm" hidden>
-        <p class="small muted" id="phoneOtpDestination">Enter the SMS verification code sent to your phone.</p>
+        <p class="auth-help" id="phoneOtpDestination">Enter the SMS code we sent to your phone.</p>
         <label class="small muted" for="phoneOtpCode">One-time SMS code</label>
         <input class="input" id="phoneOtpCode" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" placeholder="6-digit code" required>
         <button class="btn primary" type="submit" id="confirmPhoneOtp">Verify and continue</button>
@@ -2565,19 +2580,18 @@ async function authScreen(mode='login',method='email'){
           <button class="btn" id="changePhoneNumber" type="button">Change number</button>
         </div>
       </form>
-      <p id="phoneAuthMsg" class="small muted" role="status" aria-live="polite" ${method==='phone'?'':'hidden'}></p>
-      ${mode==='signup'&&method==='phone'?'<p class="small muted">Already have memories saved with Google or email? Sign in with your existing method to keep the same memory vault. A new mobile-number signup creates a separate account.</p>':''}
+      <div id="phoneAuthMsg" class="auth-availability" role="status" aria-live="polite" ${method==='phone'?'':'hidden'}></div>
+      ${mode==='signup'&&method==='phone'?'<p class="auth-legal-note">Have a Memora account already? Sign in to it first. A new phone signup creates a separate account.</p>':''}
       <form id="authForm" ${method==='email'?'':'hidden'}>
         ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
         <input class="input" id="email" name="email" type="email" autocomplete="username" aria-label="Email" placeholder="Email" required>
         <input class="input" id="password" name="password" type="password" autocomplete="${mode==='signup'?'new-password':'current-password'}" aria-label="Password" ${mode==='signup'?'minlength="8"':''} placeholder="Password" required>
         <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create account'}</button>
       </form>
-      <div class="grid two" style="margin-top:9px">
-        <button class="btn" id="magicLink" ${method==='email'?'':'hidden'}>Email me a magic link</button>
-        <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
+      <div class="auth-secondary">
+        <button class="btn" id="magicLink" ${method==='email'?'':'hidden'}>Email a sign-in link</button>
+        <button class="btn" id="switchMode">${mode==='login'?'Create account':'Sign in instead'}</button>
       </div>
-      <p class="small muted" ${method==='email'?'':'hidden'}>A magic link signs you in from your email inbox. No password is needed. Request a new link if yours expires.</p>
       <div id="authMsg" class="muted" role="status" aria-live="polite"></div>
 
       <div class="auth-public-footer">
@@ -2619,6 +2633,21 @@ async function authScreen(mode='login',method='email'){
   const phoneMsg=document.getElementById('phoneAuthMsg')
   const resendButton=document.getElementById('resendPhoneOtp')
   const sendPhoneButton=document.getElementById('sendPhoneOtp')
+  const phoneCountry=document.getElementById('phoneCountry')
+  const phoneNumber=document.getElementById('phoneNumber')
+  const customDial=document.getElementById('phoneCustomDial')
+  const updateCountry=()=>{
+    const row=PHONE_COUNTRIES.find(item=>item[0]===phoneCountry.value)
+    const custom=!row
+    customDial.hidden=!custom
+    document.getElementById('phoneDialLabel').hidden=!custom
+    if(row) customDial.value='+'+row[2]
+    document.getElementById('phoneNumberPreview').textContent=custom
+      ?'Enter a calling code and the mobile number.'
+      :`+${row[2]} · ${row[1]}. If preferred, paste the full international number starting with +.`
+  }
+  phoneCountry.onchange=updateCountry
+  updateCountry()
   // Read the real Auth service setting so users are not offered an SMS
   // request that the current Supabase deployment cannot deliver.
   let phoneSmsEnabled=false
@@ -2630,7 +2659,7 @@ async function authScreen(mode='login',method='email'){
     sendPhoneButton.disabled=!phoneSmsEnabled
     if(method==='phone') phoneMsg.textContent=phoneSmsEnabled
       ? 'Mobile number sign-in is available. SMS carrier charges may apply.'
-      : 'SMS signup is not active yet. Memora must enable phone authentication and connect an SMS sender in Supabase. You can still sign in with email or Google.'
+      : 'SMS verification is being configured and cannot send codes yet. Please use Email or Google for now.'
   })
   let pendingPhone=''
   let lastSmsRequestAt=0
@@ -2660,8 +2689,10 @@ async function authScreen(mode='login',method='email'){
     sendButton.disabled=true
     phoneMsg.textContent='Requesting a secure SMS code...'
     try{
+      const selected=PHONE_COUNTRIES.find(item=>item[0]===phoneCountry.value)
+      const dial=selected?.[2]||normalizeDialCode(customDial.value)
       pendingPhone=await requestPhoneOtp(supabase.auth,{
-        phone:document.getElementById('phoneNumber').value,
+        phone:composeInternationalNumber(dial,phoneNumber.value),
         createAccount:mode==='signup',
         displayName:document.getElementById('phoneDisplayName')?.value||''
       })
