@@ -1,9 +1,6 @@
 import { normalizeMusicQuery } from './shared/music-search.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
-import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
-import { PHONE_COUNTRIES, normalizeDialCode, composeInternationalNumber } from './client/phone-countries.js'
-import { startPhoneLink, confirmPhoneLink, maskedPhone, phoneLinkMessage } from './client/phone-link.js'
 import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic, classifyMemoryQuestion, extractEventDetails, answerFromEventMemory } from './client/relevant-memory.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
@@ -2552,16 +2549,9 @@ async function signInUsingPasskey(){
     if(control?.isConnected) control.disabled=false
   }
 }
-async function authScreen(mode='login',method='email'){
+async function authScreen(mode='login'){
   app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
-  const inferredRegion=String(navigator.language||'en-IN').split('-')[1]?.toUpperCase()||'IN'
-  const userCountry=PHONE_COUNTRIES.some(item=>item[0]===inferredRegion)?inferredRegion:'IN'
-  const countryOptions=PHONE_COUNTRIES.map(([iso,name,dial])=>
-    `<option value="${esc(iso)}" ${userCountry===iso?'selected':''}>${esc(name)} (+${dial})</option>`
-  ).join('')
-  const userDial=PHONE_COUNTRIES.find(row=>row[0]===userCountry)?.[2]||'91'
-
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
     if(!enabled) return ''
@@ -2584,45 +2574,14 @@ async function authScreen(mode='login',method='email'){
       </div>
       ${passkeyDeviceSupported()?'<button class="btn auth-passkey" id="passkeyLogin" type="button">Use fingerprint, Face ID or device PIN</button><p class="auth-help" id="passkeyLoginStatus" role="status" aria-live="polite" hidden></p>':''}
       <div class="divider">OR CONTINUE WITH</div>
-      <div class="auth-method-tabs" role="group" aria-label="Choose sign-in method">
-        <button class="btn ${method==='email'?'active':''}" id="authEmailTab" type="button" aria-pressed="${method==='email'}">Email</button>
-        <button class="btn ${method==='phone'?'active':''}" id="authPhoneTab" type="button" aria-pressed="${method==='phone'}">Mobile number</button>
-      </div>
-      <form id="phoneAuthForm" ${method==='phone'?'':'hidden'}>
-        ${mode==='signup'?'<input class="input" id="phoneDisplayName" name="displayName" autocomplete="name" maxlength="100" placeholder="Your name (optional)">':''}
-        <label class="small muted" for="phoneCountry">Country or region</label>
-        <div class="phone-field-row">
-          <select class="input" id="phoneCountry" aria-label="Select phone country">
-            ${countryOptions}
-            <option value="other">Other calling code</option>
-          </select>
-          <input class="input" id="phoneNumber" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" aria-label="Mobile number" placeholder="Mobile number" maxlength="32" required>
-        </div>
-        <label for="phoneCustomDial" class="small muted phone-extra-code" id="phoneDialLabel" hidden>Country calling code</label>
-        <input class="input phone-extra-code" id="phoneCustomDial" type="tel" inputmode="numeric" placeholder="+${userDial}" value="+${userDial}" hidden>
-        <p class="auth-help" id="phoneNumberPreview">Country code: +${userDial}. Enter your number without the country code.</p>
-        <button class="btn primary" id="sendPhoneOtp" type="submit" disabled>${mode==='signup'?'Continue with SMS':'Send verification code'}</button>
-      </form>
-      <form id="phoneOtpForm" hidden>
-        <p class="auth-help" id="phoneOtpDestination">Enter the SMS code we sent to your phone.</p>
-        <label class="small muted" for="phoneOtpCode">One-time SMS code</label>
-        <input class="input" id="phoneOtpCode" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" placeholder="6-digit code" required>
-        <button class="btn primary" type="submit" id="confirmPhoneOtp">Verify and continue</button>
-        <div class="filter-row" style="margin-top:10px">
-          <button class="btn" id="resendPhoneOtp" type="button" disabled>Resend SMS code</button>
-          <button class="btn" id="changePhoneNumber" type="button">Change number</button>
-        </div>
-      </form>
-      <div id="phoneAuthMsg" class="auth-availability" role="status" aria-live="polite" ${method==='phone'?'':'hidden'}></div>
-      ${mode==='signup'&&method==='phone'?'<p class="auth-legal-note">Have a Memora account already? Sign in to it first. A new phone signup creates a separate account.</p>':''}
-      <form id="authForm" ${method==='email'?'':'hidden'}>
+      <form id="authForm">
         ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
         <input class="input" id="email" name="email" type="email" autocomplete="username" aria-label="Email" placeholder="Email" required>
         <input class="input" id="password" name="password" type="password" autocomplete="${mode==='signup'?'new-password':'current-password'}" aria-label="Password" ${mode==='signup'?'minlength="8"':''} placeholder="Password" required>
         <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create account'}</button>
       </form>
       <div class="auth-secondary">
-        <button class="btn" id="magicLink" ${method==='email'?'':'hidden'}>Email a sign-in link</button>
+        <button class="btn" id="magicLink">Email a sign-in link</button>
         <button class="btn" id="switchMode">${mode==='login'?'Create account':'Sign in instead'}</button>
       </div>
       <div id="authMsg" class="muted" role="status" aria-live="polite"></div>
@@ -2662,121 +2621,7 @@ async function authScreen(mode='login',method='email'){
     signInUsingPasskey()
   }
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
-  document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login',method)
-  document.getElementById('authEmailTab').onclick=()=>authScreen(mode,'email')
-  document.getElementById('authPhoneTab').onclick=()=>authScreen(mode,'phone')
-
-  const phoneForm=document.getElementById('phoneAuthForm')
-  const otpForm=document.getElementById('phoneOtpForm')
-  const phoneMsg=document.getElementById('phoneAuthMsg')
-  const resendButton=document.getElementById('resendPhoneOtp')
-  const sendPhoneButton=document.getElementById('sendPhoneOtp')
-  const phoneCountry=document.getElementById('phoneCountry')
-  const phoneNumber=document.getElementById('phoneNumber')
-  const customDial=document.getElementById('phoneCustomDial')
-  const updateCountry=()=>{
-    const row=PHONE_COUNTRIES.find(item=>item[0]===phoneCountry.value)
-    const custom=!row
-    customDial.hidden=!custom
-    document.getElementById('phoneDialLabel').hidden=!custom
-    if(row) customDial.value='+'+row[2]
-    document.getElementById('phoneNumberPreview').textContent=custom
-      ?'Enter a calling code and the mobile number.'
-      :`+${row[2]} · ${row[1]}. If preferred, paste the full international number starting with +.`
-  }
-  phoneCountry.onchange=updateCountry
-  updateCountry()
-  // Read the real Auth service setting so users are not offered an SMS
-  // request that the current Supabase deployment cannot deliver.
-  let phoneSmsEnabled=false
-  sendPhoneButton.disabled=true
-  if(method==='phone') phoneMsg.textContent='Checking SMS availability...'
-  getAuthProviderSettings().then(settings=>{
-    if(!sendPhoneButton.isConnected) return
-    phoneSmsEnabled=settings?.phone===true
-    sendPhoneButton.disabled=!phoneSmsEnabled
-    if(method==='phone') phoneMsg.textContent=phoneSmsEnabled
-      ? 'Mobile number sign-in is available. SMS carrier charges may apply.'
-      : 'SMS verification is being configured and cannot send codes yet. Please use Email or Google for now.'
-  })
-  let pendingPhone=''
-  let lastSmsRequestAt=0
-  let resendClock=null
-  const showPhoneError=error=>{phoneMsg.textContent=phoneAuthError(error)}
-  const updateResend=()=>{
-    if(!resendButton.isConnected){
-      if(resendClock) clearInterval(resendClock)
-      resendClock=null
-      return
-    }
-    const remaining=Math.max(0,Math.ceil((60000-(Date.now()-lastSmsRequestAt))/1000))
-    resendButton.disabled=remaining>0
-    resendButton.textContent=remaining?`Resend in ${remaining}s`:'Resend SMS code'
-    if(!remaining&&resendClock){clearInterval(resendClock);resendClock=null}
-  }
-  const startResendClock=()=>{
-    lastSmsRequestAt=Date.now()
-    updateResend()
-    if(resendClock) clearInterval(resendClock)
-    resendClock=setInterval(updateResend,1000)
-  }
-  phoneForm.onsubmit=async event=>{
-    event.preventDefault()
-    const sendButton=document.getElementById('sendPhoneOtp')
-    if(sendButton.disabled||!phoneSmsEnabled) return
-    sendButton.disabled=true
-    phoneMsg.textContent='Requesting a secure SMS code...'
-    try{
-      const selected=PHONE_COUNTRIES.find(item=>item[0]===phoneCountry.value)
-      const dial=selected?.[2]||normalizeDialCode(customDial.value)
-      pendingPhone=await requestPhoneOtp(supabase.auth,{
-        phone:composeInternationalNumber(dial,phoneNumber.value),
-        createAccount:mode==='signup',
-        displayName:document.getElementById('phoneDisplayName')?.value||''
-      })
-      phoneForm.hidden=true
-      otpForm.hidden=false
-      document.getElementById('phoneOtpDestination').textContent=`Enter the verification code sent to ${pendingPhone}.`
-      phoneMsg.textContent='SMS requested. Delivery time depends on your mobile carrier.'
-      startResendClock()
-      document.getElementById('phoneOtpCode').focus()
-    }catch(error){showPhoneError(error)}
-    finally{sendButton.disabled=false}
-  }
-  otpForm.onsubmit=async event=>{
-    event.preventDefault()
-    const verifyButton=document.getElementById('confirmPhoneOtp')
-    if(verifyButton.disabled||!pendingPhone) return
-    verifyButton.disabled=true
-    phoneMsg.textContent='Verifying your code...'
-    try{
-      const data=await confirmPhoneOtp(supabase.auth,{phone:pendingPhone,code:document.getElementById('phoneOtpCode').value})
-      if(resendClock) clearInterval(resendClock)
-      user=data.user||data.session.user
-      await bootstrapSignedIn()
-    }catch(error){showPhoneError(error)}
-    finally{verifyButton.disabled=false}
-  }
-  document.getElementById('changePhoneNumber').onclick=()=>{
-    if(resendClock) clearInterval(resendClock)
-    resendClock=null
-    pendingPhone=''
-    document.getElementById('phoneOtpCode').value=''
-    otpForm.hidden=true
-    phoneForm.hidden=false
-    phoneMsg.textContent=''
-    document.getElementById('phoneNumber').focus()
-  }
-  resendButton.onclick=async()=>{
-    if(resendButton.disabled||!pendingPhone) return
-    resendButton.disabled=true
-    phoneMsg.textContent='Resending SMS code...'
-    try{
-      await resendPhoneOtp(supabase.auth,{phone:pendingPhone})
-      phoneMsg.textContent='Another code was requested. Check your messages.'
-      startResendClock()
-    }catch(error){showPhoneError(error);updateResend()}
-  }
+  document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login')
   document.getElementById('authForm').onsubmit=async event=>{
     event.preventDefault()
     const email=document.getElementById('email').value.trim()
@@ -5824,114 +5669,10 @@ async function help(){
   wire()
 }
 
-async function openLinkPhoneModal(){
-  if(!user?.id)return toast('Sign in before adding a mobile number.')
-  const currentUserId=user.id
-  const options=PHONE_COUNTRIES.map(([iso,name,dial])=>
-    `<option value="${esc(iso)}" ${iso==='IN'?'selected':''}>${esc(name)} (+${dial})</option>`
-  ).join('')
-  const body=`
-    <div class="phone-link-flow">
-      <p class="auth-help">Keep your existing Memora account and memory vault. A one-time SMS confirms that you own this number.</p>
-      <form id="linkPhoneStart">
-        <label for="linkPhoneCountry">Country or region</label>
-        <div class="phone-field-row">
-          <select class="input" id="linkPhoneCountry">${options}<option value="other">Other calling code</option></select>
-          <input class="input" id="linkPhoneDigits" type="tel" autocomplete="tel-national" inputmode="tel" maxlength="32" placeholder="Mobile number" required>
-        </div>
-        <input class="input" id="linkPhoneCustomCode" type="tel" inputmode="numeric" placeholder="+91" value="+91" hidden>
-        <p class="auth-help" id="linkPhoneHint">Country code: +91. Enter the number without the country code.</p>
-        <button type="submit" class="btn primary" id="linkPhoneSend" disabled>Send verification code</button>
-      </form>
-      <form id="linkPhoneVerify" hidden>
-        <p id="linkPhoneDestination" class="auth-help"></p>
-        <label for="linkPhoneOtp">SMS verification code</label>
-        <input class="input" id="linkPhoneOtp" type="text" inputmode="numeric" pattern="[0-9]{6,8}" minlength="6" maxlength="8" autocomplete="one-time-code" placeholder="6-digit code" required>
-        <button type="submit" class="btn primary" id="linkPhoneConfirm">Verify and link number</button>
-        <button type="button" class="btn" id="linkPhoneBack">Change number</button>
-      </form>
-      <p class="auth-availability" id="linkPhoneStatus" role="status" aria-live="polite">Checking SMS availability...</p>
-      <p class="auth-help">Already registered this number on a different Memora account? Memora does not automatically merge accounts or memories.</p>
-    </div>`
-  const box=modal('Add a mobile number',body)
-  const start=box.querySelector('#linkPhoneStart')
-  const verify=box.querySelector('#linkPhoneVerify')
-  const status=box.querySelector('#linkPhoneStatus')
-  const country=box.querySelector('#linkPhoneCountry')
-  const digits=box.querySelector('#linkPhoneDigits')
-  const custom=box.querySelector('#linkPhoneCustomCode')
-  const send=box.querySelector('#linkPhoneSend')
-  const confirm=box.querySelector('#linkPhoneConfirm')
-  let pending=''
-  let smsEnabled=false
-  const updateCountry=()=>{
-    const found=PHONE_COUNTRIES.find(item=>item[0]===country.value)
-    custom.hidden=Boolean(found)
-    if(found)custom.value='+'+found[2]
-    box.querySelector('#linkPhoneHint').textContent=found
-      ?`+${found[2]} · ${found[1]}. Enter your number without the country code.`
-      :'Enter a country calling code, then your mobile number.'
-  }
-  country.onchange=updateCountry
-  updateCountry()
-  const provider=await getAuthProviderSettings(true)
-  if(!box.isConnected)return
-  smsEnabled=provider?.phone===true
-  send.disabled=!smsEnabled
-  status.textContent=smsEnabled
-    ? 'Ready to send an SMS code. Carrier delivery times may vary.'
-    : 'SMS delivery is not configured yet. Please ask the Memora administrator to connect an SMS provider. No code has been sent.'
-  start.onsubmit=async event=>{
-    event.preventDefault()
-    if(!smsEnabled||send.disabled)return
-    send.disabled=true
-    status.textContent='Requesting verification code...'
-    try{
-      const chosen=PHONE_COUNTRIES.find(item=>item[0]===country.value)
-      const prefix=chosen?.[2]||normalizeDialCode(custom.value)
-      const number=composeInternationalNumber(prefix,digits.value)
-      pending=await startPhoneLink(supabase.auth,{phone:number,expectedUserId:currentUserId})
-      start.hidden=true
-      verify.hidden=false
-      box.querySelector('#linkPhoneDestination').textContent=`Enter the SMS verification code sent to ${maskedPhone(pending)}.`
-      status.textContent='Code requested. You are still signed in to your existing account.'
-      box.querySelector('#linkPhoneOtp').focus()
-    }catch(error){status.textContent=phoneLinkMessage(error)}
-    finally{if(send.isConnected)send.disabled=!smsEnabled}
-  }
-  verify.onsubmit=async event=>{
-    event.preventDefault()
-    if(!pending||confirm.disabled)return
-    confirm.disabled=true
-    status.textContent='Checking the code and account identity...'
-    try{
-      const linked=await confirmPhoneLink(supabase.auth,{
-        phone:pending,token:box.querySelector('#linkPhoneOtp').value,expectedUserId:currentUserId
-      })
-      user=linked
-      status.textContent='Mobile number verified and linked to your existing Memora account.'
-      box.remove()
-      toast('Mobile number linked to your account')
-      await settings()
-    }catch(error){
-      status.textContent=phoneLinkMessage(error)
-      if(confirm.isConnected)confirm.disabled=false
-    }
-  }
-  box.querySelector('#linkPhoneBack').onclick=()=>{
-    pending=''
-    box.querySelector('#linkPhoneOtp').value=''
-    verify.hidden=true
-    start.hidden=false
-    status.textContent='Check the number, then request a new SMS code. Message rates may apply.'
-  }
-}
-
 async function settings(){
-  const [{data:profile},{data:settingsData},{data:authIdentity}]=await Promise.all([
+  const [{data:profile},{data:settingsData}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
-    supabase.from('user_settings').select('*').maybeSingle(),
-    supabase.auth.getUser()
+    supabase.from('user_settings').select('*').maybeSingle()
   ])
   const currentTheme=localStore.getItem('memora-theme')||'auto'
   const reduceMotion=settingsData?.reduce_motion===true
@@ -5947,18 +5688,6 @@ async function settings(){
           <input class="input" id="timezone" value="${esc(profile?.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}" placeholder="Timezone">
           <button class="btn primary" id="saveProfile">Save profile</button>
         </div>
-      </section>
-
-      <section class="glass settings-card">
-        <div class="eyebrow">Account access</div>
-        <h3>Mobile number</h3>
-        <div class="setting-row">
-          <span>Verified number</span>
-          <b id="linkedPhoneState">${authIdentity?.user?.phone ? esc(maskedPhone(authIdentity.user.phone)) : 'Not linked'}</b>
-        </div>
-        <p class="muted">Add a mobile number to this existing account. Your Google or email sign-in, people, conversations and saved memories stay together.</p>
-        <button class="btn primary" id="linkMobileNumber" type="button">${authIdentity?.user?.phone?'Change mobile number':'Add mobile number'}</button>
-        <p class="small muted" id="linkedPhoneHelp" role="status">A verification SMS is required. This option becomes available when Memora SMS delivery is configured.</p>
       </section>
 
       <section class="glass settings-card">
@@ -6040,14 +5769,6 @@ async function settings(){
 
   document.getElementById('enableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/enable'})
   document.getElementById('disableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/disable'})
-  document.getElementById('linkMobileNumber')?.addEventListener('click',()=>openLinkPhoneModal())
-  const linkedPhoneHelp=document.getElementById('linkedPhoneHelp')
-  getAuthProviderSettings().then(result=>{
-    if(!linkedPhoneHelp?.isConnected)return
-    linkedPhoneHelp.textContent=result?.phone===true
-      ? 'SMS verification is available. Adding a number does not create a new account.'
-      : 'SMS delivery is not active yet. An administrator must complete phone provider setup before a verification code can be sent.'
-  })
   const setupPasskey=document.getElementById('registerPasskey')
   if(setupPasskey)setupPasskey.onclick=async()=>{
     const status=document.getElementById('passkeySetupStatus')
