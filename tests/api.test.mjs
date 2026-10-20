@@ -256,3 +256,23 @@ test('music search excludes dictionary audio and explicitly mismatched language 
     assert.deepEqual(data.items.map(x=>x.title),['Tamil hymn'])
   })
 })
+
+
+test('Hindu devotional discovery excludes unrelated stations and retains authentic bhajans',async()=>{
+  let calls=0
+  await withFetch(async url=>{
+    calls++
+    assert.match(String(url),/radio-browser/)
+    return json([
+      {stationuuid:'bhajan',name:'Bhakti Bhajan Radio',tags:'hindu,bhajan,devotional',url_resolved:'https://example.test/bhajan',lastcheckok:1,countrycode:'IN',language:'hindi',clickcount:44},
+      {stationuuid:'worship',name:'Christian Worship Live',tags:'christian,gospel',url_resolved:'https://example.test/christian',lastcheckok:1,language:'english',clickcount:2000}
+    ])
+  },async()=>{
+    const response=await audio({request:request('audio-library?mode=devotional&tradition=hindu&limit=20')})
+    assert.equal(response.status,200)
+    const result=await response.json()
+    assert.ok(result.items.some(item=>item.title==='Bhakti Bhajan Radio'))
+    assert.ok(result.items.every(item=>item.title!=='Christian Worship Live'))
+    assert.ok(calls>0)
+  })
+})
