@@ -6122,7 +6122,7 @@ async function prepareSignedIn(){
 removeStrayEscapedNewline()
 setupAtmosphere()
 
-const strayTextObserver=new MutationObserver(()=>removeStrayEscapedNewline())
+const strayTextObserver=new MutationObserver(()=>{removeStrayEscapedNewline();syncFloatingPlayerLayer()})
 strayTextObserver.observe(document.body,{childList:true,subtree:false})
 
 async function startMemora(){
