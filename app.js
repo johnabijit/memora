@@ -5767,6 +5767,109 @@ async function help(){
   wire()
 }
 
+async function openLinkPhoneModal(){
+  if(!user?.id)return toast('Sign in before adding a mobile number.')
+  const currentUserId=user.id
+  const options=PHONE_COUNTRIES.map(([iso,name,dial])=>
+    `<option value="${esc(iso)}" ${iso==='IN'?'selected':''}>${esc(name)} (+${dial})</option>`
+  ).join('')
+  const body=`
+    <div class="phone-link-flow">
+      <p class="auth-help">Keep your existing Memora account and memory vault. A one-time SMS confirms that you own this number.</p>
+      <form id="linkPhoneStart">
+        <label for="linkPhoneCountry">Country or region</label>
+        <div class="phone-field-row">
+          <select class="input" id="linkPhoneCountry">${options}<option value="other">Other calling code</option></select>
+          <input class="input" id="linkPhoneDigits" type="tel" autocomplete="tel-national" inputmode="tel" maxlength="32" placeholder="Mobile number" required>
+        </div>
+        <input class="input" id="linkPhoneCustomCode" type="tel" inputmode="numeric" placeholder="+91" value="+91" hidden>
+        <p class="auth-help" id="linkPhoneHint">Country code: +91. Enter the number without the country code.</p>
+        <button type="submit" class="btn primary" id="linkPhoneSend" disabled>Send verification code</button>
+      </form>
+      <form id="linkPhoneVerify" hidden>
+        <p id="linkPhoneDestination" class="auth-help"></p>
+        <label for="linkPhoneOtp">SMS verification code</label>
+        <input class="input" id="linkPhoneOtp" type="text" inputmode="numeric" pattern="[0-9]{6,8}" minlength="6" maxlength="8" autocomplete="one-time-code" placeholder="6-digit code" required>
+        <button type="submit" class="btn primary" id="linkPhoneConfirm">Verify and link number</button>
+        <button type="button" class="btn" id="linkPhoneBack">Change number</button>
+      </form>
+      <p class="auth-availability" id="linkPhoneStatus" role="status" aria-live="polite">Checking SMS availability...</p>
+      <p class="auth-help">Already registered this number on a different Memora account? Memora does not automatically merge accounts or memories.</p>
+    </div>`
+  const box=modal('Add a mobile number',body)
+  const start=box.querySelector('#linkPhoneStart')
+  const verify=box.querySelector('#linkPhoneVerify')
+  const status=box.querySelector('#linkPhoneStatus')
+  const country=box.querySelector('#linkPhoneCountry')
+  const digits=box.querySelector('#linkPhoneDigits')
+  const custom=box.querySelector('#linkPhoneCustomCode')
+  const send=box.querySelector('#linkPhoneSend')
+  const confirm=box.querySelector('#linkPhoneConfirm')
+  let pending=''
+  let smsEnabled=false
+  const updateCountry=()=>{
+    const found=PHONE_COUNTRIES.find(item=>item[0]===country.value)
+    custom.hidden=Boolean(found)
+    if(found)custom.value='+'+found[2]
+    box.querySelector('#linkPhoneHint').textContent=found
+      ?`+${found[2]} · ${found[1]}. Enter your number without the country code.`
+      :'Enter a country calling code, then your mobile number.'
+  }
+  country.onchange=updateCountry
+  updateCountry()
+  const provider=await getAuthProviderSettings(true)
+  if(!box.isConnected)return
+  smsEnabled=provider?.phone===true
+  send.disabled=!smsEnabled
+  status.textContent=smsEnabled
+    ? 'Ready to send an SMS code. Carrier delivery times may vary.'
+    : 'SMS delivery is not configured yet. Please ask the Memora administrator to connect an SMS provider. No code has been sent.'
+  start.onsubmit=async event=>{
+    event.preventDefault()
+    if(!smsEnabled||send.disabled)return
+    send.disabled=true
+    status.textContent='Requesting verification code...'
+    try{
+      const chosen=PHONE_COUNTRIES.find(item=>item[0]===country.value)
+      const prefix=chosen?.[2]||normalizeDialCode(custom.value)
+      const number=composeInternationalNumber(prefix,digits.value)
+      pending=await startPhoneLink(supabase.auth,{phone:number,expectedUserId:currentUserId})
+      start.hidden=true
+      verify.hidden=false
+      box.querySelector('#linkPhoneDestination').textContent=`Enter the SMS verification code sent to ${maskedPhone(pending)}.`
+      status.textContent='Code requested. You are still signed in to your existing account.'
+      box.querySelector('#linkPhoneOtp').focus()
+    }catch(error){status.textContent=phoneLinkMessage(error)}
+    finally{if(send.isConnected)send.disabled=!smsEnabled}
+  }
+  verify.onsubmit=async event=>{
+    event.preventDefault()
+    if(!pending||confirm.disabled)return
+    confirm.disabled=true
+    status.textContent='Checking the code and account identity...'
+    try{
+      const linked=await confirmPhoneLink(supabase.auth,{
+        phone:pending,token:box.querySelector('#linkPhoneOtp').value,expectedUserId:currentUserId
+      })
+      user=linked
+      status.textContent='Mobile number verified and linked to your existing Memora account.'
+      box.remove()
+      toast('Mobile number linked to your account')
+      await settings()
+    }catch(error){
+      status.textContent=phoneLinkMessage(error)
+      if(confirm.isConnected)confirm.disabled=false
+    }
+  }
+  box.querySelector('#linkPhoneBack').onclick=()=>{
+    pending=''
+    box.querySelector('#linkPhoneOtp').value=''
+    verify.hidden=true
+    start.hidden=false
+    status.textContent='Check the number, then request a new SMS code. Message rates may apply.'
+  }
+}
+
 async function settings(){
   const [{data:profile},{data:settingsData},{data:authIdentity}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
