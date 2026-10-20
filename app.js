@@ -2577,7 +2577,7 @@ async function signInUsingPasskey(){
   }
 }
 async function authScreen(mode='login'){
-  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
+  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2588,7 +2588,7 @@ async function authScreen(mode='login'){
   app.innerHTML=`
   <div class="auth-wrap">
     <div class="glass auth-card">
-      <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
+      <div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
       <div class="eyebrow">Your memory, beautifully organized</div>
       <h2>${mode==='login'?'Welcome back':'Create an account'}</h2>
       <p class="muted">${mode==='login'?'Sign in securely to your private memories.':'Keep your memories safe and easy to find.'}</p>
@@ -2734,7 +2734,7 @@ function shell(content,title,subtitle=''){
     <header class="topbar" role="banner">
       <div class="top-left">
         <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>‹</button>
-        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo" aria-hidden="true"><svg viewBox="0 0 48 48" width="36" height="36"><path d="M8 35V13l16 13 16-13v22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="11" r="4" fill="currentColor"/></svg></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
         <form class="top-global-search" id="topGlobalSearchForm" role="search">
