@@ -12,7 +12,7 @@ const sessionStore = safeStorage('sessionStorage')
 // storage while Google sign-in completes in the system browser.
 const isMemoraAndroidApp = /\bMemoraAndroid\/\d+\b/.test(navigator.userAgent)
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth:{storage:localStore,...(isMemoraAndroidApp?{flowType:'pkce'}:{})}
+  auth:{storage:localStore,experimental:{passkey:true},...(isMemoraAndroidApp?{flowType:'pkce'}:{})}
 })
 const app = document.getElementById('app')
 
@@ -2520,6 +2520,36 @@ async function magicLink(email){
   finally{if(button) button.disabled=false}
 }
 
+function passkeyDeviceSupported(){
+  // Passkeys are not the same as a local-only PIN dialog. These credentials
+  // must be verified by Supabase Auth to create a signed-in session.
+  return Boolean(window.isSecureContext&&navigator.credentials&&
+    typeof supabase.auth.signInWithPasskey==='function'&&!isMemoraAndroidApp)
+}
+function friendlyPasskeyError(error){
+  const code=String(error?.code||error?.message||'')
+  if(/passkey_disabled/i.test(code)) return 'Passkey login is not enabled on the Memora authentication server yet.'
+  if(/NotAllowedError|cancel|abort/i.test(code)) return 'Passkey verification was cancelled. You can still sign in with email or Google.'
+  if(/email_not_confirmed|phone_not_confirmed/i.test(code)) return 'Confirm your email or phone number before using a passkey.'
+  return String(error?.message||'This device could not complete passkey authentication. Use another sign-in method.').slice(0,260)
+}
+async function signInUsingPasskey(){
+  const control=document.getElementById('passkeyLogin')
+  const message=document.getElementById('passkeyLoginStatus')
+  if(!control||!passkeyDeviceSupported()) return
+  control.disabled=true
+  if(message) message.textContent='Waiting for device verification...'
+  try{
+    const {data,error}=await supabase.auth.signInWithPasskey()
+    if(error) throw error
+    if(!data?.session?.user) throw new Error('No signed-in session returned.')
+    user=data.user||data.session.user
+    await bootstrapSignedIn()
+  }catch(error){
+    if(message?.isConnected) message.textContent=friendlyPasskeyError(error)
+    if(control?.isConnected) control.disabled=false
+  }
+}
 async function authScreen(mode='login',method='email'){
   app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
@@ -2550,6 +2580,7 @@ async function authScreen(mode='login',method='email'){
         ${socialButton('facebook','Facebook')}
         ${socialButton('github','GitHub')}
       </div>
+      ${passkeyDeviceSupported()?'<button class="btn auth-passkey" id="passkeyLogin" type="button">Use fingerprint, Face ID or device PIN</button><p class="auth-help" id="passkeyLoginStatus" role="status" aria-live="polite" hidden></p>':''}
       <div class="divider">OR CONTINUE WITH</div>
       <div class="auth-method-tabs" role="group" aria-label="Choose sign-in method">
         <button class="btn ${method==='email'?'active':''}" id="authEmailTab" type="button" aria-pressed="${method==='email'}">Email</button>
@@ -2623,6 +2654,11 @@ async function authScreen(mode='login',method='email'){
       oauthSignIn(provider,['azure','facebook'].includes(provider)?'email':undefined)
     })
   })
+  const passkeyLogin=document.getElementById('passkeyLogin')
+  if(passkeyLogin) passkeyLogin.onclick=()=>{
+    document.getElementById('passkeyLoginStatus').hidden=false
+    signInUsingPasskey()
+  }
   document.getElementById('magicLink').onclick=()=>magicLink(document.getElementById('email').value.trim())
   document.getElementById('switchMode').onclick=()=>authScreen(mode==='login'?'signup':'login',method)
   document.getElementById('authEmailTab').onclick=()=>authScreen(mode,'email')
@@ -5777,8 +5813,10 @@ async function settings(){
       </section>
 
       <section class="glass settings-card">
-        <div class="eyebrow">Security</div><h3>Your private data</h3>
-        <p class="muted">Memories, media, chats and structured facts are scoped to your signed-in user through Row Level Security. Credentials belong in Sources and are blocked from manual memory capture.</p>
+        <div class="eyebrow">Security</div><h3>Sign-in security</h3>
+        <p class="muted">Memora protects memories by account. When enabled by the service and supported by your device, passkeys allow secure login with biometrics or your phone's screen lock.</p>
+        <button class="btn" id="registerPasskey" type="button" ${passkeyDeviceSupported()?'':'disabled'}>Set up fingerprint, Face ID or PIN sign-in</button>
+        <p class="small muted" id="passkeySetupStatus" role="status">${passkeyDeviceSupported()?'Sign in once with Google or email first, then register a passkey.':'Passkeys are not supported in this app view. Try the Memora website in Chrome or Safari.'}</p>
         <div class="setting-row"><span>App build</span><b>2026.10.09.43</b></div>
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
@@ -5798,6 +5836,19 @@ async function settings(){
   `,'Profile and Settings','Control identity, appearance, sound, chats, security and your data.')
   wire()
 
+  const setupPasskey=document.getElementById('registerPasskey')
+  if(setupPasskey)setupPasskey.onclick=async()=>{
+    const status=document.getElementById('passkeySetupStatus')
+    setupPasskey.disabled=true
+    status.textContent='Waiting for device authentication...'
+    try{
+      const {error}=await supabase.auth.registerPasskey()
+      if(error) throw error
+      status.textContent='Passkey registered. You can sign in next time using fingerprint, Face ID or your device PIN.'
+    }catch(error){
+      status.textContent=friendlyPasskeyError(error)
+    }finally{if(setupPasskey.isConnected)setupPasskey.disabled=false}
+  }
   document.getElementById('settingsTheme').onclick=openThemePicker
   document.getElementById('settingsSound').onclick=openSoundscapePicker
   document.getElementById('retakeTour').onclick=()=>showOnboardingTour({force:true})

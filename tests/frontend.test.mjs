@@ -13,7 +13,7 @@ const facts=[
   {fact_key:'family.sister.2',category:'family',predicate:'sister',value_text:'Dana',ordinal:2,age_relation:'younger'}
 ]
 
-async function appFixture({blockedStorage=false,slowProviders=false,phoneProviderEnabled=false}={}) {
+async function appFixture({blockedStorage=false,slowProviders=false,phoneProviderEnabled=false,passkeyAvailable=false}={}) {
   const dom=new JSDOM('<div id="app"></div>',{url:'https://memora.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()})
   const w=dom.window
   w.SUPABASE_URL='https://fixture.supabase.co'
@@ -27,12 +27,15 @@ async function appFixture({blockedStorage=false,slowProviders=false,phoneProvide
   Object.defineProperty(w.HTMLMediaElement.prototype,'paused',{get(){return !this._playing}})
   if(blockedStorage) Object.defineProperty(w,'localStorage',{get(){throw new Error('Storage denied')}})
   w.memoraOtpRequests=[]
+  if(passkeyAvailable){w.isSecureContext=true;Object.defineProperty(w.navigator,'credentials',{value:{}})}
   w.createClient=()=>({
     rpc:async()=>({data:[{entity_id:'m1',title:'My saved guitar',content:'Stored in the music room',metadata:{}}]}),
     auth:{
       getSession:async()=>({data:{session:null}}),
       onAuthStateChange:()=>({}),
       signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}}),
+      signInWithPasskey:passkeyAvailable?async()=>({data:null,error:{code:'passkey_disabled',message:'Passkey authentication disabled'}}):undefined,
+      registerPasskey:passkeyAvailable?async()=>({data:null,error:{code:'passkey_disabled',message:'Passkey authentication disabled'}}):undefined,
       signInWithOtp:async payload=>{w.memoraOtpRequests.push(payload);return {error:null}},
       verifyOtp:async payload=>({data:{session:{user:{id:'fixture-user'}},user:{id:'fixture-user'}},error:null}),
       resend:async payload=>({error:null})
@@ -327,4 +330,21 @@ test('mobile signup always hides inactive email and OTP forms and lists country 
     assert.equal(w.document.getElementById('authForm').hidden,false)
     assert.equal(w.document.getElementById('phoneAuthForm').hidden,true)
   }finally{dom.window.close()}
+})
+
+test('passkey login invokes secure Supabase challenge and reports disabled service honestly',async()=>{
+  const {dom,w}=await appFixture({passkeyAvailable:true})
+  try{
+    const button=w.document.getElementById('passkeyLogin')
+    assert.ok(button)
+    button.click()
+    await new Promise(resolve=>setTimeout(resolve,16))
+    assert.match(w.document.getElementById('passkeyLoginStatus').textContent,/not enabled/i)
+    assert.equal(button.disabled,false)
+    assert.ok(w.document.getElementById('authForm'))
+  }finally{dom.window.close()}
+})
+test('passkey option is hidden when browser or native WebView lacks WebAuthn',async()=>{
+  const {dom,w}=await appFixture()
+  try{assert.equal(w.document.getElementById('passkeyLogin'),null)}finally{dom.window.close()}
 })
