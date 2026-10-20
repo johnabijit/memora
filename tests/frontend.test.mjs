@@ -47,7 +47,8 @@ async function appFixture({blockedStorage=false,slowProviders=false,phoneProvide
     }
   })
   const phoneAuth=(await readFile('client/phone-auth.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
