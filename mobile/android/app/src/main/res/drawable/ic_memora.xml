@@ -1,12 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="512" android:viewportHeight="512">
-    <path android:fillColor="#101F36" android:pathData="M0,0 L512,0 L512,512 L0,512 Z"/>
-    <path android:fillColor="#F2DAAB" android:pathData="M256,119 a18,18 0,1 0,0.1,0 Z"/>
-    <path android:fillColor="#EDE1F2" android:pathData="M256,160 C217,197 195,246 212,301 C222,329 238,349 256,358 C276,347 292,327 301,299 C318,247 294,195 256,160 Z"/>
-    <path android:fillColor="#B9F1EE" android:pathData="M197,211 C123,212 77,238 67,272 C59,312 98,364 168,383 C196,390 218,390 239,386 C205,348 196,294 197,211 Z"/>
-    <path android:fillColor="#A9DDF4" android:pathData="M315,211 C389,212 435,238 445,272 C453,312 414,364 344,383 C316,390 294,390 273,386 C307,348 316,294 315,211 Z"/>
-    <path android:fillColor="#6BCBC4" android:pathData="M138,321 C112,328 96,339 83,355 C113,402 174,425 256,427 C338,425 399,402 429,355 C416,339 400,328 374,321 C354,367 308,399 256,400 C204,399 158,367 138,321 Z"/>
-    <path android:fillColor="#C8F1E9" android:pathData="M150,383 C182,404 220,414 256,414 C292,414 330,404 362,383" android:strokeColor="#E6F0EA" android:strokeWidth="4"/>
-</vector>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="128" android:viewportHeight="128"><path android:fillColor="#0B2340" android:pathData="M0,0 H128 V128 H0 Z"/><path android:strokeColor="#57E5EB" android:strokeWidth="10" android:strokeLineJoin="round" android:strokeLineCap="round" android:fillColor="@android:color/transparent" android:pathData="M24,94 V36 Q24,26 34,26 Q39,26 43,31 L64,55 L85,31 Q89,26 94,26 Q104,26 104,36 V94 Q104,103 95,103 Q86,103 86,94 V59 L70,77 Q64,84 58,77 L42,59 V94 Q42,103 33,103 Q24,103 24,94 Z"/><path android:fillColor="#FFC67E" android:pathData="M64,65 L69,75 L79,80 L69,85 L64,95 L59,85 L49,80 L59,75 Z"/></vector>
