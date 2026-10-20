@@ -1,0 +1,50 @@
+name: Memora Android launch smoke test
+
+on:
+  push:
+    branches: [mobile-installers]
+    paths:
+      - 'mobile/android/**'
+      - '.github/workflows/memora-android-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enable KVM access
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Boot Android emulator and verify launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          working-directory: mobile/android
+          script: |
+            sdkmanager "platforms;android-36" "build-tools;35.0.0"
+            gradle --no-daemon :app:assembleDebug
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.memora.mobile/.MainActivity
+            sleep 7
+            if ! adb shell pidof com.memora.mobile; then
+              adb logcat -d -b crash | tail -n 200
+              echo "Memora failed to remain open on Android emulator"
+              exit 1
+            fi
+            echo "Memora native activity started and remained running"
