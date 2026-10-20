@@ -321,3 +321,65 @@ test('Ask Memora refuses to invent a missing wedding date',async()=>{
    assert.match(a.text,/does not state a clear date/)
  }finally{dom.window.close()}
 })
+
+
+test('global search exposes explicit memories music radio and web categories without leaking personal searches',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   let publicRequests=[]
+   w.fetch=async url=>{publicRequests.push(String(url));return Response.json({items:[{id:'r1',title:'Bhakti Bhajan Live',url:'https://fixture.test/bhajan.mp3',type:'radio',country:'India'}]})}
+   api.openGlobalSearch()
+   const form=w.document.querySelector('.global-search-form')
+   const input=w.document.getElementById('globalSearchQuery')
+   input.value='my marriage date'
+   await form.onsubmit({preventDefault(){}})
+   assert.equal(publicRequests.length,0)
+   assert.equal(w.document.getElementById('globalSearchScope').value,'memories')
+   const tabs=w.document.querySelectorAll('[data-search-category]')
+   assert.equal(tabs.length,4)
+   w.document.querySelector('[data-search-category="radio"]').click()
+   assert.equal(w.document.getElementById('globalSearchScope').value,'radio')
+   input.value='Hindu radio'
+   await form.onsubmit({preventDefault(){}})
+   assert.equal(publicRequests.length,1)
+   assert.match(publicRequests[0],/api\/audio-library\?/)
+   assert.match(publicRequests[0],/mode=devotional/)
+   assert.match(publicRequests[0],/tradition=hindu/)
+   assert.match(w.document.querySelector('.global-search-results').textContent,/Bhakti Bhajan Live/)
+   assert.equal(w.document.querySelector('.global-search-results .btn').textContent,'▶ Play now')
+ }finally{dom.window.close()}
+})
+test('search or ask routes questions to Ask without starting a public media search',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   let externalRequests=0
+   w.fetch=async()=>{externalRequests++;return Response.json({items:[]})}
+   api.openGlobalSearch()
+   const input=w.document.getElementById('globalSearchQuery')
+   input.value='What is my wedding date?'
+   const callback=w.document.getElementById('globalAskButton').onclick
+   assert.equal(typeof callback,'function')
+   await callback()
+   assert.equal(externalRequests,0)
+   const routed=w.document.getElementById('askInput')
+   assert.ok(routed)
+   assert.equal(routed.value,'What is my wedding date?')
+ }finally{dom.window.close()}
+})
+test('now playing mini player has labeled previous play next and expanded player controls',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   api.ensureMediaPlayer()
+   const previous=w.document.getElementById('playerPrevious')
+   const play=w.document.getElementById('playerPlay')
+   const next=w.document.getElementById('playerNext')
+   const expanded=w.document.getElementById('playerExpand')
+   for(const control of [previous,play,next,expanded]) {
+     assert.ok(control)
+     assert.ok(control.getAttribute('aria-label'))
+   }
+   assert.match(w.document.querySelector('.player-kicker').textContent,/NOW PLAYING/)
+ }finally{dom.window.close()}
+})
