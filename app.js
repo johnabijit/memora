@@ -157,6 +157,41 @@ const themeCatalog=themeFamilies.flatMap((family)=>themeMoods.map((mood,index)=>
     bg2:`hsl(${(bgHue+24)%360} 40% ${mood.b+7}%)`
   }
 }))
+const visualWorlds=[
+  ['photography','Photography',205,'photographic'],['landscape','Landscapes',138,'landscape'],['wildlife','Wildlife',80,'wildlife'],
+  ['birds','Birds',150,'wildlife'],['desert','Desert',35,'landscape'],['mountain','Mountains',212,'landscape'],
+  ['waterfall','Waterfalls',187,'water'],['coral','Coral Reef',183,'water'],['deepsea','Deep Ocean',221,'water'],
+  ['rainforest','Rainforest',135,'landscape'],['flowers','Flowers',337,'botanical'],['gardens','Gardens',108,'botanical'],
+  ['architecture','Architecture',32,'geometric'],['city','City Nights',244,'urban'],['retro','Retro',23,'retro'],
+  ['vintage','Vintage Film',38,'retro'],['paper','Paper Studio',32,'paper'],['ink','Ink & Wash',207,'paper'],
+  ['comic','Comic Art',9,'comic'],['cartoon','Cartoons',48,'comic'],['pixel','Pixel Worlds',267,'pixel'],
+  ['space','Outer Space',253,'cosmic'],['alien','Alien Worlds',104,'cosmic'],['nebula','Nebula',292,'cosmic'],
+  ['geometry','Geometry',190,'geometric'],['abstract','Abstract',316,'abstract'],['kinetic','Kinetic Art',28,'abstract'],
+  ['music','Music Waves',282,'sound'],['vinyl','Vinyl Records',18,'sound'],['theater','Cinema',330,'urban'],
+  ['snow','Snow Country',203,'landscape'],['spring','Spring Fields',91,'landscape'],['autumn','Autumn Woods',19,'landscape'],
+  ['beach','Beaches',183,'water'],['islands','Tropical Islands',168,'water'],['river','Rivers',178,'water'],
+  ['rain','Rainy Windows',213,'photographic'],['clouds','Cloudscape',210,'photographic'],['fire','Embers',11,'abstract'],
+  ['minimal','Ultra Minimal',207,'minimal'],['brutalist','Brutalist',34,'geometric'],['cyberpunk','Cyberpunk',304,'urban']
+]
+const worldLooks=[
+  {id:'canvas',name:'Canvas',l:18,style:'canvas'},
+  {id:'immersive',name:'Immersive',l:12,style:'immersive'},
+  {id:'editorial',name:'Editorial',l:76,style:'editorial'},
+  {id:'contrast',name:'High Contrast',l:5,style:'contrast'},
+  {id:'pastel',name:'Pastel',l:89,style:'pastel'},
+  {id:'noir',name:'Noir',l:7,style:'noir'}
+]
+const worldThemes=visualWorlds.flatMap(([id,name,h,category])=>worldLooks.map((look,i)=>{
+  const light=look.l>50
+  return {id:`world-${id}-${look.id}`,label:`${name} · ${look.name}`,family:id,category,look:look.style,
+    c1:`hsl(${h} 82% ${light?38:68}%)`,c2:`hsl(${(h+55+i*8)%360} 72% ${light?47:66}%)`,
+    c3:`hsl(${(h+135+i*11)%360} 88% ${light?42:66}%)`,
+    bg0:`hsl(${h} ${light?35:30}% ${look.l}%)`,
+    bg1:`hsl(${(h+24)%360} ${light?29:38}% ${Math.min(96,look.l+(light?3:5))}%)`,
+    bg2:`hsl(${(h+60)%360} ${light?24:32}% ${Math.min(97,look.l+(light?5:8))}%)`
+  }
+}))
+themeCatalog.push(...worldThemes)
 const manualThemes=Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
 
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
@@ -508,7 +543,7 @@ const themeSceneQueries={
 }
 
 function sceneForTheme(themeId){
-  const family=String(themeId||'').split('-')[0]
+  const family=String(themeId||'').startsWith('world-')?String(themeId).split('-')[1]:String(themeId||'').split('-')[0]
   return themeSceneQueries[family]||family||'calm landscape'
 }
 
@@ -1554,7 +1589,7 @@ function updateSoundButton(){
     button.dataset.enabled=active?'true':'false'
     button.title=active?'Open Memora Audio':'Audio is muted'
     const label=button.querySelector('.sound-label')
-    if(label) label.textContent=active?'Audio':'Muted'
+    if(label) label.textContent='Play music'
   }
 }
 
@@ -2296,6 +2331,10 @@ function applyTheme(values,label){
   const root=document.documentElement
   Object.entries(values).forEach(([key,value])=>root.style.setProperty(`--${key}`,value))
   root.dataset.themeLabel=label
+  const isLight=Number((values.bg0.match(/ (\\d+)%\\)$/)||[])[1]||0)>50
+  root.dataset.colorMode=isLight?'light':'dark'
+  root.dataset.worldStyle=values.look||'classic'
+  root.dataset.worldCategory=values.category||'classic'
   const labelEl=document.getElementById('themeLabel')
   if(labelEl) labelEl.textContent=label
   const meta=document.querySelector('meta[name="theme-color"]')
@@ -2315,6 +2354,9 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
+  const appearance=localStorage.getItem('memora-appearance')||'system'
+  const preferred=appearance==='system'?(window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark'):appearance
+  document.documentElement.dataset.appearance=preferred
   const mode=localStorage.getItem('memora-theme')||'auto'
   if(mode==='auto') adaptiveTheme()
   else {
@@ -2349,14 +2391,15 @@ function setupAtmosphere(){
 function openThemePicker(){
   const current=localStorage.getItem('memora-theme')||'auto'
   const body=`
-    <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
+    <p class="muted">Choose from ${themeCatalog.length} visual worlds and variations across photography, landscapes, ocean, animals, creative art, seasons and more. Select a theme to preview and apply it.</p>
     <div class="theme-picker-tools">
-      <input class="input" id="themeSearch" placeholder="Search Ocean, Velvet, Sakura, Galaxy...">
+      <input class="input" id="themeSearch" placeholder="Search ocean, animals, comics, light, dark, abstract..." aria-label="Search themes">
       <button class="btn" id="randomTheme">Surprise me</button>
       <button class="btn ${current==='auto'?'primary':''}" data-theme="auto">Adaptive hourly</button>
     </div>
+    <div class="theme-picker-tools"><select class="input" id="themeCategory" aria-label="Filter theme categories"><option value="">All categories</option>${[...new Set(themeCatalog.map(t=>t.category||'classic'))].map(c=>`<option value="${c}">${c}</option>`).join('')}</select><select class="input" id="themeAppearance" aria-label="Choose appearance"><option value="system">System auto</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
     <div class="theme-gallery" id="themeGallery">
-      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
+      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${(theme.label+' '+(theme.category||'classic')).toLowerCase()}" data-category="${theme.category||'classic'}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
     </div>`
   const box=modal('Theme Universe',body)
 
@@ -2372,10 +2415,16 @@ function openThemePicker(){
     const theme=themeCatalog[Math.floor(Math.random()*themeCatalog.length)]
     choose(theme.id)
   }
-  box.querySelector('#themeSearch').oninput=event=>{
-    const term=event.target.value.trim().toLowerCase()
-    box.querySelectorAll('.theme-card').forEach(card=>card.classList.toggle('hidden',term&&!card.dataset.themeName.includes(term)))
+  const filterThemes=()=>{
+    const term=box.querySelector('#themeSearch').value.trim().toLowerCase()
+    const category=box.querySelector('#themeCategory').value
+    box.querySelectorAll('.theme-card').forEach(card=>card.classList.toggle('hidden',(term&&!card.dataset.themeName.includes(term))||(category&&category!==card.dataset.category)))
   }
+  box.querySelector('#themeSearch').oninput=filterThemes
+  box.querySelector('#themeCategory').onchange=filterThemes
+  const appearance=box.querySelector('#themeAppearance')
+  appearance.value=localStorage.getItem('memora-appearance')||'system'
+  appearance.onchange=()=>{localStorage.setItem('memora-appearance',appearance.value);updateTheme()}
 }
 
 let authProviderCache=null
@@ -2531,17 +2580,17 @@ function shell(content,title,subtitle=''){
     <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
-      <div class="top-left">
-        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">‹</button>':''}
+      <div class="top-left"><button class="icon-btn" id="sidebarToggle" aria-label="Open navigation menu" aria-expanded="false">☰ Menu</button>
+        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">← Back</button>':''}
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
-      <div class="top-actions">
-        <button class="icon-btn sound-button" id="soundButton" title="Memora Audio" aria-label="Open Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
+      <nav class="desktop-top-nav" aria-label="Main menu"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topMusic">Music</button><button id="topThemes">Themes</button><button data-nav="documents">Documents</button><button data-nav="timeline">Timeline</button></nav><div class="top-actions">
+        <button class="icon-btn sound-button" id="soundButton" title="Play music" aria-label="Play music and open the music library"><span class="sound-icon">♫</span><span class="sound-label">Play music</span></button>
         <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
     </header>
-    <main class="main" id="mainContent" tabindex="-1">
+    <aside class="sidebar-nav" id="sidebarNav" hidden><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask Memora</button><button id="sideMusic">Music & Radio</button><button data-nav="timeline">Timeline</button><button data-nav="documents">Documents</button><button data-nav="people">People</button><button data-nav="places">Places</button><button data-nav="things">Things</button><button data-nav="settings">Settings</button><button id="sidebarPin">Pin sidebar</button></aside><main class="main" id="mainContent" tabindex="-1">
       ${title?`<div class="page-head"><div><div class="eyebrow">Memora</div><h2>${esc(title)}</h2>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div></div>`:''}
       ${content}
       <footer class="app-footer" aria-label="Memora footer">
@@ -2569,7 +2618,18 @@ function wire(){
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
-  document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('topThemes')?.addEventListener('click',openThemePicker)
+  document.getElementById('topMusic')?.addEventListener('click',()=>renderAudio())
+  document.getElementById('sideMusic')?.addEventListener('click',()=>renderAudio())
+  const side=document.getElementById('sidebarNav')
+  const toggle=document.getElementById('sidebarToggle')
+  if(side&&toggle){
+    side.hidden=localStorage.getItem('memora-sidebar-pinned')!=='1'
+    toggle.setAttribute('aria-expanded',String(!side.hidden))
+    toggle.onclick=()=>{side.hidden=!side.hidden;toggle.setAttribute('aria-expanded',String(!side.hidden))}
+    document.getElementById('sidebarPin').onclick=()=>{const pinned=localStorage.getItem('memora-sidebar-pinned')==='1';localStorage.setItem('memora-sidebar-pinned',pinned?'0':'1');side.hidden=pinned;toggle.setAttribute('aria-expanded',String(!pinned))}
+  }
+  document.getElementById('soundButton')?.addEventListener('click',()=>renderAudio())
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
     if(window.history.length>1) window.history.back()
