@@ -2376,7 +2376,7 @@ function setupAmbientUnlock(){
 
 function activeWorldId(){
   const manual=localStore.getItem('memora-visual-world')||'auto'
-  return manual==='auto'?suggestedWorld(new Date(),localStore.getItem('memora-world-region')||'global'):manual
+  return manual==='auto'?suggestedWorld(new Date(),localStore.getItem('memora-world-region')||'global',localStore.getItem('memora-world-celebrations')==='1'):manual
 }
 function applyVisualWorld(){
   const world=getVisualWorld(activeWorldId())
@@ -2459,6 +2459,7 @@ function openThemePicker(){
       <div class="world-actions"><button type="button" class="btn ${worldMode==='auto'?'primary':''}" id="worldAuto">Automatic: season and day</button><button type="button" class="btn" id="worldRandom">Surprise me</button></div>
       <label class="world-field-label" for="worldRegion">Optional region for seasonal themes (no GPS)</label>
       <select class="input" id="worldRegion">${regionOptions}</select>
+      <label class="world-celebration-switch"><input id="worldCelebrations" type="checkbox" ${localStore.getItem('memora-world-celebrations')==='1'?'checked':''}> Include fixed-date celebrations in automatic themes</label>
       <p class="small muted">No location tracking. Moving-date festivals can be selected manually, avoiding incorrect dates.</p>
       <input class="input" id="worldSearch" type="search" placeholder="Find beach, winter, minimal, festival or forest..." aria-label="Search visual worlds">
       <div class="world-groups">${worldCardMarkup}</div>
@@ -2488,6 +2489,10 @@ function openThemePicker(){
     localStore.setItem('memora-world-region',region)
     if((localStore.getItem('memora-visual-world')||'auto')==='auto')applyVisualWorld()
     toast('Region preference saved on this device')
+  }
+  box.querySelector('#worldCelebrations').onchange=event=>{
+    localStore.setItem('memora-world-celebrations',event.target.checked?'1':'0')
+    if((localStore.getItem('memora-visual-world')||'auto')==='auto')applyVisualWorld()
   }
   box.querySelectorAll('[data-world-choice]').forEach(button=>button.onclick=()=>setWorld(button.dataset.worldChoice))
   box.querySelector('#worldSearch').oninput=event=>{
