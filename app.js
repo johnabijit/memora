@@ -1208,8 +1208,8 @@ function ensureMediaPlayer(){
   audio.src=defaultNaturalTrack.url
   mediaPlayerState.current=defaultNaturalTrack
 
-  audio.addEventListener('play',()=>{mediaPlayerState.unlocked=true;refreshMediaPlayerUI();syncNowPlayingProgress()})
-  audio.addEventListener('pause',()=>{refreshMediaPlayerUI();syncNowPlayingProgress()})
+  audio.addEventListener('play',()=>{mediaPlayerState.unlocked=true;refreshMediaPlayerUI();syncNowPlayingProgress();updateSoundButton()})
+  audio.addEventListener('pause',()=>{refreshMediaPlayerUI();syncNowPlayingProgress();updateSoundButton()})
   audio.addEventListener('timeupdate',syncNowPlayingProgress)
   audio.addEventListener('durationchange',syncNowPlayingProgress)
   audio.addEventListener('waiting',()=>setPlayerStatus('Buffering...'))
