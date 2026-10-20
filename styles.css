@@ -2095,3 +2095,26 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .topbar .top-actions #soundButton{display:none}
   .topbar .top-actions{margin-left:auto}
 }
+
+
+/* Identity and phone linking: concise, two-step, mobile-first interface */
+.settings-grid{gap:12px;align-items:start}
+.settings-card{min-width:0}
+.settings-card h3{font-size:clamp(18px,2.4vw,22px);line-height:1.25}
+.settings-card .eyebrow{font-size:10px;letter-spacing:.09em}
+.settings-card .muted{font-size:12px;line-height:1.55}
+.settings-card .setting-row{gap:8px}
+.phone-link-flow{max-width:450px;display:grid;gap:12px}
+.phone-link-flow form{display:grid;gap:10px}
+.phone-link-flow .phone-field-row{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,1.2fr);gap:8px}
+.phone-link-flow .phone-field-row>*{min-width:0;width:100%}
+.phone-link-flow .input{min-height:46px;font-size:16px;padding:11px 12px}
+.phone-link-flow .btn{min-height:44px}
+.phone-link-flow label{font-size:12px;font-weight:650}
+.phone-link-flow .auth-help{font-size:12px;line-height:1.55}
+.phone-link-flow .auth-availability{font-size:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.045)}
+@media(max-width:420px){
+ .phone-link-flow .phone-field-row{grid-template-columns:1fr}
+ .settings-grid{gap:9px}
+ .settings-card{padding:14px}
+}
