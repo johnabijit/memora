@@ -193,6 +193,99 @@ const visualWorlds=[
   {id:'old-library',name:'Old Library',group:'Editorial',scene:'cozy vintage library warm wooden shelves lamplight',style:'library',palette:['#eac58c','#cfb89a','#c0d3b1'],bg:['#271c17','#423025','#5e4938']},
   {id:'rainy-cafe',name:'Rainy Cafe',group:'Editorial',scene:'rainy cozy cafe window warm lights cinematic',style:'cafe',palette:['#efc5a0','#b2d0d8','#f2cf9a'],bg:['#1d2429','#343b3c','#504840']}
 ]
+const worldSubjects=[
+  ['wildlife','Wildlife','Nature',95,'wild animals in their natural habitat'],
+  ['birds','Bird Sanctuary','Nature',170,'colorful wild birds in nature'],
+  ['whales','Whales','Nature',201,'whales under ocean surface'],
+  ['dolphins','Dolphins','Nature',188,'dolphins ocean'],
+  ['coral','Coral Reef','Nature',190,'colorful coral reefs tropical fish'],
+  ['jellyfish','Jellyfish','Nature',239,'bioluminescent jellyfish underwater'],
+  ['sea','Deep Sea','Nature',221,'ocean deep underwater photography'],
+  ['river','Rivers','Nature',180,'river forest valley'],
+  ['waterfall','Waterfalls','Nature',168,'waterfall tropical rainforest'],
+  ['lake','Mirror Lakes','Nature',205,'mountain lake reflections'],
+  ['cliffs','Coastal Cliffs','Nature',198,'sea cliffs dramatic coastline'],
+  ['islands','Tropical Islands','Nature',171,'island lagoon palm trees'],
+  ['desert','Desert Horizons','Nature',32,'Sahara sand dunes'],
+  ['canyon','Canyons','Nature',24,'red rock canyon landscape'],
+  ['volcano','Volcanoes','Nature',8,'volcanic landscape lava'],
+  ['mountains','Mountain Peaks','Nature',221,'high mountain peaks Himalayas'],
+  ['rainforest','Rainforests','Nature',142,'lush tropical jungle'],
+  ['bamboo','Bamboo Forest','Nature',133,'bamboo green forest'],
+  ['flowers','Flowers','Nature',327,'wildflower meadow botanical photograph'],
+  ['gardens','Gardens','Nature',104,'flower garden pathways'],
+  ['butterflies','Butterflies','Nature',292,'butterfly macro photography'],
+  ['tigers','Big Cats','Nature',38,'tiger leopard lion wildlife photograph'],
+  ['horses','Horses','Nature',24,'horses running through meadow'],
+  ['penguins','Polar Wildlife','Nature',198,'penguins antarctica nature photograph'],
+  ['aurora','Polar Skies','Seasons',179,'northern lights aurora snowy mountain'],
+  ['snow','Snowfall','Seasons',208,'snow falling pine forest'],
+  ['spring','Spring Blossoms','Seasons',338,'spring blossoms cherry tree landscape'],
+  ['autumn','Autumn Trails','Seasons',25,'autumn forest colorful leaves'],
+  ['clouds','Cloudscape','Seasons',210,'soft clouds sunlight aerial sky'],
+  ['rain','Rain Windows','Seasons',217,'rain drops on glass window'],
+  ['stars','Starry Night','Space',238,'night sky long exposure stars'],
+  ['planets','Planets','Space',256,'space planet illustration'],
+  ['galaxy','Galaxies','Space',263,'galaxy astronomy photo'],
+  ['aliens','Alien Worlds','Space',122,'otherworldly alien planet landscape concept art'],
+  ['nebulas','Nebulas','Space',283,'nebula colorful space telescope image'],
+  ['astronaut','Astronaut','Space',218,'astronaut outer space photography'],
+  ['cyberpunk','Cyberpunk Streets','Creative',313,'cyberpunk futuristic city street'],
+  ['cartoon','Cartoon Stories','Creative',48,'original whimsical cartoon illustrated landscape'],
+  ['anime','Anime Landscapes','Creative',224,'hand drawn anime inspired countryside painting'],
+  ['comic','Comic Panels','Creative',10,'bold comic book pop art illustration'],
+  ['pixel','Pixel Art','Creative',274,'retro pixel art game landscape'],
+  ['graffiti','Street Art','Creative',12,'colorful graffiti wall street art'],
+  ['geometric','Geometric Art','Creative',191,'geometric abstract architecture'],
+  ['abstract','Abstract Painting','Creative',305,'modern original abstract paintings'],
+  ['ink','Ink and Paper','Creative',198,'black ink wash painting landscape'],
+  ['watercolor','Watercolors','Creative',183,'watercolor floral landscape painting'],
+  ['vinyl','Vinyl Music','Music',38,'vinyl record player music photograph'],
+  ['piano','Piano Room','Music',212,'grand piano concert hall'],
+  ['guitar','Guitars','Music',34,'acoustic guitar photography'],
+  ['concert','Concert Lights','Music',292,'concert stage lights crowd'],
+  ['jazz','Jazz Lounge','Music',35,'jazz club saxophone music'],
+  ['classical','Classical Hall','Music',27,'orchestra opera hall instruments'],
+  ['architecture','Architecture','Places',35,'beautiful architecture building photograph'],
+  ['libraries','Libraries','Places',29,'grand old library architecture'],
+  ['castles','Castles','Places',211,'historic medieval castle landscape'],
+  ['temples','Temples','Places',37,'historical temple architecture'],
+  ['cities','Cityscapes','Places',230,'panoramic city skyline'],
+  ['villages','Village Streets','Places',94,'beautiful village street photography'],
+  ['markets','Markets','Places',27,'traditional colorful market photography'],
+  ['trains','Rail Journeys','Places',203,'scenic train journey mountains'],
+  ['aircraft','Aviation','Places',208,'commercial airplanes sky photography'],
+  ['boats','Boats','Places',187,'sailboats turquoise water'],
+  ['sports','Sports','People',23,'stadium sports action photograph'],
+  ['portraits','Portrait Stories','People',338,'artistic portrait photography'],
+  ['dance','Dance','People',312,'stage dance silhouette'],
+  ['festivals','World Festivals','People',31,'cultural festival lights procession'],
+  ['spacecraft','Future Tech','Modern',201,'futuristic spaceship concept art'],
+  ['minimal','Minimal Spaces','Minimal',206,'minimal clean interior design'],
+  ['paper','Paper and Linen','Minimal',35,'handmade paper textures stationery'],
+  ['retro','Vintage Film','Editorial',29,'vintage film photography city'],
+  ['fashion','Fashion Editorial','Editorial',335,'fashion photography studio'],
+  ['interiors','Interior Spaces','Editorial',25,'architectural interior photography'],
+  ['food','Food Stories','Editorial',20,'fine food photography'],
+  ['coffee','Coffee Culture','Editorial',28,'coffee cafe aesthetic']
+]
+const worldScenes=[
+  {id:'real',name:'Photography',suffix:'realistic award winning photo',style:'photo',light:false},
+  {id:'sunrise',name:'Golden Hour',suffix:'golden sunrise warm sunlight',style:'sunrise',light:true},
+  {id:'noir',name:'Midnight',suffix:'dramatic dark night atmospheric lighting',style:'noir',light:false},
+  {id:'illustrated',name:'Illustrated',suffix:'detailed artistic illustration',style:'illustrated',light:true}
+]
+for(const [id,name,group,h,scene] of worldSubjects){
+  for(const look of worldScenes){
+    const pale=look.light
+    const lighter=look.id==='illustrated'
+    const palette=[`hsl(${h} 75% ${pale?38:72}%)`,`hsl(${(h+57)%360} 68% ${pale?44:65}%)`,`hsl(${(h+128)%360} 73% ${pale?46:73}%)`]
+    const bg=pale?
+      [`hsl(${h} 30% ${lighter?91:82}%)`,`hsl(${h} 28% 85%)`,`hsl(${h} 25% 79%)`]:
+      [`hsl(${h} 26% 7%)`,`hsl(${h} 37% 13%)`,`hsl(${h} 30% 19%)`]
+    visualWorlds.push({id:`world-${id}-${look.id}`,name:`${name} · ${look.name}`,group,scene:`${scene} ${look.suffix}`,style:look.style,palette,bg})
+  }
+}
 const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
 const worldRegions=[
   ['auto','My current local time'],['IN','India'],['US','United States'],['GB','United Kingdom'],
@@ -2490,6 +2583,9 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
+  const appearance=localStore.getItem('memora-appearance')||'system'
+  const isLight=appearance==='light'||(appearance==='system'&&window.matchMedia?.('(prefers-color-scheme: light)').matches)
+  document.documentElement.dataset.appearance=isLight?'light':'dark'
   const worldMode=localStore.getItem('memora-world-mode')||
     (localStore.getItem('memora-theme')&&localStore.getItem('memora-theme')!=='auto'?'classic':'auto')
   if(worldMode!=='classic'){
@@ -2542,17 +2638,17 @@ function openThemePicker(){
     return `<button type="button" class="world-card ${favorite===world.id&&worldMode==='manual'?'selected':''}"
       data-world-select="${world.id}" data-world-category="${world.group}" data-world-name="${esc(world.name.toLowerCase())}"
       style="--world-a:${c1};--world-b:${c2};--world-c:${c3};--world-bg0:${bg0};--world-bg1:${bg1};--world-bg2:${bg2}">
-        <span class="world-preview"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
+        <span class="world-preview" data-preview-style="${world.style}" data-preview-group="${world.group}"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
         <span class="world-title">${esc(world.name)}</span><small>${esc(world.group)}</small>
       </button>`
   }).join('')
   const body=`
-    <div class="world-intro"><p>Choose a genuine visual world, not just another color combination. You stay in control.</p>
+    <div class="world-intro"><p>Explore ${visualWorlds.length} visual worlds with different subjects, compositions and photographic or illustrated scenes. The original 120 palettes remain available too.</p>
       <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
     </div>
     <div class="world-preferences">
       <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
-      <label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>Appearance <select class="input" id="worldAppearance"><option value="system">System automatic</option><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
     </div>
     <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Memora does not need precise location or your religious preferences.</p>
     <div class="world-search-row">
@@ -2560,7 +2656,7 @@ function openThemePicker(){
       <button class="btn" id="worldSurprise" type="button">Surprise me</button>
     </div>
     <div class="world-categories" role="group" aria-label="Visual world category">
-      ${['All','Modern','Minimal','Nature','Seasons','Festivals','Creative','Editorial'].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
+      ${['All',...new Set(visualWorlds.map(w=>w.group))].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
     </div>
     <div class="world-grid" id="visualWorldGrid">${worldMarkup}</div>
     <details class="world-classic">
@@ -2573,6 +2669,9 @@ function openThemePicker(){
     <div class="world-selection-status" role="status" id="worldSelectionStatus">Changes apply immediately. Close this window when you're happy.</div>
   `
   const box=modal('Memora Visual Worlds',body)
+  const appearanceSelect=box.querySelector('#worldAppearance')
+  appearanceSelect.value=localStore.getItem('memora-appearance')||'system'
+  appearanceSelect.onchange=()=>{localStore.setItem('memora-appearance',appearanceSelect.value);updateTheme()}
   box.querySelector('.modal')?.classList.add('visual-world-dialog')
   const status=box.querySelector('#worldSelectionStatus')
   const applied=(message)=>{
