@@ -65,7 +65,7 @@ async function verifyUser(token){
 }
 
 async function callConnectedProvider(token,instructions,prompt,imageDataUrl){
-  const response=await fetch(`${SUPABASE_URL}/functions/v1/ai-provider-proxy`,{
+  const response=await fetch(`${SUPABASE_URL}/functions/v1/ai-provider-proxy-cloudflare`,{
     method:'POST',
     signal:AbortSignal.timeout(45000),
     headers:{
