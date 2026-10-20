@@ -5838,6 +5838,11 @@ async function settings(){
         <button class="btn" id="registerPasskey" type="button" ${passkeyDeviceSupported()?'':'disabled'}>Set up fingerprint, Face ID or PIN sign-in</button>
         <p class="small muted" id="passkeySetupStatus" role="status">${passkeyDeviceSupported()?'Sign in once with Google or email first, then register a passkey.':'Passkeys are not supported in this app view. Try the Memora website in Chrome or Safari.'}</p>
         <div class="setting-row"><span>App build</span><b>2026.10.09.43</b></div>
+        ${/\bMemoraAndroid\/1\.3\b/.test(navigator.userAgent)?`<details class="audio-disclosure" style="margin:10px 0">
+          <summary>Android device security</summary>
+          <p class="small muted">Protect the Android app when reopening it using your phone's fingerprint, strong face recognition, or screen-lock PIN when supported. This is an app lock, not a replacement for your Memora account sign-in.</p>
+          <div class="filter-row"><button class="btn primary" id="enableAndroidDeviceLock" type="button">Enable device unlock</button><button class="btn" id="disableAndroidDeviceLock" type="button">Disable device unlock</button></div>
+        </details>`:''}
         <button class="btn" id="logoutButton">Sign out</button>
       </section>
 
@@ -5856,6 +5861,8 @@ async function settings(){
   `,'Profile and Settings','Control identity, appearance, sound, chats, security and your data.')
   wire()
 
+  document.getElementById('enableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/enable'})
+  document.getElementById('disableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/disable'})
   const setupPasskey=document.getElementById('registerPasskey')
   if(setupPasskey)setupPasskey.onclick=async()=>{
     const status=document.getElementById('passkeySetupStatus')
