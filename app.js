@@ -355,6 +355,8 @@ function applyVisualWorld(world){
   }
   root.dataset.visualWorld=world.id
   root.dataset.visualStyle=world.style
+  root.dataset.worldGroup=world.group.toLowerCase().replace(/[^a-z]/g,'')
+  root.dataset.worldSubject=world.id.replace(/^world-/,'').split('-')[0]
   const [c1,c2,c3]=world.palette
   const [bg0,bg1,bg2]=world.bg
   const light=root.dataset.appearance==='light'
