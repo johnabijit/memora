@@ -4364,7 +4364,18 @@ async function memories(){
     document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'))
     button.classList.add('active')
     const filter=button.dataset.filter
-    const filtered=filter==='all'?all:all.filter(m=>m.memory_type===filter)
+    const categoryMatch=m=>{
+      const type=String(m.memory_type||'').toLowerCase()
+      const source=String(m.source_type||'').toLowerCase()
+      const context=[m.summary,m.original_text].join(' ').toLowerCase()
+      if(filter==='all')return true
+      if(filter==='object')return ['object','thing','item'].includes(type)||/\b(?:keys?|wallet|bag|phone|laptop|item|object|stored|kept)\b/.test(context)
+      if(filter==='activity')return ['activity','event','reminder','appointment','task'].includes(type)||/\b(?:mood check-in|meeting|trip|visit|wedding|event)\b/.test(context)
+      if(filter==='document')return ['document','file','attachment'].includes(type)||Boolean(m.document_id)||['file','document','upload','pdf'].includes(source)
+      if(filter==='conversation')return ['conversation','chat','dialogue','message'].includes(type)||['conversation','chat'].includes(source)
+      return type===filter
+    }
+    const filtered=all.filter(categoryMatch)
     document.getElementById('memoryList').innerHTML=filtered.length?filtered.map(memoryCard).join(''):'<div class="glass empty"><strong>No matches</strong>Nothing in this category yet.</div>'
     bindDeletes()
     bindMemoryViews(filtered)
