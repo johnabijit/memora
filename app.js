@@ -1936,7 +1936,9 @@ async function openSoundscapePicker(){
         <div class="devotional-feature-row compact-features">
           <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='all_faiths'?'selected':''}" data-devotional="all_faiths" data-devotional-query=""><span>✦</span><div><b>All traditions</b><small>Worldwide spiritual discovery</small></div></button>
           <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='christian'?'selected':''}" data-devotional="christian" data-devotional-query=""><span>♫</span><div><b>Christian</b><small>Worship, Gospel, hymns and more</small></div></button>
-          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='ghazal'?'selected':''}" data-devotional="ghazal" data-devotional-query=""><span>♪</span><div><b>Ghazal</b><small>Ghazal and related stations</small></div></button>
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='hindu'?'selected':''}" data-devotional="hindu" data-devotional-query=""><span>♫</span><div><b>Hindu devotional</b><small>Bhajan, mantra, kirtan, aarti</small></div></button>
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='islamic'?'selected':''}" data-devotional="islamic" data-devotional-query=""><span>♪</span><div><b>Islamic</b><small>Quran and nasheed</small></div></button>
+          <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='sikh'?'selected':''}" data-devotional="sikh" data-devotional-query=""><span>♫</span><div><b>Sikh devotional</b><small>Gurbani and shabad kirtan</small></div></button>
         </div>
 
         <div class="world-filter-grid">
@@ -1950,6 +1952,7 @@ async function openSoundscapePicker(){
           <button class="radio-sort-btn ${mediaPlayerState.radioSort==='random'?'active':''}" data-devotional-sort="random">Random</button>
         </div>
 
+        <details class="audio-disclosure"><summary>More language filters</summary>
         <div class="regional-devotional">
           <span>Christian music by language</span>
           <div>
@@ -1975,6 +1978,7 @@ async function openSoundscapePicker(){
           </div>
         </div>
 
+        </details>
         <details class="audio-disclosure">
           <summary>Browse more traditions and styles</summary>
           <div class="devotional-directory">${devotionalDirectory}</div>
@@ -2713,10 +2717,10 @@ async function authScreen(mode='login',method='email'){
 
 const dockItems=[
   ['home','⌂','Home'],
-  ['ask','◎','Ask'],
+  ['memories','▤','Memories'],
   ['capture','＋',''],
-  ['timeline','◷','Timeline'],
-  ['vault','◇','Vault']
+  ['ask','◎','Ask'],
+  ['audio','♫','Music']
 ]
 
 function routeUrl(next=view,threadId=currentThreadId){
@@ -2745,7 +2749,8 @@ function shell(content,title,subtitle=''){
       </div>
       <div class="top-actions">
         <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
-        <button class="icon-btn sound-button" id="soundButton" title="Memora Audio" aria-label="Open Memora Audio"><span class="sound-icon">♫</span><span class="sound-label">${ambientPreferences.enabled?'Audio':'Muted'}</span></button>
+        <nav class="header-shortcuts" aria-label="Memory collections"><button class="icon-btn" data-nav="memories">Memories</button><button class="icon-btn" data-nav="people">People</button><button class="icon-btn" data-nav="vault">Vault</button></nav>
+        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
@@ -2767,7 +2772,9 @@ function shell(content,title,subtitle=''){
     <nav class="dock" aria-label="Primary navigation">
       ${dockItems.map(([id,icon,label])=>id==='capture'
         ?`<button class="capture" id="dockCapture" aria-label="Create a new memory">${icon}</button>`
-        :`<button data-nav="${id}" class="${view===id?'active':''}" aria-label="${esc(label)}" ${view===id?'aria-current="page"':''}><span aria-hidden="true">${icon}</span><small>${label}</small></button>`
+        :id==='audio'
+          ?`<button id="dockAudio" aria-label="Music, radio and devotional audio"><span aria-hidden="true">${icon}</span><small>${label}</small></button>`
+          :`<button data-nav="${id}" class="${view===id?'active':''}" aria-label="${esc(label)}" ${view===id?'aria-current="page"':''}><span aria-hidden="true">${icon}</span><small>${label}</small></button>`
       ).join('')}
     </nav>
   </div>`
@@ -2882,6 +2889,7 @@ function openGlobalSearch(){
 function wire(){
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
+  document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
@@ -3649,7 +3657,7 @@ function bindMemoryViews(memoriesList){
     if(!memory) return
     const title=cleanAnswerText(memory.summary||memory.original_text||'Memory')
     const original=cleanAnswerText(memory.original_text||'')
-    modal(typeLabel(memory.memory_type),`
+    const detailBox=modal(typeLabel(memory.memory_type),`
       <div class="memory-detail">
         <div class="eyebrow">${esc(shortDate(memory.occurred_at||memory.created_at))} · ${esc((memory.provenance_kind||'user_stated').replaceAll('_',' '))}</div>
         <h3>${esc(title)}</h3>
@@ -3659,7 +3667,12 @@ function bindMemoryViews(memoriesList){
           <button class="btn" data-memory-close>Close</button>
         </div>
       </div>
-    `).querySelector('[data-memory-close]').onclick=event=>event.target.closest('.modal-backdrop')?.remove()
+    `)
+    detailBox.querySelector('[data-memory-close]').onclick=()=>detailBox.remove()
+    detailBox.querySelector('[data-edit-memory]').onclick=async()=>{
+      detailBox.remove()
+      await openEditMemory(memory.id)
+    }
   })
   document.querySelectorAll('[data-edit-memory]').forEach(button=>button.onclick=async()=>{
     const memoryId=String(button.dataset.editMemory||'')
@@ -3760,6 +3773,12 @@ async function home(){
       </div>
     </section>
 
+    <nav class="home-quick-nav" aria-label="Quick destinations">
+      <button class="btn" data-nav="memories">Browse memories</button>
+      <button class="btn" data-nav="ask">Ask Memora</button>
+      <button class="btn" data-nav="people">People</button>
+      <button class="btn" id="homeMusicQuick">Music & Radio</button>
+    </nav>
     <section class="glass home-hub">
       <div class="home-hub-head">
         <div><div class="eyebrow">Your memory space</div><h3>Everything organized, nothing dumped.</h3></div>
@@ -3814,6 +3833,7 @@ async function home(){
   bindComposerInputs()
   renderPending()
 
+  document.getElementById('homeMusicQuick')?.addEventListener('click',openSoundscapePicker)
   document.querySelectorAll('[data-home-tab]').forEach(button=>button.onclick=()=>{
     document.querySelectorAll('[data-home-tab]').forEach(x=>x.classList.toggle('active',x===button))
     document.querySelectorAll('[data-home-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.homePanel===button.dataset.homeTab))
