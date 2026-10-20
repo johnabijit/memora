@@ -392,10 +392,18 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
     const term=String(value||'').trim()
     if(term&&!searchTerms.some(existing=>existing.toLowerCase()===term.toLowerCase())) searchTerms.push(term)
   }
-  if(q) pushTerm(q)
+  if(q) {
+    pushTerm(q)
+    // People search for a topic, not necessarily a broadcaster's exact name.
+    // Query alternate station tags independently rather than requiring the
+    // whole phrase such as "Tamil Hindu devotional songs" to match.
+    for(const word of q.toLowerCase().split(/\s+/).filter(s=>s.length>3)) {
+      if(/^(hindu|bhajan|bhakti|aarti|mantra|kirtan|krishna|shiva|murugan|devotional)$/.test(word)) pushTerm(word)
+    }
+  }
   for(const base of entry.terms) pushTerm(base)
 
-  const maxTerms=key==='all_faiths'?14:10
+  const maxTerms=key==='all_faiths'?14:key==='hindu'?16:10
   const selectedTerms=searchTerms.slice(0,maxTerms)
   const perTerm=Math.max(14,Math.min(38,Math.ceil((Math.min(100,limit||60)*2.4)/Math.max(1,selectedTerms.length))+8))
 
@@ -453,7 +461,7 @@ async function devotionalLibrary(tradition,query,limit,{random=false,offset=0,co
       // unrelated stations, a recurring problem for Hindu radio discovery.
       // Name and station tags are stronger signals than region or language.
       const genreEvidence=[item.title,...(item.tags||[])].filter(Boolean).join(' ').toLowerCase()
-      if(key==='hindu'&&!/\b(hindu|bhajan|bhakti|aarti|mantra|krishna|vishnu|shiva|siva|murugan|ganesh|ganesha|sai|vedic|sanatan|devotional|sanskrit)\b/i.test(genreEvidence)) continue
+      if(key==='hindu'&&!/\b(hindu|bhajan|bhakti|aarti|mantra|krishna|vishnu|shiva|siva|murugan|ganesh|ganesha|sai|vedic|sanatan|devotional|sanskrit|kirtan|stotram|stotra|suprabhatam|tirupati|balaji|ayyappa|ammandevotional|temple|hanuman|rama|ramayan|mahabharat|radha|sankirtan|vedic chants)\b/i.test(genreEvidence)) continue
 
       let relevance=0
       for(const term of allTerms){
