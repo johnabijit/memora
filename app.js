@@ -1794,12 +1794,15 @@ async function nextMediaTrack(autoplay=true,recovering=false){
 function updateSoundButton(){
   const button=document.getElementById('soundButton')
   const audio=mediaAudio()
-  const active=ambientPreferences.enabled&&audio&&!audio.muted
+  const playing=Boolean(audio&&!audio.paused&&!audio.ended)
   if(button){
-    button.dataset.enabled=active?'true':'false'
-    button.title='Open music player and search music'
+    button.dataset.enabled=playing?'true':'false'
+    button.setAttribute('aria-pressed',String(playing))
+    button.title=playing?'Pause music':'Play or resume music'
     const label=button.querySelector('.sound-label')
-    if(label) label.textContent='Play music'
+    if(label) label.textContent=playing?'Pause music':'Play music'
+    const icon=button.querySelector('.sound-icon')
+    if(icon) icon.textContent=playing?'Ⅱ':'▶'
   }
 }
 
@@ -3030,11 +3033,13 @@ function shell(content,title,subtitle=''){
     <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
-      <div class="top-left"><button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
-        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
+      <div class="top-left">
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="icon-btn header-home" data-nav="home" aria-label="Home">Home</button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
+        <button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
       </div>
-      <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
+      <div class="top-actions">
         <form class="top-global-search" id="topGlobalSearchForm" role="search">
           <label class="sr-only" for="topSearchInput">Search your memories or find music</label>
           <span class="top-search-symbol" aria-hidden="true">⌕</span>
@@ -3042,6 +3047,7 @@ function shell(content,title,subtitle=''){
           <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
         </form>
         <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
+        <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav>
         
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
@@ -3284,7 +3290,7 @@ function wire(){
   document.getElementById('topSearchInput')?.addEventListener('focus',event=>{
     event.target.select()
   })
-  document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('soundButton')?.addEventListener('click',toggleMediaPlayback)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
     if(window.history.length>1) window.history.back()
@@ -4269,20 +4275,35 @@ async function home(){
     const request=++latestHomeMoodRequest
     const mood=button.dataset.moodCheckin
     document.querySelectorAll('[data-mood-checkin]').forEach(item=>item.classList.toggle('selected',item===button))
-    try{
-      await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
-      if(request!==latestHomeMoodRequest)return
-      const response=document.getElementById('moodResponse')
-      const text=document.getElementById('moodResponseText')
-      if(text) text.textContent=`Remembered. You are feeling ${String(moodCatalog[mood]?.label||mood).toLowerCase()} today.`
-      if(response) response.classList.remove('hidden')
-      const play=document.getElementById('moodPlayButton')
-      if(play) play.onclick=async()=>{
+    const response=document.getElementById('moodResponse')
+    const text=document.getElementById('moodResponseText')
+    const play=document.getElementById('moodPlayButton')
+    if(response) response.classList.remove('hidden')
+    if(text) text.textContent=`Saving your ${String(moodCatalog[mood]?.label||mood).toLowerCase()} check-in…`
+    if(play){
+      play.disabled=false
+      play.textContent='Play something for me'
+      play.onclick=async()=>{
+        const requestedMood=mood
+        const playRequest=latestHomeMoodRequest
         play.disabled=true
         play.textContent='Finding something...'
-        try{const playing=await playForMood(mood);play.textContent=playing?'Playing':'Tap Play in the player';play.disabled=false}catch{play.disabled=false;play.textContent='Try audio'}
+        try{
+          const playing=await playForMood(requestedMood)
+          if(playRequest!==latestHomeMoodRequest)return
+          play.textContent=playing?'Playing · choose another mood':'Try another selection'
+        }catch{
+          if(playRequest===latestHomeMoodRequest)play.textContent='Try another selection'
+        }finally{if(playRequest===latestHomeMoodRequest)play.disabled=false}
       }
-    }catch(error){toast(error.message||'Could not save mood check-in')}
+    }
+    try{
+      await recordMood(mood,`Mood check-in: ${moodCatalog[mood]?.label||mood}`,'home')
+      if(request===latestHomeMoodRequest&&text)text.textContent=`Remembered. You are feeling ${String(moodCatalog[mood]?.label||mood).toLowerCase()} today.`
+    }catch(error){
+      if(request===latestHomeMoodRequest&&text)text.textContent='Could not save this check-in. You can still choose music.'
+      toast(error.message||'Could not save mood check-in')
+    }
   })
   document.getElementById('fileBtn').onclick=()=>go('documents')
   document.getElementById('saveMemory').onclick=async()=>{
