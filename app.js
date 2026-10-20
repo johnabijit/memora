@@ -4,7 +4,7 @@ import { safeStorage, fetchApi } from './client/runtime.js'
 import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
 import { PHONE_COUNTRIES, normalizeDialCode, composeInternationalNumber } from './client/phone-countries.js'
 import { startPhoneLink, confirmPhoneLink, maskedPhone, phoneLinkMessage } from './client/phone-link.js'
-import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic } from './client/relevant-memory.js'
+import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic, classifyMemoryQuestion, extractEventDetails, answerFromEventMemory } from './client/relevant-memory.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
 const localStore = safeStorage('localStorage')
@@ -3104,6 +3104,17 @@ const render=()=>go(view,false,{push:false})
 
 function interpret(text){
   const result={memory_type:'note',summary:text,interpreted_data:{}}
+  // A life event is not a trackable physical object. Capture its explicitly
+  // stated date/place/time instead of parsing "my marriage was at..." as a thing.
+  for(const type of ['wedding','reception','engagement','birthday']){
+    const detail=extractEventDetails(text,type)
+    if(detail){
+      result.memory_type='personal_fact'
+      result.interpreted_data={event_type:type,event_date:detail.date||null,
+        event_time:detail.time||null,event_location:detail.location||null}
+      return result
+    }
+  }
   const patterns=[
     /(?:i\s+)?(?:kept|put|left|placed|stored)\s+(?:my\s+)?(.+?)\s+(?:in|inside|under|below|on|at|near)\s+(.+?)(?:\.|$)/i,
     /(?:my\s+)?(.+?)\s+(?:is|was)\s+(?:in|inside|under|below|on|at|near)\s+(.+?)(?:\.|$)/i,
@@ -3511,6 +3522,18 @@ async function syncStructuredFactsFromMemory(memory,text){
   const manager=source.match(/\b(?:my\s+)?(?:manager|boss|supervisor)(?:'s name)?\s+(?:is|was|named)\s+([A-Z][A-Za-z .'-]{2,70})/i)
   if(manager) await upsertStructuredFact(memory,'work.manager','work','manager',manager[1].trim())
 
+  // Save life-event fields as structured facts, not as inferred timestamps.
+  // These reuse the existing per-user memory_facts table and its RLS policies.
+  for(const eventType of ['wedding','reception','engagement','birthday']){
+    const detail=extractEventDetails(source,eventType)
+    if(!detail)continue
+    for(const [field,value] of [['date',detail.date],['time',detail.time],['location',detail.location]]){
+      if(!value)continue
+      await upsertStructuredFact(memory,'event.'+eventType+'.'+field,'event',field,value,{
+        subject:eventType,provenance_kind:'user_stated',value_json:{event:eventType,source_text:detail.source}
+      })
+    }
+  }
   const title=source.match(/\b(?:job title|business title|designation|role)\s+(?:is|was|as)\s+([A-Za-z][A-Za-z0-9 ,.&/'()-]{2,90})/i)
   if(title) await upsertStructuredFact(memory,'work.business_title','work','business_title',title[1].trim().replace(/[.]+$/,''))
 
@@ -4234,6 +4257,20 @@ async function answerFromStructuredFacts(question){
 
   const result=(text,source='Structured memory fact')=>({text,source,structured:true})
 
+  const eventIntent=classifyMemoryQuestion(q)
+  const contextualEvent=!eventIntent.topic&&eventIntent.property&&
+    ['wedding','reception','engagement','birthday','pickup'].includes(conversationContext.subject)
+      ?conversationContext.subject:null
+  const eventType=eventIntent.topic||contextualEvent
+  if(eventType&&eventIntent.property){
+    const fact=factByKey(facts,'event.'+eventType+'.'+eventIntent.property)
+    if(fact){
+      conversationContext.subject=eventType
+      persistConversationState()
+      return result('Your saved '+eventType+' '+eventIntent.property+' is '+fact.value_text+'.','Structured event fact from saved memory')
+    }
+  }
+
   const name=factByKey(facts,'identity.name')
   if(/\bwho am i\b|\bwhat(?:'s| is) my name\b|\btell me who i am\b/i.test(q)&&name){
     conversationContext.subject='self'
@@ -4687,6 +4724,26 @@ async function answer(question){
     if(structured) return structured
   }catch(error){
     console.warn('Structured memory lookup failed',error)
+  }
+
+  // Prefer grounded event answers over an unavailable or hallucinating AI.
+  // This path works for existing memories, even those saved before event
+  // attributes were extracted at capture time.
+  const eventIntent=classifyMemoryQuestion(rawQ)
+  const inferredEvent=(!eventIntent.topic&&eventIntent.property&&
+    ['wedding','reception','engagement','birthday','pickup'].includes(conversationContext.subject))
+    ?conversationContext.subject:null
+  const eventQuestion=inferredEvent?inferredEvent+' '+rawQ:rawQ
+  const effectiveEvent=classifyMemoryQuestion(eventQuestion)
+  if(effectiveEvent.topic&&effectiveEvent.property){
+    const storedEvents=await smartMemorySearch(eventQuestion,20)
+    const grounded=answerFromEventMemory(eventQuestion,storedEvents)
+    if(grounded){
+      conversationContext.subject=grounded.event
+      if(grounded.memoryId)conversationContext.lastMemoryId=grounded.memoryId
+      persistConversationState()
+      return grounded
+    }
   }
 
   let aiUnavailable=false
