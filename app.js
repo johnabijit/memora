@@ -2573,7 +2573,7 @@ async function authScreen(mode='login',method='email'){
         <button class="btn" id="switchMode">${mode==='login'?'Create new account':'I already have an account'}</button>
       </div>
       <p class="small muted" ${method==='email'?'':'hidden'}>A magic link signs you in from your email inbox. No password is needed. Request a new link if yours expires.</p>
-      <p id="authMsg" class="muted" role="status" aria-live="polite"></p>
+      <div id="authMsg" class="muted" role="status" aria-live="polite"></div>
 
       <div class="auth-public-footer">
         <span>© 2026 Memora. Created by John Abijit J A. All rights reserved.</span>
