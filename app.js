@@ -962,9 +962,9 @@ function ensureMediaPlayer(){
       <span id="playerStatus">Ready</span>
     </button>
     <div class="player-actions mini-actions">
-      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous">❮❮</button>
+      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous"><svg viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><path d="M5 5h2v14H5zm3 7 11-7v14z"/></svg></button>
       <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause">▶</button>
-      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next">❯❯</button>
+      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next"><svg viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><path d="M17 5h2v14h-2zM5 5l11 7-11 7z"/></svg></button>
       <button class="player-action expand-action" id="playerExpand" aria-label="Open Now Playing" title="Open player">⌃</button>
       <button class="player-action player-mute-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
     </div>
@@ -2708,11 +2708,11 @@ function shell(content,title,subtitle=''){
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left">
-        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">‹</button>':''}
-        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>‹</button>
+        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo" aria-hidden="true"><svg viewBox="0 0 48 48" width="36" height="36"><path d="M8 35V13l16 13 16-13v22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="11" r="4" fill="currentColor"/></svg></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
-      <div class="top-actions">
-        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search or Ask</span></button>
+      <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
+        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search memories, questions, music...</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
