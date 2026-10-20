@@ -394,7 +394,8 @@ test('Remember composer offers a safe Ask instead path without saving another me
    assert.ok(ask)
    assert.ok(save)
    w.document.getElementById('memoryInput').value='Where did I print my wedding invitations?'
-   await ask.onclick()
+   ask.click()
+   await new Promise(resolve=>setTimeout(resolve,30))
    assert.equal(w.document.getElementById('askInput').value,'Where did I print my wedding invitations?')
  }finally{dom.window.close()}
 })
