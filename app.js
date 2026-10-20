@@ -239,6 +239,7 @@ function modal(title,body){
   wrap.innerHTML=`<div class="glass modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="close" aria-label="Close">×</button></div>${body}</div>`
   const close=()=>{
     wrap.remove()
+    syncFloatingPlayerLayer()
     if(previousFocus?.focus) previousFocus.focus({preventScroll:true})
   }
   wrap.querySelector('.close').onclick=close
@@ -253,6 +254,7 @@ function modal(title,body){
     }
   })
   document.body.appendChild(wrap)
+  syncFloatingPlayerLayer()
   setTimeout(()=>wrap.querySelector('.close')?.focus({preventScroll:true}),20)
   return wrap
 }
@@ -936,6 +938,13 @@ function mediaAudio(){
   return document.getElementById('memoraAudio')
 }
 
+function syncFloatingPlayerLayer(){
+  document.body.classList.toggle('memora-audio-modal',Boolean(document.querySelector('.modal-backdrop')))
+  const player=document.getElementById('memoraMediaPlayer')
+  if(!player)return
+  player.dataset.context=document.querySelector('.modal-backdrop')?'dialog':view==='ask'?'chat':'page'
+}
+
 function mediaPlayerVisible(){
   return Boolean(document.getElementById('memoraMediaPlayer'))
 }
@@ -963,7 +972,7 @@ function ensureMediaPlayer(){
     </button>
     <div class="player-actions mini-actions">
       <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous">❮❮</button>
-      <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause">▶</button>
+      <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4.8 20 12 8 19.2Z" fill="currentColor"/></svg></button>
       <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next">❯❯</button>
       <button class="player-action expand-action" id="playerExpand" aria-label="Open Now Playing" title="Open player">⌃</button>
       <button class="player-action player-mute-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
@@ -971,6 +980,7 @@ function ensureMediaPlayer(){
   `
   document.body.appendChild(player)
   document.body.classList.add('has-memora-player')
+  syncFloatingPlayerLayer()
 
   const audio=mediaAudio()
   audio.volume=Math.max(0,Math.min(1,ambientPreferences.volume))
@@ -1057,6 +1067,8 @@ function nowPlayingArtwork(current){
   return current?.artwork||current?.favicon||''
 }
 
+const playerSvgPause='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4.5" width="4.5" height="15" rx="1.2" fill="currentColor"/><rect x="13.5" y="4.5" width="4.5" height="15" rx="1.2" fill="currentColor"/></svg>'
+const playerSvgPlay='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4.8 20 12 8 19.2Z" fill="currentColor"/></svg>'
 function openNowPlayingSheet(){
   ensureMediaPlayer()
   const current=mediaPlayerState.current||defaultNaturalTrack
@@ -1086,7 +1098,7 @@ function openNowPlayingSheet(){
       </div>
       <div class="now-playing-controls">
         <button class="now-control secondary" id="nowPrevious" aria-label="Previous">‹‹</button>
-        <button class="now-control play" id="nowPlay" aria-label="Play or pause">${audio&&!audio.paused?'Ⅱ':'▶'}</button>
+        <button class="now-control play" id="nowPlay" aria-label="Play or pause">${audio&&!audio.paused?playerSvgPause:playerSvgPlay}</button>
         <button class="now-control secondary" id="nowNext" aria-label="Next">››</button>
       </div>
       <div class="now-playing-tools">
@@ -1108,7 +1120,7 @@ function openNowPlayingSheet(){
   modalEl?.classList.add('now-playing-modal')
 
   wrap.querySelector('#nowPrevious').onclick=async()=>{await previousMediaTrack(true);wrap.remove();openNowPlayingSheet()}
-  wrap.querySelector('#nowPlay').onclick=async()=>{await toggleMediaPlayback();wrap.querySelector('#nowPlay').textContent=mediaAudio()?.paused?'▶':'Ⅱ'}
+  wrap.querySelector('#nowPlay').onclick=async()=>{await toggleMediaPlayback();wrap.querySelector('#nowPlay').innerHTML=mediaAudio()?.paused?playerSvgPlay:playerSvgPause}
   wrap.querySelector('#nowNext').onclick=async()=>{await nextMediaTrack(true);wrap.remove();openNowPlayingSheet()}
   wrap.querySelector('#nowMute').onclick=async()=>{await toggleMediaMute();wrap.querySelector('#nowMute').textContent=mediaAudio()?.muted?'Unmute':'Mute'}
   wrap.querySelector('#nowStop').onclick=()=>{stopMediaPlayback();wrap.querySelector('#nowPlay').textContent='▶'}
@@ -1170,6 +1182,7 @@ function refreshMediaPlayerUI(){
   const current=mediaPlayerState.current||defaultNaturalTrack
   const playing=!audio.paused&&!audio.ended
   player.classList.toggle('playing',playing)
+  syncFloatingPlayerLayer()
   player.dataset.mode=current.devotional?'devotional':(current.type||mediaPlayerState.mode)
 
   const title=document.getElementById('playerTitle')
@@ -1197,7 +1210,7 @@ function refreshMediaPlayerUI(){
     else if(!ambientPreferences.enabled||audio.muted) status.textContent='Muted'
     else status.textContent='Paused'
   }
-  if(play) play.textContent=playing?'Ⅱ':'▶'
+  if(play) play.innerHTML=playing?'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4.5" width="4.5" height="15" rx="1.2" fill="currentColor"/><rect x="13.5" y="4.5" width="4.5" height="15" rx="1.2" fill="currentColor"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4.8 20 12 8 19.2Z" fill="currentColor"/></svg>'
   if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
 
   const artworkUrl=nowPlayingArtwork(current)
@@ -2963,6 +2976,7 @@ async function renderRoute(next,focus=false){
     await renderPage()
   }
   removeStrayEscapedNewline()
+  syncFloatingPlayerLayer()
   if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
 }
 
