@@ -2989,8 +2989,8 @@ function shell(content,title,subtitle=''){
     <div class="scene-photo-layer" aria-hidden="true"></div>
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
-      <div class="top-left">
-        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>‹</button>
+      <div class="top-left"><button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>← Back</button>
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
       <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
@@ -3001,8 +3001,8 @@ function shell(content,title,subtitle=''){
           <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
         </form>
         <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
-        <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
-        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
+        
+        <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Play music</span></button>
         
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
@@ -3088,6 +3088,12 @@ function openMusicFinder(initial=''){
   update()
 }
 
+function inferGlobalSearchScope(query){
+  const text=String(query||'').toLowerCase().trim()
+  if(/\b(?:songs?|music|album|artist|sing|lyrics|soundtrack|playlist|devot|gospel|bhajan|worship|melod|track)\w*\b/i.test(text))return 'music'
+  if(/\b(?:radio|station|fm|broadcast)\b/i.test(text))return 'radio'
+  return 'memories'
+}
 function openGlobalSearch(initial=''){
   const wrap=modal('Search or Ask',`
     <form class="global-search-form">
@@ -3187,7 +3193,7 @@ function openGlobalSearch(initial=''){
     }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
   }
   setCategory()
-  if(initial)input.value=initial
+  if(initial){input.value=initial;scope.value=inferGlobalSearchScope(initial);setCategory()}
   setTimeout(()=>input.focus(),30)
 }
 
@@ -3220,7 +3226,7 @@ function openExploreMenu(){
   wrap.querySelector('#exploreSearch').onclick=()=>{wrap.remove();openGlobalSearch()}
 }
 function wire(){
-  document.getElementById('memoraExploreButton')?.addEventListener('click',openExploreMenu)
+  document.getElementById('leftMenuButton')?.addEventListener('click',openExploreMenu)
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
