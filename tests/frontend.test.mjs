@@ -52,7 +52,7 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
     }
   })
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+worldsRuntime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+worldsRuntime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,openThemePicker,syncFloatingPlayerLayer,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -398,5 +398,49 @@ test('Remember composer offers a safe Ask instead path without saving another me
    ask.click()
    await new Promise(resolve=>setTimeout(resolve,30))
    assert.equal(w.document.getElementById('askInput').value,'Where did I print my wedding invitations?')
+ }finally{dom.window.close()}
+})
+
+test('persistent player stays mounted when search opens, and modal positioning resets on close',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+  api.setUser()
+  await api.home()
+  const player=api.ensureMediaPlayer()
+  assert.ok(player)
+  api.openGlobalSearch()
+  assert.equal(w.document.body.classList.contains('memora-audio-modal'),true)
+  assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+  w.document.querySelector('.modal-backdrop .close').click()
+  api.syncFloatingPlayerLayer()
+  assert.equal(w.document.body.classList.contains('memora-audio-modal'),false)
+  assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+ }finally{dom.window.close()}
+})
+test('header exposes a real search input, home navigation, back, theme and music entry',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+  api.setUser()
+  await api.home()
+  assert.ok(w.document.getElementById('headerSearchQuery'))
+  assert.ok(w.document.getElementById('headerSearchForm'))
+  assert.ok(w.document.getElementById('brandHome').querySelector('.logo img'))
+  assert.ok(w.document.getElementById('appBackButton'))
+  assert.ok(w.document.getElementById('headerThemeButton'))
+  assert.ok(w.document.getElementById('headerMusicNav'))
+  assert.ok(w.document.querySelector('.header-navigation [data-nav="home"]'))
+ }finally{dom.window.close()}
+})
+test('theme picker displays distinct worlds plus optional region and festival settings',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+  api.setUser()
+  api.openThemePicker()
+  assert.equal(w.document.querySelectorAll('[data-world-choice]').length,30)
+  assert.ok(w.document.getElementById('worldRegion'))
+  assert.ok(w.document.getElementById('worldCelebrations'))
+  assert.ok(w.document.querySelector('.world-palettes'))
+  w.document.querySelector('[data-world-choice="paper"]').click()
+  assert.equal(w.document.documentElement.dataset.world,'paper')
  }finally{dom.window.close()}
 })
