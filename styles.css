@@ -2030,3 +2030,23 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .auth-card h2{font-size:25px}
   .auth-card .social-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Compact, accessible navigation for the shared desktop and mobile client. */
+.memora-explore-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.memora-explore-grid .btn{min-height:64px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px;text-align:left;padding:12px 14px;white-space:normal}
+.memora-explore-grid .btn small{font-size:.75rem;line-height:1.3;opacity:.74;font-weight:400}
+.topbar .top-actions{gap:6px}
+.topbar #memoraExploreButton{white-space:nowrap;font-weight:650}
+@media (max-width:720px){
+  .topbar .top-actions{gap:5px}
+  #memoraExploreButton{padding:9px 11px}
+  .memora-explore-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .page-head{margin-bottom:12px}
+  .main .section{margin-top:16px}
+  .topbar .brand small{display:none}
+  .topbar .theme-text{max-width:65px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+@media (max-width:390px){
+  .memora-explore-grid{grid-template-columns:1fr}
+}
