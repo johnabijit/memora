@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
 import { requestPhoneOtp, confirmPhoneOtp, resendPhoneOtp, phoneAuthError } from './client/phone-auth.js'
 import { PHONE_COUNTRIES, normalizeDialCode, composeInternationalNumber } from './client/phone-countries.js'
+import { startPhoneLink, confirmPhoneLink, maskedPhone, phoneLinkMessage } from './client/phone-link.js'
 import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic } from './client/relevant-memory.js'
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
@@ -5767,9 +5768,10 @@ async function help(){
 }
 
 async function settings(){
-  const [{data:profile},{data:settingsData}]=await Promise.all([
+  const [{data:profile},{data:settingsData},{data:authIdentity}]=await Promise.all([
     supabase.from('profiles').select('*').maybeSingle(),
-    supabase.from('user_settings').select('*').maybeSingle()
+    supabase.from('user_settings').select('*').maybeSingle(),
+    supabase.auth.getUser()
   ])
   const currentTheme=localStore.getItem('memora-theme')||'auto'
   const reduceMotion=settingsData?.reduce_motion===true
@@ -5785,6 +5787,18 @@ async function settings(){
           <input class="input" id="timezone" value="${esc(profile?.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone)}" placeholder="Timezone">
           <button class="btn primary" id="saveProfile">Save profile</button>
         </div>
+      </section>
+
+      <section class="glass settings-card">
+        <div class="eyebrow">Account access</div>
+        <h3>Mobile number</h3>
+        <div class="setting-row">
+          <span>Verified number</span>
+          <b id="linkedPhoneState">${authIdentity?.user?.phone ? esc(maskedPhone(authIdentity.user.phone)) : 'Not linked'}</b>
+        </div>
+        <p class="muted">Add a mobile number to this existing account. Your Google or email sign-in, people, conversations and saved memories stay together.</p>
+        <button class="btn primary" id="linkMobileNumber" type="button">${authIdentity?.user?.phone?'Change mobile number':'Add mobile number'}</button>
+        <p class="small muted" id="linkedPhoneHelp" role="status">A verification SMS is required. This option becomes available when Memora SMS delivery is configured.</p>
       </section>
 
       <section class="glass settings-card">
@@ -5866,6 +5880,14 @@ async function settings(){
 
   document.getElementById('enableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/enable'})
   document.getElementById('disableAndroidDeviceLock')?.addEventListener('click',()=>{window.location.href='memora://security/disable'})
+  document.getElementById('linkMobileNumber')?.addEventListener('click',()=>openLinkPhoneModal())
+  const linkedPhoneHelp=document.getElementById('linkedPhoneHelp')
+  getAuthProviderSettings().then(result=>{
+    if(!linkedPhoneHelp?.isConnected)return
+    linkedPhoneHelp.textContent=result?.phone===true
+      ? 'SMS verification is available. Adding a number does not create a new account.'
+      : 'SMS delivery is not active yet. An administrator must complete phone provider setup before a verification code can be sent.'
+  })
   const setupPasskey=document.getElementById('registerPasskey')
   if(setupPasskey)setupPasskey.onclick=async()=>{
     const status=document.getElementById('passkeySetupStatus')
