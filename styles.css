@@ -2118,3 +2118,95 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
  .settings-grid{gap:9px}
  .settings-card{padding:14px}
 }
+
+
+/* Unified discovery, conversation-first Ask and clear persistent audio controls.
+   Overrides intentionally live at the end of the stylesheet to avoid changing
+   other screens. All touch controls meet or exceed a practical 44px target. */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.global-search-trigger{display:flex;align-items:center;gap:8px;min-height:44px;font-weight:650}
+.home-quick-nav #homeSearchQuick{flex:1.35 1 170px}
+.modal:has(.unified-scope-tabs){width:min(760px,100%);max-height:min(86dvh,880px)}
+.search-intro{margin:0 0 12px;line-height:1.5;font-size:13px}
+.unified-search-input{min-height:55px;font-size:16px;border-radius:17px;padding:14px 16px}
+.unified-scope-select{position:absolute!important;width:1px;height:1px;opacity:0;pointer-events:none}
+.unified-scope-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.scope-chip{color:#cbd4df;cursor:pointer;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:10px 14px;min-height:44px;font-size:13px}
+.scope-chip.active,.scope-chip[aria-pressed="true"]{background:color-mix(in srgb,var(--c1) 28%,#172030);border-color:color-mix(in srgb,var(--c1) 48%,transparent);color:#fff;font-weight:700}
+.unified-search-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.unified-search-actions .btn{min-height:48px}
+.global-search-results{display:grid;gap:10px;margin-top:13px}
+.global-search-results .search-result{border-radius:17px;background:rgba(255,255,255,.035);padding:13px 15px}
+.global-search-results .search-result strong{font-size:14px;line-height:1.35}
+.global-search-results .search-result p{color:#bdc6d4;font-size:12px;line-height:1.6;margin:7px 0 9px}
+.global-search-results .search-result .btn{min-height:41px;margin:4px 6px 0 0;font-size:12px}
+#globalSearchStatus{font-size:12px;color:#c6d0dd;min-height:18px;margin:9px 0 0}
+#globalSearchNote{font-size:11px;line-height:1.5}
+#globalMusicFinder[hidden]{display:none!important}
+.app:has(.ask-layout) .scene-photo-layer{opacity:.12}
+.main:has(.ask-layout){max-width:1200px}
+.main:has(.ask-layout) .page-head{margin:4px 0 10px}
+.main:has(.ask-layout) .page-head h2{font-size:clamp(27px,3vw,35px);letter-spacing:-.9px}
+.main:has(.ask-layout) .page-head p{font-size:12px;margin:7px 0 0}
+.ask-layout{display:grid;grid-template-columns:minmax(0,1fr);width:min(970px,100%);min-height:0;margin:0 auto;gap:0}
+.ask-main{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:clamp(420px,calc(100dvh - 245px),770px);min-height:0;gap:9px}
+.ask-intelligence{min-height:64px;position:relative!important;top:auto!important;padding:10px 13px;border-radius:17px}
+.ask-title-block strong{font-size:15px;line-height:1.35}
+.ask-title-block small{display:block;font-size:11px;color:#c8d0df}
+.ask-memory-status{margin-left:auto;white-space:nowrap;padding:6px 9px;border:1px solid rgba(157,207,168,.35);border-radius:999px;background:rgba(113,176,119,.09);color:#b9e8c1;font-size:10px}
+.chat-sidebar{position:fixed!important;top:68px!important;left:clamp(10px,5vw,46px);bottom:max(94px,env(safe-area-inset-bottom));width:min(330px,calc(100vw - 34px));max-height:none!important;transform:translateX(calc(-100% - 70px));opacity:0;visibility:hidden;pointer-events:none;transition:transform .2s ease,opacity .2s ease;z-index:95!important;background:#101720}
+.chat-sidebar.open{transform:translateX(0);opacity:1;visibility:visible;pointer-events:auto}
+.chat-drawer-scrim.open{position:fixed!important;inset:0;background:rgba(0,0,0,.58);z-index:90}
+.chat-panel{min-height:0!important;max-height:none!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin;padding:13px 15px 20px;border-radius:19px;background:rgba(11,17,28,.91);border:1px solid rgba(255,255,255,.12)}
+.chat{display:grid;gap:12px;align-content:start;min-height:90px}
+.chat .bubble{max-width:min(700px,90%);font-size:13px;line-height:1.65;padding:12px 15px}
+.ask-suggestions{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 13px}
+.ask-suggestions .chip{font-size:11px;min-height:38px;padding:7px 11px}
+.ask-box{position:relative!important;bottom:auto!important;grid-template-columns:minmax(0,1fr) auto auto!important;gap:8px;padding:10px;border-radius:17px;background:rgba(15,21,33,.97);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.ask-box #askInput{font-size:15px;min-height:52px;max-height:130px;resize:vertical;padding:12px 14px;line-height:1.45}
+.ask-box .btn{min-height:48px;align-self:start}
+.ask-box #askButton{min-width:94px;font-size:14px;font-weight:700}
+.ask-hint{grid-column:1/-1;font-size:10px;color:#9faabd;margin:0 3px}
+.memora-player{z-index:74!important;bottom:calc(var(--dock-h) + 21px)!important;width:min(860px,calc(100vw - 20px))!important;min-height:78px;grid-template-columns:auto minmax(0,1fr) auto!important;gap:11px;padding:9px 13px;border:1px solid rgba(255,255,255,.20);border-radius:22px;background:rgba(13,19,29,.97);box-shadow:0 10px 45px rgba(0,0,0,.56);backdrop-filter:blur(22px)}
+.memora-player .player-track{min-width:0}
+.memora-player .player-kicker{display:block;font-size:10px;font-weight:750;letter-spacing:.08em;color:#b9e3b1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.memora-player #playerSource{font-weight:500;letter-spacing:0;color:#a9b9ca}
+.memora-player #playerTitle{font-size:13px;line-height:1.3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.memora-player #playerStatus{font-size:10px;line-height:1.3}
+.memora-player .player-actions{gap:7px;flex-wrap:nowrap}
+.memora-player .player-action{min-width:48px!important;width:48px;height:48px!important;padding:0 6px!important;border-radius:13px;font-size:16px!important;font-weight:800}
+.memora-player #playerPlay{width:53px;min-width:53px!important;font-size:20px!important}
+.memora-player .player-mute-action{font-size:11px!important;width:53px}
+.memora-player .player-mini-art{min-width:50px;min-height:50px}
+body.has-memora-player .app{padding-bottom:calc(var(--dock-h) + 170px)}
+@media(max-width:760px){
+ .global-search-label{display:inline!important}
+ .top-actions #globalSearchButton{font-size:12px;padding:9px 10px}
+ .top-actions #memoraExploreButton{font-size:12px}
+ .ask-main{height:clamp(380px,calc(100dvh - 230px),690px)}
+ .chat-panel{padding:12px 11px 16px}
+ .ask-memory-status{font-size:9px;padding:5px}
+ .ask-box{grid-template-columns:minmax(0,1fr) auto auto!important;gap:6px}
+ .ask-box #askInput{font-size:14px;min-height:47px;padding:10px}
+ .ask-box .btn{padding:9px;min-width:45px}
+ .ask-box #askButton{min-width:70px;font-size:12px}
+ .ask-hint{font-size:9px}
+ .memora-player{min-height:66px;padding:7px 8px!important;gap:7px!important;border-radius:16px}
+ .memora-player .player-mini-art{min-width:43px;min-height:43px;width:43px;height:43px}
+ .memora-player .player-action{min-width:42px!important;width:42px;height:45px!important;font-size:13px!important;padding:0!important}
+ .memora-player #playerPlay{min-width:46px!important;width:46px;font-size:17px!important}
+ .memora-player .player-mute-action{display:none}
+}
+@media(max-width:430px){
+ .memora-player #playerExpand{display:none}
+ .memora-player .player-kicker{font-size:9px}
+ .memora-player #playerTitle{font-size:12px}
+ .memora-player .player-actions{gap:4px}
+ .memora-player .player-mini-art{min-width:39px;width:39px;height:39px;min-height:39px}
+ .ask-main{height:calc(100dvh - 205px);min-height:400px}
+ .ask-title-block small{display:none}
+ .ask-suggestions .chip{min-height:36px}
+ .unified-scope-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+ .scope-chip{font-size:11px;padding:8px 4px;min-height:42px}
+ .unified-search-actions .btn{font-size:12px;padding:9px}
+}
