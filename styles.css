@@ -2268,3 +2268,45 @@ body.has-memora-player .modal-backdrop .memora-player{z-index:110}
  body.has-memora-player .modal{max-height:calc(100dvh - var(--dock-h) - 130px)}
  body.has-memora-player .main{padding-bottom:165px!important}
 }
+
+
+/* Memora 2.0 navigation and persistent music dock */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px clamp(12px,2vw,26px)}
+.top-left{display:flex;align-items:center;gap:8px;min-width:max-content}
+.top-primary-nav{flex:0 0 auto}
+.top-primary-nav button{padding:10px 12px}
+.top-global-search{flex:1 1 330px;display:flex;align-items:center;min-width:190px;max-width:450px;height:45px;background:#121d2b;border:1px solid rgba(183,211,247,.27);border-radius:15px;padding:0 5px 0 13px;transition:border-color .2s,box-shadow .2s}
+.top-global-search:focus-within{border-color:var(--c1);box-shadow:0 0 0 3px color-mix(in srgb,var(--c1) 16%,transparent)}
+.top-global-search .top-search-symbol{font-size:23px;line-height:1;color:#b5c6db;margin-right:8px}
+.top-global-search input{min-width:0;flex:1;background:transparent;border:none;outline:none;color:#f3f7fc;font:500 13px inherit;font-size:13px}
+.top-global-search input::placeholder{color:#adb9c9}
+.top-global-search button{border:0;background:color-mix(in srgb,var(--c1) 18%,#202836);color:#e7f2ff;border-radius:11px;width:36px;height:35px;display:grid;place-items:center;cursor:pointer}
+.search-mobile-launch{display:none!important}
+#topThemeNav{color:#d6f4ff}
+.top-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.memora-player.compact-player{position:fixed!important;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom))!important;z-index:240!important;visibility:visible!important;opacity:1!important;max-width:calc(100vw - 20px);box-sizing:border-box}
+body.has-memora-player .main,body.has-memora-player .app{padding-bottom:calc(var(--active-player-height,78px) + 84px)!important}
+body.player-with-dialog .modal-backdrop{z-index:200!important;padding-bottom:calc(var(--active-player-height,78px) + 35px)!important;box-sizing:border-box}
+body.player-with-dialog .modal{max-height:calc(100dvh - var(--active-player-height,78px) - 70px)!important;overscroll-behavior:contain}
+body.player-with-dialog .memora-player{z-index:240!important}
+body.player-with-dialog .modal-backdrop.now-playing-backdrop{z-index:250!important;padding-bottom:18px!important}
+body.player-with-dialog .now-playing-backdrop .modal{max-height:calc(100dvh - 36px)!important}
+body.player-with-dialog:has(.now-playing-backdrop) .memora-player{visibility:hidden!important;pointer-events:none}
+body.player-keyboard-open .memora-player{opacity:.96;transform:translateX(-50%) scale(.88);transform-origin:bottom center}
+.memora-player .player-action svg{display:block;margin:auto}
+.memora-player .player-mini-art{flex-shrink:0}
+@media(min-width:941px){.top-primary-nav{display:flex!important}}
+@media(min-width:941px) and (max-width:1350px){.top-primary-nav button{padding:9px 7px;font-size:11px}.top-global-search{flex-basis:210px;min-width:150px}}
+@media(max-width:1100px){.top-global-search{max-width:270px}.top-actions .sound-button{display:none}}
+@media(max-width:940px){.top-primary-nav{display:none!important}.top-global-search{display:flex;max-width:none}.top-actions #memoraExploreButton{display:block}}
+@media(max-width:700px){
+ .top-global-search{display:none}
+ .search-mobile-launch{display:flex!important;min-width:48px!important;align-items:center;justify-content:center}
+ .topbar .top-actions{gap:4px}
+ .topbar .top-actions #settingsButton{display:none}
+ .topbar .top-actions .sound-button{display:none}
+ .memora-player.compact-player{bottom:calc(var(--dock-h,70px) + 10px + env(safe-area-inset-bottom))!important}
+ body.has-memora-player .main,body.has-memora-player .app{padding-bottom:calc(var(--dock-h,70px) + var(--active-player-height,75px) + 40px)!important}
+ body.player-with-dialog .modal-backdrop{padding-bottom:calc(var(--dock-h,70px) + var(--active-player-height,75px) + 35px)!important}
+ body.player-with-dialog .modal{max-height:calc(100dvh - var(--dock-h,70px) - var(--active-player-height,75px) - 52px)!important}
+}
