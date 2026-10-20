@@ -13,22 +13,30 @@ const facts=[
   {fact_key:'family.sister.2',category:'family',predicate:'sister',value_text:'Dana',ordinal:2,age_relation:'younger'}
 ]
 
-async function appFixture({blockedStorage=false,slowProviders=false}={}) {
+async function appFixture({blockedStorage=false,slowProviders=false,phoneProviderEnabled=false}={}) {
   const dom=new JSDOM('<div id="app"></div>',{url:'https://memora.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()})
   const w=dom.window
   w.SUPABASE_URL='https://fixture.supabase.co'
   w.SUPABASE_PUBLISHABLE_KEY='fixture-publishable-key'
   w.AbortSignal=AbortSignal
-  w.fetch=async()=>slowProviders?new Promise(()=>{}):Response.json({external:{}})
+  w.fetch=async()=>slowProviders?new Promise(()=>{}):Response.json({external:{phone:phoneProviderEnabled}})
   w.matchMedia=()=>({matches:false,addEventListener(){}})
   w.HTMLMediaElement.prototype.load=function(){}
   w.HTMLMediaElement.prototype.play=async function(){this._playing=true;this.dispatchEvent(new w.Event('play'))}
   w.HTMLMediaElement.prototype.pause=function(){this._playing=false}
   Object.defineProperty(w.HTMLMediaElement.prototype,'paused',{get(){return !this._playing}})
   if(blockedStorage) Object.defineProperty(w,'localStorage',{get(){throw new Error('Storage denied')}})
+  w.memoraOtpRequests=[]
   w.createClient=()=>({
     rpc:async()=>({data:[{entity_id:'m1',title:'My saved guitar',content:'Stored in the music room',metadata:{}}]}),
-    auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({}),signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}})},
+    auth:{
+      getSession:async()=>({data:{session:null}}),
+      onAuthStateChange:()=>({}),
+      signInWithPassword:async()=>({data:{},error:{message:'Invalid login credentials'}}),
+      signInWithOtp:async payload=>{w.memoraOtpRequests.push(payload);return {error:null}},
+      verifyOtp:async payload=>({data:{session:{user:{id:'fixture-user'}},user:{id:'fixture-user'}},error:null}),
+      resend:async payload=>({error:null})
+    },
     from(table){
       const chain=new Proxy({}, {get(_,key){
         if(key==='then') return resolve=>resolve({data:table==='memory_facts'?facts:[],error:null})
@@ -38,7 +46,8 @@ async function appFixture({blockedStorage=false,slowProviders=false}={}) {
       return chain
     }
   })
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  const phoneAuth=(await readFile('client/phone-auth.js','utf8')).replace(/^export /gm,'')
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+phoneAuth+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -249,5 +258,50 @@ test('out-of-order album searches cannot overwrite the latest collection results
     pending[1](Response.json({items:[{id:'new'}]}));await second
     pending[0](Response.json({items:[{id:'old'}]}));await first
     assert.equal(api.mediaPlayerState.musicCollections[0].id,'new')
+  }finally{dom.window.close()}
+})
+
+
+test('phone method is visible but SMS send is blocked while Supabase phone authentication is disabled',async()=>{
+  const {dom,w}=await appFixture({phoneProviderEnabled:false})
+  try{
+    const tab=w.document.getElementById('authPhoneTab')
+    assert.ok(tab)
+    tab.click()
+    await new Promise(resolve=>setTimeout(resolve,10))
+    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
+    assert.equal(w.document.getElementById('authForm').hidden,true)
+    assert.equal(w.document.getElementById('sendPhoneOtp').disabled,true)
+    assert.match(w.document.getElementById('phoneAuthMsg').textContent,/SMS signup is not active/)
+    assert.equal(w.memoraOtpRequests.length,0)
+  }finally{dom.window.close()}
+})
+
+test('phone OTP signup and login use the same mobile screen across Memora web and app',async()=>{
+  const {dom,w}=await appFixture({phoneProviderEnabled:true})
+  try{
+    w.document.getElementById('authPhoneTab').click()
+    await new Promise(resolve=>setTimeout(resolve,10))
+    const phone=w.document.getElementById('phoneNumber')
+    phone.value='+91 9876543210'
+    w.document.getElementById('phoneAuthForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))
+    await new Promise(resolve=>setTimeout(resolve,10))
+    assert.equal(w.memoraOtpRequests.length,1)
+    assert.equal(w.memoraOtpRequests[0].phone,'+919876543210')
+    assert.equal(w.memoraOtpRequests[0].options.shouldCreateUser,false)
+    assert.equal(w.document.getElementById('phoneOtpForm').hidden,false)
+    w.document.getElementById('changePhoneNumber').click()
+    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
+    w.document.getElementById('switchMode').click()
+    await new Promise(resolve=>setTimeout(resolve,10))
+    assert.equal(w.document.getElementById('authForm').hidden,true)
+    assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
+    w.document.getElementById('phoneNumber').value='+1 415 555 0100'
+    w.document.getElementById('phoneDisplayName').value='Phone User'
+    w.document.getElementById('phoneAuthForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))
+    await new Promise(resolve=>setTimeout(resolve,10))
+    assert.equal(w.memoraOtpRequests.length,2)
+    assert.equal(w.memoraOtpRequests[1].options.shouldCreateUser,true)
+    assert.deepEqual(JSON.parse(JSON.stringify(w.memoraOtpRequests[1].options.data)),{display_name:'Phone User'})
   }finally{dom.window.close()}
 })
