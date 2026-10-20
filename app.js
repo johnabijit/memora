@@ -2591,6 +2591,20 @@ async function authScreen(mode='login',method='email'){
   const otpForm=document.getElementById('phoneOtpForm')
   const phoneMsg=document.getElementById('phoneAuthMsg')
   const resendButton=document.getElementById('resendPhoneOtp')
+  const sendPhoneButton=document.getElementById('sendPhoneOtp')
+  // Read the real Auth service setting so users are not offered an SMS
+  // request that the current Supabase deployment cannot deliver.
+  let phoneSmsEnabled=false
+  sendPhoneButton.disabled=true
+  if(method==='phone') phoneMsg.textContent='Checking SMS availability...'
+  getAuthProviderSettings().then(settings=>{
+    if(!sendPhoneButton.isConnected) return
+    phoneSmsEnabled=settings?.phone===true
+    sendPhoneButton.disabled=!phoneSmsEnabled
+    if(method==='phone') phoneMsg.textContent=phoneSmsEnabled
+      ? 'Mobile number sign-in is available. SMS carrier charges may apply.'
+      : 'SMS signup is not active yet. Memora must enable phone authentication and connect an SMS sender in Supabase. You can still sign in with email or Google.'
+  })
   let pendingPhone=''
   let lastSmsRequestAt=0
   let resendClock=null
@@ -2615,7 +2629,7 @@ async function authScreen(mode='login',method='email'){
   phoneForm.onsubmit=async event=>{
     event.preventDefault()
     const sendButton=document.getElementById('sendPhoneOtp')
-    if(sendButton.disabled) return
+    if(sendButton.disabled||!phoneSmsEnabled) return
     sendButton.disabled=true
     phoneMsg.textContent='Requesting a secure SMS code...'
     try{
