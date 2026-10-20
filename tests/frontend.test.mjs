@@ -51,7 +51,7 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
     }
   })
   const relevance=(await readFile('client/relevant-memory.js','utf8')).replace(/^export /gm,'')
-  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
+  w.eval((await readFile('shared/music-search.js','utf8')).replace(/^export /gm,'')+'\n'+runtime+'\n'+relevance+'\n'+source+`\nwindow.testApi={youtubeTarget,memorySearchSnippet,openMusicFinder,openSoundscapePicker,loadMusicCollections,openGlobalSearch,openThemePicker,updateTheme,go,home,settings,answer,answerFromStructuredFacts,relationNamesFromText,cleanAnswerText,loadMediaLibrary,selectMediaTrack,previousMediaTrack,nextMediaTrack,ensureMediaPlayer,mediaPlayerState,setUser(){user={id:'fixture-user'}},setMode(mode){mediaPlayerState.mode=mode},resetRecovery(){mediaRecoveryAttempts=0}}`)
   for(let i=0;i<10&&!w.memoraReady;i++) await new Promise(resolve=>setTimeout(resolve,10))
   return {dom,w,api:w.testApi}
 }
@@ -397,5 +397,62 @@ test('Remember composer offers a safe Ask instead path without saving another me
    ask.click()
    await new Promise(resolve=>setTimeout(resolve,30))
    assert.equal(w.document.getElementById('askInput').value,'Where did I print my wedding invitations?')
+ }finally{dom.window.close()}
+})
+
+
+test('Memora 2.0 mounts the player independently of Home Ask Memories and search dialogs',async()=>{
+  const {dom,w,api}=await appFixture()
+  try{
+    api.setUser()
+    const player=api.ensureMediaPlayer()
+    assert.ok(player)
+    assert.equal(player.parentElement,w.document.body)
+    await api.go('home')
+    assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+    await api.go('memories')
+    assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+    await api.go('ask')
+    assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+    api.openGlobalSearch()
+    assert.ok(w.document.querySelector('.global-search-form'))
+    await new Promise(resolve=>setTimeout(resolve,5))
+    assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
+    assert.equal(w.document.body.classList.contains('player-with-dialog'),true)
+    assert.equal(w.document.getElementById('memoraAudio').parentElement,player)
+  }finally{dom.window.close()}
+})
+test('Memora v2 has a visible top Home Back search bar music and Themes navigation',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   await api.go('home')
+   for(const id of ['brandHome','appBackButton','topGlobalSearchForm','topSearchInput','topAudioNav','topThemeNav']){
+     assert.ok(w.document.getElementById(id),id+' missing from navigation')
+   }
+   assert.equal(w.document.querySelectorAll('.top-primary-nav [data-nav]').length>=3,true)
+   assert.match(w.document.querySelector('.brand-symbol img').getAttribute('src'),/icon\.svg/)
+   const search=w.document.getElementById('topGlobalSearchForm')
+   w.document.getElementById('topSearchInput').value='my wedding date'
+   search.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))
+   assert.equal(w.document.getElementById('globalSearchQuery').value,'my wedding date')
+ }finally{dom.window.close()}
+})
+test('Memora Visual Worlds has real theme families manual region festival and Classic collections',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   api.openThemePicker()
+   const picker=w.document.querySelector('.visual-world-dialog')
+   assert.ok(picker)
+   assert.equal(picker.querySelectorAll('[data-world-select]').length,22)
+   assert.equal(picker.querySelectorAll('[data-theme]').length,120)
+   assert.ok(picker.querySelector('#worldRegion'))
+   assert.ok(picker.querySelector('#worldFestival'))
+   picker.querySelector('[data-world-select="zen-sakura"]').click()
+   assert.equal(w.document.documentElement.dataset.visualWorld,'zen-sakura')
+   assert.equal(w.localStorage.getItem('memora-world-mode'),'manual')
+   picker.querySelector('#worldAuto').click()
+   assert.equal(w.localStorage.getItem('memora-world-mode'),'auto')
  }finally{dom.window.close()}
 })
