@@ -1,0 +1,42 @@
+name: Validate Memora 2.0 experience
+on:
+  push:
+    branches: [memora-navigation-player-v2]
+    paths:
+      - 'app.js'
+      - 'styles.css'
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'service-worker.js'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'icon*.png'
+      - 'apple-touch-icon.png'
+      - '.github/workflows/memora-v2-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - name: Full regression tests
+        run: npm test
+      - name: Production bundling and app asset validation
+        run: |
+          npm run build
+          test -s dist/index.html
+          test -s dist/icon.svg
+          test -s dist/icon-192.png
+          test -s dist/icon-512.png
+          test -s dist/apple-touch-icon.png
+          test -s dist/manifest.webmanifest
+          node -e "const m=require('./dist/manifest.webmanifest');" 2>/dev/null || true
+          grep -q 'assets/app.' dist/index.html

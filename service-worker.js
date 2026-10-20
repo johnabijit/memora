@@ -1,5 +1,5 @@
-const CACHE = 'memora-v43.1'
-const ASSETS = ['./', './index.html', './styles.css?v=43.1', './app.js?v=43.1', './icon.svg', './manifest.webmanifest']
+const CACHE = 'memora-v43.2'
+const ASSETS = ['./', './index.html', './styles.css?v=43.1', './app.js?v=43.1', './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './manifest.webmanifest']
 const assetPaths = new Set(ASSETS.map(path => new URL(path, self.location.href).pathname))
 
 self.addEventListener('install', event => {

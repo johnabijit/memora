@@ -169,6 +169,80 @@ const themeCatalog=themeFamilies.flatMap((family)=>themeMoods.map((mood,index)=>
 }))
 const manualThemes=Object.fromEntries(themeCatalog.map(theme=>[theme.id,theme]))
 
+const visualWorlds=[
+  {id:'midnight-studio',name:'Midnight Studio',group:'Modern',scene:'cinematic modern dark editorial architecture',style:'studio',palette:['#b5d4ff','#91e6d8','#eac58d'],bg:['#080f1b','#111e2c','#172639']},
+  {id:'paper-atelier',name:'Paper Atelier',group:'Minimal',scene:'handmade linen paper botanical flat lay elegant',style:'paper',palette:['#d6a260','#7b9f85','#cebba4'],bg:['#383027','#615244','#826b54']},
+  {id:'zen-sakura',name:'Zen Sakura',group:'Nature',scene:'Japanese sakura blossoms serene temple spring morning',style:'zen',palette:['#f7aec7','#c8dffb','#d6f6d9'],bg:['#241927','#393147','#554158']},
+  {id:'coastal-glass',name:'Coastal Glass',group:'Nature',scene:'beautiful turquoise ocean coast cliffs sunlight calm',style:'coastal',palette:['#7adeea','#b4efdf','#ffe4ad'],bg:['#0c2639','#10445c','#156078']},
+  {id:'monsoon-diary',name:'Monsoon Diary',group:'Seasons',scene:'lush Indian Kerala monsoon rainforest rainy window',style:'rain',palette:['#a0ead4','#a3c3ef','#d6ecc7'],bg:['#0b2025','#153f40','#285452']},
+  {id:'winter-frost',name:'Winter Frost',group:'Seasons',scene:'quiet snowy forest blue frozen sunrise mountains',style:'frost',palette:['#b4e7fd','#dce6fa','#b4e7e9'],bg:['#182a44','#2f4462','#365e72']},
+  {id:'autumn-editorial',name:'Autumn Editorial',group:'Seasons',scene:'fall forest orange leaves golden mist photography',style:'autumn',palette:['#f7c17a','#e9ae8f','#b9d4a4'],bg:['#251811','#4b3026','#58452b']},
+  {id:'desert-silk',name:'Desert Silk',group:'Nature',scene:'golden desert dunes sunset architectural luxury',style:'desert',palette:['#f0c49c','#eeb17c','#f6e3c5'],bg:['#2d1e22','#62443b','#765647']},
+  {id:'mountain-dawn',name:'Mountain Dawn',group:'Nature',scene:'sunrise golden mist layered mountain valley lake',style:'mountain',palette:['#e5ccab','#b0efdf','#cbbde5'],bg:['#182433','#3f4855','#57625a']},
+  {id:'aurora-skies',name:'Aurora Skies',group:'Seasons',scene:'bright aurora northern lights over Nordic fjord',style:'aurora',palette:['#8ef4b7','#92bcff','#d3b4fd'],bg:['#10152c','#142d3e','#173d39']},
+  {id:'diwali-lights',name:'Diwali Lights',group:'Festivals',scene:'beautiful Indian Diwali diya lamps warm lights festive',style:'festival',palette:['#ffcf76','#ff9a8b','#f6dcad'],bg:['#31140f','#56301e','#6e3924']},
+  {id:'christmas-cabin',name:'Christmas Cabin',group:'Festivals',scene:'warm Christmas decorated cozy alpine cabin snow',style:'festival',palette:['#fee6ad','#cceab8','#ffc0ae'],bg:['#18271c','#344832','#543d35']},
+  {id:'eid-moon',name:'Eid Moon',group:'Festivals',scene:'crescent moon ornate lantern lights blue night mosque skyline',style:'festival',palette:['#e6d29d','#b1ebea','#f4d0bf'],bg:['#101c34','#223955','#334350']},
+  {id:'pongal-harvest',name:'Pongal Harvest',group:'Festivals',scene:'Tamil Nadu village Pongal harvest kolam sugarcane sunrise',style:'festival',palette:['#f5c87e','#d6ed93','#f9ded0'],bg:['#312615','#4b4625','#6a5934']},
+  {id:'onam-bloom',name:'Onam Bloom',group:'Festivals',scene:'Kerala Onam pookalam flower carpet festive traditional',style:'festival',palette:['#ffcf8b','#edb5ba','#b7e0b1'],bg:['#262519','#4c3c2b','#4f5533']},
+  {id:'retro-wave',name:'Retro Wave',group:'Creative',scene:'synthwave retro gradient sunset purple neon mountains',style:'retro',palette:['#ff8fbe','#7dccfe','#f2b6ef'],bg:['#1b1032','#36194f','#382452']},
+  {id:'cosmic-orbit',name:'Cosmic Orbit',group:'Creative',scene:'starfield galaxy nebula space aurora purple blue',style:'cosmic',palette:['#c8b7ff','#77c4ff','#ffb7e7'],bg:['#0d1025','#222443','#281e46']},
+  {id:'nordic-calm',name:'Nordic Calm',group:'Minimal',scene:'minimal Scandinavian home Nordic warm calm neutral interior',style:'nordic',palette:['#e5d3b8','#b7d1c2','#d2c9dd'],bg:['#302d2a','#484940','#5d5b52']},
+  {id:'botanical-story',name:'Botanical Story',group:'Nature',scene:'beautiful lush botanical greenhouse garden sunlight',style:'botanical',palette:['#c7e4a0','#a9d5c0','#f2d6a9'],bg:['#142b1e','#244a36','#345f47']},
+  {id:'cyber-city',name:'Cyber City',group:'Creative',scene:'modern cinematic cyberpunk Tokyo neon city night',style:'cyber',palette:['#6feeff','#c99bff','#ff9fcf'],bg:['#0c122c','#18234c','#241641']},
+  {id:'old-library',name:'Old Library',group:'Editorial',scene:'cozy vintage library warm wooden shelves lamplight',style:'library',palette:['#eac58c','#cfb89a','#c0d3b1'],bg:['#271c17','#423025','#5e4938']},
+  {id:'rainy-cafe',name:'Rainy Cafe',group:'Editorial',scene:'rainy cozy cafe window warm lights cinematic',style:'cafe',palette:['#efc5a0','#b2d0d8','#f2cf9a'],bg:['#1d2429','#343b3c','#504840']}
+]
+const worldById=Object.fromEntries(visualWorlds.map(world=>[world.id,world]))
+const worldRegions=[
+  ['auto','My current local time'],['IN','India'],['US','United States'],['GB','United Kingdom'],
+  ['AE','United Arab Emirates'],['CA','Canada'],['AU','Australia'],['NZ','New Zealand'],
+  ['JP','Japan'],['SG','Singapore'],['MY','Malaysia'],['DE','Germany'],['ZA','South Africa'],
+  ['BR','Brazil'],['GLOBAL','Global / worldwide']
+]
+const worldFestivals=[
+  ['none','No festival theme'],['diwali-lights','Diwali'],['christmas-cabin','Christmas'],
+  ['eid-moon','Eid'],['pongal-harvest','Pongal'],['onam-bloom','Onam']
+]
+function selectedVisualWorld(){
+  const mode=localStore.getItem('memora-world-mode')||'auto'
+  if(mode==='classic')return null
+  if(mode==='manual')return worldById[localStore.getItem('memora-world')||'midnight-studio']||visualWorlds[0]
+  const region=localStore.getItem('memora-world-region')||'auto'
+  const optedFestival=localStore.getItem('memora-world-festival')||'none'
+  if(optedFestival!=='none'&&worldById[optedFestival])return worldById[optedFestival]
+  const today=new Date()
+  const month=today.getMonth()+1
+  const hour=today.getHours()
+  const south=['AU','NZ','ZA','BR'].includes(region)
+  const localWinter=south?month>=6&&month<=8:(month===12||month<=2)
+  const localAutumn=south?month>=3&&month<=5:(month>=9&&month<=11)
+  if(localWinter)return worldById['winter-frost']
+  if(localAutumn)return worldById['autumn-editorial']
+  if(region==='IN'&&month>=6&&month<=9)return worldById['monsoon-diary']
+  if(['AE'].includes(region)&&hour>=8&&hour<=18)return worldById['desert-silk']
+  if(['JP'].includes(region)&&month>=3&&month<=5)return worldById['zen-sakura']
+  if(hour<5||hour>=22)return worldById['cosmic-orbit']
+  if(hour<9)return worldById['mountain-dawn']
+  if(hour>=17)return worldById['coastal-glass']
+  return worldById['botanical-story']
+}
+function applyVisualWorld(world){
+  const root=document.documentElement
+  if(!world){
+    delete root.dataset.visualWorld
+    delete root.dataset.visualStyle
+    return
+  }
+  root.dataset.visualWorld=world.id
+  root.dataset.visualStyle=world.style
+  const [c1,c2,c3]=world.palette
+  const [bg0,bg1,bg2]=world.bg
+  applyTheme({c1,c2,c3,bg0,bg1,bg2},world.name)
+  if(root.dataset.audioPlaying!=='true')loadSceneBackdrop(world.scene)
+}
+
+
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
 const secretPatterns=[
   /sk-[A-Za-z0-9_-]{20,}/g,
@@ -940,6 +1014,29 @@ function mediaPlayerVisible(){
   return Boolean(document.getElementById('memoraMediaPlayer'))
 }
 
+let playerPlacementObserver=null
+function updatePlayerPlacement(){
+  const mini=document.getElementById('memoraMediaPlayer')
+  if(!mini||!user)return
+  // Fixed to document.body, never nested inside route views or search dialogs.
+  // Dialogs are padded so their action buttons cannot be covered.
+  const hasDialog=Boolean(document.querySelector('.modal-backdrop'))
+  document.body.classList.toggle('player-with-dialog',hasDialog)
+  const narrow=window.matchMedia?.('(max-width: 760px)')?.matches||false
+  const keyboardVisible=window.visualViewport&&window.visualViewport.height<
+    window.innerHeight*(narrow?0.72:0.62)
+  document.body.classList.toggle('player-keyboard-open',Boolean(keyboardVisible))
+  const playerHeight=Math.ceil(mini.getBoundingClientRect().height||72)
+  document.documentElement.style.setProperty('--active-player-height',playerHeight+'px')
+}
+function setupPlayerPlacement(){
+  if(playerPlacementObserver)return
+  playerPlacementObserver=new MutationObserver(updatePlayerPlacement)
+  playerPlacementObserver.observe(document.body,{childList:true})
+  window.addEventListener('resize',updatePlayerPlacement,{passive:true})
+  window.visualViewport?.addEventListener('resize',updatePlayerPlacement,{passive:true})
+}
+
 function ensureMediaPlayer(){
   if(!user) return null
   let player=document.getElementById('memoraMediaPlayer')
@@ -962,15 +1059,17 @@ function ensureMediaPlayer(){
       <span id="playerStatus">Ready</span>
     </button>
     <div class="player-actions mini-actions">
-      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous">❮❮</button>
+      <button class="player-action" id="playerPrevious" aria-label="Previous track or radio station" title="Previous"><svg viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><path d="M5 5h2v14H5zm3 7 11-7v14z"/></svg></button>
       <button class="player-action primary" id="playerPlay" aria-label="Play or pause" title="Play or pause">▶</button>
-      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next">❯❯</button>
+      <button class="player-action" id="playerNext" aria-label="Next track or radio station" title="Next"><svg viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><path d="M17 5h2v14h-2zM5 5l11 7-11 7z"/></svg></button>
       <button class="player-action expand-action" id="playerExpand" aria-label="Open Now Playing" title="Open player">⌃</button>
       <button class="player-action player-mute-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
     </div>
   `
   document.body.appendChild(player)
   document.body.classList.add('has-memora-player')
+  setupPlayerPlacement()
+  updatePlayerPlacement()
 
   const audio=mediaAudio()
   audio.volume=Math.max(0,Math.min(1,ambientPreferences.volume))
@@ -1197,7 +1296,7 @@ function refreshMediaPlayerUI(){
     else if(!ambientPreferences.enabled||audio.muted) status.textContent='Muted'
     else status.textContent='Paused'
   }
-  if(play) play.textContent=playing?'Ⅱ':'▶'
+  if(play){play.innerHTML=playing?'<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>';play.setAttribute('aria-label',playing?'Pause audio':'Play audio')}
   if(mute) mute.textContent=audio.muted?'Unmute':'Mute'
 
   const artworkUrl=nowPlayingArtwork(current)
@@ -2382,12 +2481,21 @@ function adaptiveTheme(){
 }
 
 function updateTheme(){
+  const worldMode=localStore.getItem('memora-world-mode')||
+    (localStore.getItem('memora-theme')&&localStore.getItem('memora-theme')!=='auto'?'classic':'auto')
+  if(worldMode!=='classic'){
+    applyVisualWorld(selectedVisualWorld())
+    lastThemeHour=new Date().getHours()
+    updateVisualScene()
+    return
+  }
+  applyVisualWorld(null)
   const mode=localStore.getItem('memora-theme')||'auto'
-  if(mode==='auto') adaptiveTheme()
-  else {
+  if(mode==='auto')adaptiveTheme()
+  else{
     const theme=manualThemes[mode]||themeCatalog[0]
     applyTheme(theme,theme.label)
-    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id||mode))
+    if(document.documentElement.dataset.audioPlaying!=='true')loadSceneBackdrop(sceneForTheme(theme.id||mode))
   }
 }
 
@@ -2402,9 +2510,10 @@ function setupAtmosphere(){
     document.documentElement.style.setProperty('--pointer-y',`${y}%`)
   },{passive:true})
   setInterval(()=>{
-    const mode=localStore.getItem('memora-theme')||'auto'
+    const mode=localStore.getItem('memora-world-mode')||'auto'
     const hour=new Date().getHours()
-    if(mode==='auto'&&hour!==lastThemeHour) adaptiveTheme()
+    if(mode==='auto'&&hour!==lastThemeHour)updateTheme()
+    else if(mode==='classic'&&localStore.getItem('memora-theme')==='auto'&&hour!==lastThemeHour)adaptiveTheme()
     else updateVisualScene()
     if(ambientPreferences.enabled&&ambientPreferences.scene==='auto'&&ambientAudioContext?.state==='running'){
       const nextScene=resolveAmbientScene()
@@ -2414,35 +2523,99 @@ function setupAtmosphere(){
 }
 
 function openThemePicker(){
-  const current=localStore.getItem('memora-theme')||'auto'
+  const worldMode=localStore.getItem('memora-world-mode')||'auto'
+  const favorite=localStore.getItem('memora-world')||'midnight-studio'
+  const region=localStore.getItem('memora-world-region')||'auto'
+  const festival=localStore.getItem('memora-world-festival')||'none'
+  const worldMarkup=visualWorlds.map(world=>{
+    const [c1,c2,c3]=world.palette
+    const [bg0,bg1,bg2]=world.bg
+    return `<button type="button" class="world-card ${favorite===world.id&&worldMode==='manual'?'selected':''}"
+      data-world-select="${world.id}" data-world-category="${world.group}" data-world-name="${esc(world.name.toLowerCase())}"
+      style="--world-a:${c1};--world-b:${c2};--world-c:${c3};--world-bg0:${bg0};--world-bg1:${bg1};--world-bg2:${bg2}">
+        <span class="world-preview"><span class="world-preview-orb"></span><span class="world-preview-card"></span></span>
+        <span class="world-title">${esc(world.name)}</span><small>${esc(world.group)}</small>
+      </button>`
+  }).join('')
   const body=`
-    <p class="muted">Adaptive changes the atmosphere every hour. Or choose from ${themeCatalog.length} visual combinations.</p>
-    <div class="theme-picker-tools">
-      <input class="input" id="themeSearch" placeholder="Search Ocean, Velvet, Sakura, Galaxy...">
-      <button class="btn" id="randomTheme">Surprise me</button>
-      <button class="btn ${current==='auto'?'primary':''}" data-theme="auto">Adaptive hourly</button>
+    <div class="world-intro"><p>Choose a genuine visual world, not just another color combination. You stay in control.</p>
+      <button id="worldAuto" class="btn ${worldMode==='auto'?'primary':''}" type="button">✦ Automatic seasonal themes</button>
     </div>
-    <div class="theme-gallery" id="themeGallery">
-      ${themeCatalog.map(theme=>`<button class="theme-card ${current===theme.id?'selected':''}" data-theme="${theme.id}" data-theme-name="${theme.label.toLowerCase()}" style="--t1:${theme.c1};--t2:${theme.c2};--t3:${theme.c3};--tb:${theme.bg1}"><span></span><small>${theme.label}</small></button>`).join('')}
-    </div>`
-  const box=modal('Theme Universe',body)
-
-  const choose=id=>{
-    localStore.setItem('memora-theme',id)
+    <div class="world-preferences">
+      <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+    </div>
+    <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Memora does not need precise location or your religious preferences.</p>
+    <div class="world-search-row">
+      <input class="input" type="search" id="worldSearch" placeholder="Search spring, festival, coastal, minimal...">
+      <button class="btn" id="worldSurprise" type="button">Surprise me</button>
+    </div>
+    <div class="world-categories" role="group" aria-label="Visual world category">
+      ${['All','Modern','Minimal','Nature','Seasons','Festivals','Creative','Editorial'].map(g=>`<button class="chip ${g==='All'?'active':''}" type="button" data-world-group="${g}">${g}</button>`).join('')}
+    </div>
+    <div class="world-grid" id="visualWorldGrid">${worldMarkup}</div>
+    <details class="world-classic">
+      <summary>Classic Memora: 120 color palettes</summary>
+      <p class="small muted">Your original combinations are preserved here.</p>
+      <div class="theme-gallery" id="themeGallery">
+        ${themeCatalog.map(t=>`<button class="theme-card" data-theme="${t.id}" aria-label="${esc(t.label)}" style="--t1:${t.c1};--t2:${t.c2};--t3:${t.c3};--tb:${t.bg1}"><span></span><small>${esc(t.label)}</small></button>`).join('')}
+      </div>
+    </details>
+    <div class="world-selection-status" role="status" id="worldSelectionStatus">Changes apply immediately. Close this window when you're happy.</div>
+  `
+  const box=modal('Memora Visual Worlds',body)
+  box.querySelector('.modal')?.classList.add('visual-world-dialog')
+  const status=box.querySelector('#worldSelectionStatus')
+  const applied=(message)=>{
     updateTheme()
-    box.remove()
-    toast(id==='auto'?'Adaptive hourly theme enabled':'Theme updated')
+    status.textContent=message
+    box.querySelectorAll('[data-world-select]').forEach(button=>
+      button.classList.toggle('selected',localStore.getItem('memora-world-mode')==='manual'&&
+        button.dataset.worldSelect===localStore.getItem('memora-world')))
+    box.querySelector('#worldAuto').classList.toggle('primary',localStore.getItem('memora-world-mode')==='auto')
   }
-
-  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>choose(button.dataset.theme))
-  box.querySelector('#randomTheme').onclick=()=>{
-    const theme=themeCatalog[Math.floor(Math.random()*themeCatalog.length)]
-    choose(theme.id)
+  box.querySelector('#worldAuto').onclick=()=>{
+    localStore.setItem('memora-world-mode','auto')
+    applied('Adaptive themes now follow your device time, season and optional region.')
   }
-  box.querySelector('#themeSearch').oninput=event=>{
-    const term=event.target.value.trim().toLowerCase()
-    box.querySelectorAll('.theme-card').forEach(card=>card.classList.toggle('hidden',term&&!card.dataset.themeName.includes(term)))
+  box.querySelectorAll('[data-world-select]').forEach(button=>button.onclick=()=>{
+    localStore.setItem('memora-world',button.dataset.worldSelect)
+    localStore.setItem('memora-world-mode','manual')
+    applied('Visual world selected: '+worldById[button.dataset.worldSelect].name)
+  })
+  box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
+    localStore.setItem('memora-world-mode','classic')
+    localStore.setItem('memora-theme',button.dataset.theme)
+    applied('Classic Memora palette selected.')
+  })
+  box.querySelector('#worldRegion').onchange=event=>{
+    localStore.setItem('memora-world-region',event.target.value)
+    applied('Region saved. No GPS or precise location is used.')
   }
+  box.querySelector('#worldFestival').onchange=event=>{
+    localStore.setItem('memora-world-festival',event.target.value)
+    localStore.setItem('memora-world-mode','auto')
+    applied('Optional festival preference updated.')
+  }
+  box.querySelector('#worldSurprise').onclick=()=>{
+    const chosen=visualWorlds[Math.floor(Math.random()*visualWorlds.length)]
+    box.querySelector('[data-world-select="'+chosen.id+'"]').click()
+  }
+  let group='All'
+  const filter=()=>{
+    const q=box.querySelector('#worldSearch').value.trim().toLowerCase()
+    box.querySelectorAll('[data-world-select]').forEach(card=>{
+      const matchCategory=group==='All'||card.dataset.worldCategory===group
+      const matchQuery=!q||(card.dataset.worldName+' '+card.dataset.worldCategory).toLowerCase().includes(q)
+      card.hidden=!(matchCategory&&matchQuery)
+    })
+  }
+  box.querySelector('#worldSearch').oninput=filter
+  box.querySelectorAll('[data-world-group]').forEach(button=>button.onclick=()=>{
+    group=button.dataset.worldGroup
+    box.querySelectorAll('[data-world-group]').forEach(x=>x.classList.toggle('active',x===button))
+    filter()
+  })
 }
 
 let authProviderCache=null
@@ -2552,7 +2725,7 @@ async function signInUsingPasskey(){
   }
 }
 async function authScreen(mode='login'){
-  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
+  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2563,7 +2736,7 @@ async function authScreen(mode='login'){
   app.innerHTML=`
   <div class="auth-wrap">
     <div class="glass auth-card">
-      <div class="brand"><div class="logo">M</div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
+      <div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
       <div class="eyebrow">Your memory, beautifully organized</div>
       <h2>${mode==='login'?'Welcome back':'Create an account'}</h2>
       <p class="muted">${mode==='login'?'Sign in securely to your private memories.':'Keep your memories safe and easy to find.'}</p>
@@ -2708,11 +2881,17 @@ function shell(content,title,subtitle=''){
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left">
-        ${canBack?'<button class="back-btn" id="appBackButton" aria-label="Go back">‹</button>':''}
-        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo">M</span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}>‹</button>
+        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
       </div>
-      <div class="top-actions">
-        <button class="icon-btn global-search-trigger" id="globalSearchButton" aria-label="Search or ask about memories, music and radio" title="Search or Ask"><span aria-hidden="true">⌕</span><span class="global-search-label"> Search or Ask</span></button>
+      <nav class="top-primary-nav" aria-label="Main sections"><button data-nav="home">Home</button><button data-nav="memories">Memories</button><button data-nav="ask">Ask</button><button id="topAudioNav">Music</button><button id="topThemeNav">Themes</button></nav><div class="top-actions">
+        <form class="top-global-search" id="topGlobalSearchForm" role="search">
+          <label class="sr-only" for="topSearchInput">Search your memories or find music</label>
+          <span class="top-search-symbol" aria-hidden="true">⌕</span>
+          <input id="topSearchInput" type="search" maxlength="300" autocomplete="off" placeholder="Search memories, questions, music...">
+          <button type="submit" aria-label="Open global search"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
+        </form>
+        <button class="icon-btn global-search-trigger search-mobile-launch" id="globalSearchButton" aria-label="Open global search" title="Search">⌕ <span class="global-search-label">Search</span></button>
         <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
         
@@ -2936,9 +3115,19 @@ function wire(){
   document.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>go(button.dataset.nav))
   document.getElementById('dockCapture')?.addEventListener('click',()=>go('home',true))
   document.getElementById('dockAudio')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('topAudioNav')?.addEventListener('click',openSoundscapePicker)
+  document.getElementById('topThemeNav')?.addEventListener('click',openThemePicker)
   document.getElementById('brandHome')?.addEventListener('click',()=>go('home'))
   document.getElementById('themeButton')?.addEventListener('click',openThemePicker)
   document.getElementById('globalSearchButton')?.addEventListener('click',openGlobalSearch)
+  document.getElementById('topGlobalSearchForm')?.addEventListener('submit',event=>{
+    event.preventDefault()
+    const value=document.getElementById('topSearchInput')?.value.trim()||''
+    openGlobalSearch(value)
+  })
+  document.getElementById('topSearchInput')?.addEventListener('focus',event=>{
+    event.target.select()
+  })
   document.getElementById('soundButton')?.addEventListener('click',openSoundscapePicker)
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
@@ -2963,6 +3152,7 @@ async function renderRoute(next,focus=false){
     await renderPage()
   }
   removeStrayEscapedNewline()
+  if(user) { ensureMediaPlayer(); updatePlayerPlacement() }
   if(focus) setTimeout(()=>document.getElementById('memoryInput')?.focus(),80)
 }
 
