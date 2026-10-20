@@ -1874,7 +1874,7 @@ async function openSoundscapePicker(){
       </div>
 
       <div class="audio-for-you">
-        <div><span class="eyebrow">For you</span><strong>${latestMood&&moodCatalog[latestMood.mood]?`Your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in can guide the next sound.`:'Personalized without clutter.'}</strong><small>Use your mood, recent memories, or discover a random live station from anywhere in the world.</small></div>
+        <div><span class="eyebrow">Personalized audio</span><strong>${latestMood&&moodCatalog[latestMood.mood]?`Your ${esc(moodCatalog[latestMood.mood].label.toLowerCase())} check-in can guide the next sound.`:'Personalized without clutter.'}</strong><small>Use your mood, recent memories, or discover a random live station from anywhere in the world.</small></div>
         <div class="audio-for-you-actions">
           ${latestMood&&moodCatalog[latestMood.mood]?'<button class="btn primary compact" id="audioMoodForYou">For my mood</button>':''}
           <button class="btn compact" id="audioMemoryMix">Memory Mix</button>
@@ -1939,6 +1939,7 @@ async function openSoundscapePicker(){
       </section>
 
       <section class="audio-mode-panel ${currentMode==='devotional'?'active':''}" data-audio-panel="devotional">
+        <p class="small muted">Choose a tradition, then search by language, deity, hymn, or station. Results come from public live radio directories.</p>
         <div class="devotional-feature-row compact-features">
           <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='all_faiths'?'selected':''}" data-devotional="all_faiths" data-devotional-query=""><span>✦</span><div><b>All traditions</b><small>Worldwide spiritual discovery</small></div></button>
           <button class="devotional-feature ${mediaPlayerState.devotionalTradition==='christian'?'selected':''}" data-devotional="christian" data-devotional-query=""><span>♫</span><div><b>Christian</b><small>Worship, Gospel, hymns and more</small></div></button>
@@ -2864,9 +2865,9 @@ function shell(content,title,subtitle=''){
       </div>
       <div class="top-actions">
         <button class="icon-btn" id="globalSearchButton" aria-label="Search Memora and music" title="Search">⌕<span class="global-search-label"> Search</span></button>
-        <button class="icon-btn" id="memoraExploreButton" aria-label="Explore Memora features">Explore ▾</button>
+        <button class="icon-btn" id="memoraExploreButton" aria-label="Open all Memora sections">☰ Menu</button>
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon">♫</span><span class="sound-label">Music & Radio</span></button>
-        <button class="icon-btn" id="themeButton" aria-label="Choose visual theme"><span class="theme-text" id="themeLabel">${esc(document.documentElement.dataset.themeLabel||'Adaptive')}</span> ✦</button>
+        
         <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
       </div>
     </header>
@@ -3015,9 +3016,11 @@ function openExploreMenu(){
       <button class="btn" id="exploreSearch">Search everything <small>Memories, music and web</small></button>
       <button class="btn" data-explore="sources">AI and Sources <small>Connected services and AI status</small></button>
       <button class="btn" data-explore="settings">Profile and settings <small>Preferences and privacy</small></button>
+      <button class="btn" id="exploreThemes">Appearance <small>Choose backgrounds and themes</small></button>
     </div>`)
   wrap.querySelectorAll('[data-explore]').forEach(button=>button.onclick=()=>{wrap.remove();go(button.dataset.explore)})
   wrap.querySelector('#exploreAudio').onclick=()=>{wrap.remove();openSoundscapePicker()}
+  wrap.querySelector('#exploreThemes').onclick=()=>{wrap.remove();openThemePicker()}
   wrap.querySelector('#exploreSearch').onclick=()=>{wrap.remove();openGlobalSearch()}
 }
 function wire(){
