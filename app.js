@@ -1,4 +1,5 @@
 import { normalizeMusicQuery } from './shared/music-search.js'
+import {visualWorlds,worldRegions,suggestedWorld,getVisualWorld} from './client/visual-worlds.js'
 import { createClient } from '@supabase/supabase-js'
 import { safeStorage, fetchApi } from './client/runtime.js'
 import { rankMemoryResults, memoryRelevance, questionNeedsMemoryTopic, classifyMemoryQuestion, extractEventDetails, answerFromEventMemory } from './client/relevant-memory.js'
@@ -137,6 +138,7 @@ applyLocalAccessibilityPreferences()
 
 let ocrWorkerPromise = null
 let lastThemeHour = null
+let lastVisualWorldDate = new Date().toDateString()
 
 const themeFamilies=[
   {id:'aurora',name:'Aurora',h:252},{id:'ocean',name:'Ocean',h:210},{id:'rose',name:'Rose',h:330},
@@ -2372,10 +2374,24 @@ function setupAmbientUnlock(){
   document.addEventListener('keydown',unlock)
 }
 
+function activeWorldId(){
+  const manual=localStore.getItem('memora-visual-world')||'auto'
+  return manual==='auto'?suggestedWorld(new Date(),localStore.getItem('memora-world-region')||'global'):manual
+}
+function applyVisualWorld(){
+  const world=getVisualWorld(activeWorldId())
+  document.documentElement.dataset.world=world.style
+  document.documentElement.dataset.worldId=world.id
+  if(document.documentElement.dataset.audioPlaying!=='true')loadSceneBackdrop(world.scene)
+  const button=document.getElementById('headerThemeButton')
+  if(button)button.title='Appearance: '+world.name
+  return world
+}
 function applyTheme(values,label){
   const root=document.documentElement
   Object.entries(values).forEach(([key,value])=>root.style.setProperty(`--${key}`,value))
   root.dataset.themeLabel=label
+  applyVisualWorld()
   const labelEl=document.getElementById('themeLabel')
   if(labelEl) labelEl.textContent=label
   const meta=document.querySelector('meta[name="theme-color"]')
@@ -2390,7 +2406,7 @@ function adaptiveTheme(){
   const daypart=hour>=5&&hour<8?'Dawn':hour>=8&&hour<12?'Morning':hour>=12&&hour<16?'Daylight':hour>=16&&hour<19?'Golden Hour':hour>=19&&hour<22?'Twilight':'Night'
   applyTheme(theme,`${daypart} · ${theme.label} · ${hour.toString().padStart(2,'0')}:00`)
   updateVisualScene()
-  if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id))
+  if(document.documentElement.dataset.audioPlaying!=='true') applyVisualWorld()
   lastThemeHour=hour
 }
 
@@ -2400,7 +2416,7 @@ function updateTheme(){
   else {
     const theme=manualThemes[mode]||themeCatalog[0]
     applyTheme(theme,theme.label)
-    if(document.documentElement.dataset.audioPlaying!=='true') loadSceneBackdrop(sceneForTheme(theme.id||mode))
+    if(document.documentElement.dataset.audioPlaying!=='true') applyVisualWorld()
   }
 }
 
@@ -2419,6 +2435,8 @@ function setupAtmosphere(){
     const hour=new Date().getHours()
     if(mode==='auto'&&hour!==lastThemeHour) adaptiveTheme()
     else updateVisualScene()
+    const today=new Date().toDateString()
+    if(lastVisualWorldDate!==today){lastVisualWorldDate=today;applyVisualWorld()}
     if(ambientPreferences.enabled&&ambientPreferences.scene==='auto'&&ambientAudioContext?.state==='running'){
       const nextScene=resolveAmbientScene()
       if(nextScene!==ambientCurrentScene) startAmbient(nextScene)
