@@ -2800,24 +2800,49 @@ function openMusicFinder(initial=''){
   update()
 }
 
-function openGlobalSearch(){
-  const wrap=modal('Search',`
+function openGlobalSearch(initial=''){
+  const wrap=modal('Search or Ask',`
     <form class="global-search-form">
-      <label for="globalSearchScope">Search in</label>
-      <select class="input" id="globalSearchScope"><option value="memories">Saved memories, people and things</option><option value="music">Music and songs</option><option value="web">The web</option></select>
+      <p class="muted search-intro">Find a saved detail, listen to music or radio, or ask Memora directly.</p><label for="globalSearchScope" class="sr-only">Search in</label>
+      <select class="input unified-scope-select" id="globalSearchScope"><option value="memories">My memories</option><option value="music">Music and songs</option><option value="radio">Live radio</option><option value="web">The web</option></select><div class="unified-scope-tabs" role="group" aria-label="Search category"><button type="button" class="scope-chip active" data-search-category="memories">My memories</button><button type="button" class="scope-chip" data-search-category="music">Music</button><button type="button" class="scope-chip" data-search-category="radio">Radio</button><button type="button" class="scope-chip" data-search-category="web">Web</button></div>
       <label for="globalSearchQuery">What are you looking for?</label>
-      <input class="input" id="globalSearchQuery" type="search" maxlength="200" required placeholder="Search by name, title or keyword">
-      <button class="btn primary" type="submit">Search</button>
+      <input class="input unified-search-input" id="globalSearchQuery" type="search" maxlength="300" required placeholder="My wedding date, Anirudh songs, Hindu radio...">
+      <div class="unified-search-actions"><button class="btn primary" type="submit">Find matches</button><button type="button" class="btn" id="globalAskButton">Ask Memora →</button></div>
     </form>
-    <p class="small muted" id="globalSearchNote">Search your saved information privately. Public searches run only when you choose Music or The web.</p>
+    <p class="small muted" id="globalSearchNote">Private by default. Only Music, Radio or Web searches contact public services.</p>
     <p role="status" aria-live="polite" id="globalSearchStatus"></p>
-    <button class="btn" id="globalMusicFinder">Find artists, movie songs, albums & playlists</button>
+    <button class="btn" id="globalMusicFinder" hidden>Find more songs on YouTube</button>
     <div class="global-search-results"></div>`)
-  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder(wrap.querySelector('input').value)
+  wrap.querySelector('#globalMusicFinder').onclick=()=>openMusicFinder(wrap.querySelector('#globalSearchQuery').value)
   const scope=wrap.querySelector('select'), input=wrap.querySelector('input')
   const results=wrap.querySelector('.global-search-results'), status=wrap.querySelector('[role="status"]')
   let request=0
-  scope.onchange=()=>{request++;results.replaceChildren();status.textContent=''}
+  const setCategory=()=>{
+    request++
+    results.replaceChildren()
+    status.textContent=''
+    wrap.querySelector('#globalMusicFinder').hidden=scope.value!=='music'
+    wrap.querySelectorAll('[data-search-category]').forEach(button=>{
+      const active=button.dataset.searchCategory===scope.value
+      button.classList.toggle('active',active)
+      button.setAttribute('aria-pressed',String(active))
+    })
+  }
+  scope.onchange=setCategory
+  wrap.querySelectorAll('[data-search-category]').forEach(button=>button.onclick=()=>{
+    scope.value=button.dataset.searchCategory
+    setCategory()
+    input.focus()
+  })
+  wrap.querySelector('#globalAskButton').onclick=async()=>{
+    const q=input.value.trim()
+    if(!q)return input.focus()
+    if(looksLikeSecret(q))return toast('Credentials cannot be submitted as a question.')
+    wrap.remove()
+    await go('ask')
+    const askInput=document.getElementById('askInput')
+    if(askInput){askInput.value=q;askInput.focus()}
+  }
   const link=(url,label)=>`<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`
   wrap.querySelector('form').onsubmit=async event=>{
     event.preventDefault()
@@ -2829,24 +2854,39 @@ function openGlobalSearch(){
     results.innerHTML=links
     if(mode==='web'){status.textContent='Ready to search the web';return}
     try{
-      const musicData=mode==='music'?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'})):null
-      const items=musicData?musicData.items||[]:await smartMemorySearch(query,20)
+      const devotional=/\b(hindu|bhajan|bhakti|mantra|aarti|kirtan|shiva|krishna|murugan)\b/i.test(query)?'hindu':
+        /\b(christian|gospel|worship)\b/i.test(query)?'christian':null
+      const radioParams=new URLSearchParams({mode:devotional?'devotional':'radio',q:query,limit:'30'})
+      if(devotional)radioParams.set('tradition',devotional)
+      const mediaData=mode==='music'
+        ?await fetchApi('/api/open-music?'+new URLSearchParams({mode:'search',q:query,limit:'30'}))
+        :mode==='radio'?await fetchApi('/api/audio-library?'+radioParams):null
+      const items=mediaData?mediaData.items||[]:await smartMemorySearch(query,20)
       if(id!==request||!wrap.isConnected) return
-      status.textContent=items.length?`${items.length} results${musicData&&musicData.matchedQuery!==input.value.trim()?' for “'+musicData.matchedQuery+'”':''}`:mode==='music'?'No matches in the built-in open catalogs. This does not mean the songs are unavailable. Try YouTube above.':'No matching results. Try another title or keyword.'
+      status.textContent=items.length?`${items.length} results${mediaData&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Memora.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
         const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
-        const detail=document.createElement('p');detail.textContent=mode==='music'?[item.artist,item.source,item.license].filter(Boolean).join(' · '):memorySearchSnippet(item);card.append(detail)
-        if(mode==='music'&&item.url){
-          const play=document.createElement('button');play.className='btn';play.textContent='Play'
+        const detail=document.createElement('p');detail.textContent=mode==='music'||mode==='radio'?[item.artist,item.country,item.language,item.source,item.license].filter(Boolean).join(' · '):memorySearchSnippet(item);card.append(detail)
+        if((mode==='music'||mode==='radio')&&item.url){
+          const play=document.createElement('button');play.className='btn';play.textContent='▶ Play now'
           play.onclick=async()=>{mediaPlayerState.library=items;mediaPlayerState.query=query;await selectMediaTrack(item,true);status.textContent=ambientPreferences.enabled?`Selected ${item.title}`:'Track selected. Turn on Audio to listen.'}
           card.append(play)
           if(/^https?:\/\//i.test(item.sourcePage||'')){const source=document.createElement('a');source.href=item.sourcePage;source.target='_blank';source.rel='noopener noreferrer';source.textContent='Source & credits ↗';card.append(source)}
         }
         results.append(card)
+        if(mode==='memories'){
+          const askResult=document.createElement('button')
+          askResult.className='btn'
+          askResult.textContent='Ask about this'
+          askResult.onclick=()=>wrap.querySelector('#globalAskButton').click()
+          card.append(askResult)
+        }
       })
     }catch{if(id===request&&wrap.isConnected) status.textContent='Search is temporarily unavailable. Please try again.'}
   }
+  setCategory()
+  if(initial)input.value=initial
   setTimeout(()=>input.focus(),30)
 }
 
