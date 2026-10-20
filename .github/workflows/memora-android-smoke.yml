@@ -42,9 +42,5 @@ jobs:
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.memora.mobile/.MainActivity
             sleep 7
-            if ! adb shell pidof com.memora.mobile; then
-              adb logcat -d -b crash | tail -n 200
-              echo "Memora failed to remain open on Android emulator"
-              exit 1
-            fi
+            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 200; exit 1)
             echo "Memora native activity started and remained running"
