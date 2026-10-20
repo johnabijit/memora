@@ -2221,3 +2221,12 @@ body.has-memora-player .ask-main{height:clamp(320px,calc(100dvh - 355px),645px)}
  body.has-memora-player .ask-main{height:clamp(290px,calc(100dvh - 320px),530px)}
  .memora-player .player-track{min-width:76px}
 }
+
+
+/* Desktop also uses the conversation drawer; never hide its toggle/scrim. */
+.ask-main .thread-toggle{display:grid;place-items:center;min-width:44px;min-height:44px;font-size:17px}
+.chat-drawer-scrim.open{display:block;opacity:1;pointer-events:auto}
+.memora-player .player-actions{display:flex;grid-column:3;grid-row:1;align-items:center;flex-wrap:nowrap}
+@media(max-width:760px){
+ .memora-player .player-actions{grid-column:3;grid-row:1}
+}
