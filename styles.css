@@ -2486,3 +2486,29 @@ html[data-world-group="nature"] .memory-card{border-radius:30px 10px!important}
 html[data-world-group="space"] .memory-card{border-radius:26px!important}
 @keyframes musicEqualizer{0%{transform:scaleY(.4) translateY(20%)}100%{transform:scaleY(1.15) translateY(-5%)}}
 @media(prefers-reduced-motion:reduce){html[data-world-group] .scene-layer{animation:none!important}}
+
+/* v46: no universal spheres: every world uses its own subject composition */
+html[data-visual-world] .home-hero::before,html[data-visual-world] .home-hero::after,html[data-visual-world] .hero::before,html[data-visual-world] .hero::after{content:none!important;display:none!important}
+html[data-visual-world] .scene-layer span:nth-child(-n+3){display:none!important}
+html[data-visual-world] .mini-stat::before,html[data-visual-world] .mini-stat::after{display:none!important}
+html[data-visual-world] .stat::before,html[data-visual-world] .stat::after{display:none!important}
+html[data-visual-world] .home-hero{background-image:linear-gradient(105deg,rgba(6,14,29,.93),rgba(12,22,40,.68)),var(--scene-photo,none);background-size:cover;background-position:center}
+html[data-world-group="space"] .home-hero{background-image:radial-gradient(ellipse at 70% 22%,color-mix(in srgb,var(--c2) 22%,transparent),transparent 48%),linear-gradient(125deg,#030915,#18223f)}
+html[data-world-group="music"] .home-hero{background-image:repeating-linear-gradient(90deg,color-mix(in srgb,var(--c1) 7%,transparent) 0 8px,transparent 8px 28px),linear-gradient(135deg,#091225,#222039)}
+html[data-world-group="creative"] .home-hero{background-image:repeating-conic-gradient(from 25deg at 85% 15%,color-mix(in srgb,var(--c1) 12%,transparent) 0deg 24deg,transparent 26deg 60deg),linear-gradient(135deg,#0c182b,#2c203b)}
+html[data-world-group="places"] .home-hero{background-image:linear-gradient(90deg,#081223e8,#0d1a2baa),var(--scene-photo,none)}
+html[data-world-group="nature"] .home-hero{background-image:linear-gradient(90deg,#081822e9,#102a2c8a),var(--scene-photo,none)}
+html[data-world-group="festivals"] .home-hero{background-image:linear-gradient(110deg,#101326e8,#372137a8),var(--scene-photo,none)}
+html[data-world-group="minimal"] .home-hero{background-image:linear-gradient(140deg,#263744,#152333)}
+html[data-world-group="editorial"] .home-hero{background-image:linear-gradient(115deg,#181927e8,#514137a0),var(--scene-photo,none)}
+html[data-world-group="seasons"] .home-hero{background-image:linear-gradient(110deg,#182236de,#26445c99),var(--scene-photo,none)}
+html[data-visual-world] .scene-layer::before{content:none!important;display:none!important}
+.topbar{gap:8px!important}
+.top-left{gap:7px!important;flex-shrink:0!important}
+.header-home{display:inline-flex!important;align-items:center;min-height:38px;font-weight:700}
+.topbar .top-actions{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto;justify-content:flex-end}
+.topbar .top-primary-nav{display:flex;align-items:center;gap:1px;flex-shrink:0}
+.top-global-search{min-width:150px;flex:1 1 230px;max-width:330px}
+@media(max-width:1180px){.topbar .top-primary-nav{display:none!important}.top-global-search{max-width:none}}
+@media(max-width:680px){.topbar{flex-wrap:wrap}.top-left{width:100%;justify-content:flex-start}.topbar .top-actions{width:100%;justify-content:flex-end}.top-global-search{flex:1 1 160px}.header-home{min-height:34px}}
+@media(prefers-reduced-motion:reduce){html[data-visual-world] .scene-layer{animation:none!important}}
