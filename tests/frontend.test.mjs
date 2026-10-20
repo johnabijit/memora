@@ -44,7 +44,7 @@ async function appFixture({blockedStorage=false,slowProviders=false,passkeyAvail
     from(table){
       const chain=new Proxy({}, {get(_,key){
         if(key==='then') return resolve=>resolve({data:table==='memory_facts'?facts:table==='memories'?memoryRows:[],error:null})
-        if(key==='maybeSingle'||key==='single') return async()=>({data:null,error:null})
+        if(key==='maybeSingle'||key==='single') return async()=>({data:key==='single'&&table==='chat_threads'?{id:'fixture-thread',title:'New chat'}:null,error:null})
         return ()=>chain
       }})
       return chain
