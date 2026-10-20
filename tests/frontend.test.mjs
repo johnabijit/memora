@@ -153,8 +153,8 @@ test('unavailable AI cannot turn a general request into an unrelated memory answ
   const {dom,api}=await appFixture()
   try{
     const result=await api.answer('Reply with one short sentence confirming you can respond. This is a deployment test.')
-    assert.equal(result.source,'AI connection unavailable')
-    assert.match(result.text,/provider connection in Sources/)
+    assert.equal(result.source,'AI unavailable; saved memory search checked')
+    assert.match(result.text,/AI reasoning is temporarily unavailable/)
     assert.doesNotMatch(result.text,/I found this relevant memory/)
   }finally{dom.window.close()}
 })
