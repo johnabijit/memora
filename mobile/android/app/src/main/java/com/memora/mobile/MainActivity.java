@@ -45,7 +45,9 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.rgb(12,16,25));
         initUi();
         if (state != null) webView.restoreState(state);
-        else webView.loadUrl(HOME);
+        String callbackUrl = callbackUrlFromIntent(getIntent());
+        if (callbackUrl != null) openAuthCallback(callbackUrl);
+        else if (state == null) webView.loadUrl(HOME);
     }
 
     private void initUi() {
@@ -55,6 +57,7 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.rgb(12,16,25));
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
+        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.2");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
@@ -137,6 +140,32 @@ public class MainActivity extends Activity {
                 if (mediaRequest == request) { mediaRequest = null; mediaResources = null; }
             }
         });
+    }
+
+    // Accept only a temporary authorization code; never deep-link access tokens.
+    // The WebView's PKCE code verifier is used by supabase-js for exchange.
+    private String callbackUrlFromIntent(Intent intent) {
+        if (intent == null) return null;
+        Uri uri = intent.getData();
+        if (uri == null || !"memora".equalsIgnoreCase(uri.getScheme()) ||
+            !"auth".equalsIgnoreCase(uri.getHost()) ||
+            !"/callback".equals(uri.getPath())) return null;
+        String code = uri.getQueryParameter("code");
+        if (code == null || !code.matches("^[A-Za-z0-9_-]{8,2048}$")) return null;
+        return HOME + "?code=" + Uri.encode(code);
+    }
+
+    private void openAuthCallback(String url) {
+        errorPanel.setVisibility(View.GONE);
+        loading.setVisibility(View.VISIBLE);
+        webView.loadUrl(url);
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String url = callbackUrlFromIntent(intent);
+        if (url != null) openAuthCallback(url);
     }
 
     private int dp(int value) { return (int)(getResources().getDisplayMetrics().density * value + .5f); }
