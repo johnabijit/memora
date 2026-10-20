@@ -610,6 +610,18 @@ async function run(req,res){
       return json(res,200,{mode:'languages',count:languages.length,languages},'public, s-maxage=21600, stale-while-revalidate=86400')
     }
     if(mode==='radio'){
+      // Religious queries should use the dedicated devotional search with
+      // tradition-specific matching instead of broad popular radio ranking.
+      const hinduIntent=/\b(hindu|bhajan|bhakti|aarti|mantra|kirtan|krishna|shiva|siva|murugan|ganesh|vedic|sanatan)\b/i.test(query)
+      if(hinduIntent){
+        const found=await devotionalLibrary('hindu',query,limit,{random,offset,countrycode,sort,language})
+        return json(res,200,{
+          mode:'radio',query,count:found.items.length,items:found.items,
+          category:'Hindu devotional',sort,countrycode,
+          nextOffset:found.nextOffset,hasMore:found.hasMore,
+          liveDirectory:true,discoveryPasses:found.discoveryPasses
+        },'no-store')
+      }
       const result=await radioLibrary(query,limit,{random,offset,countrycode,sort,language})
       return json(res,200,{
         mode:'radio',
