@@ -5,7 +5,12 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js'
 
 const localStore = safeStorage('localStorage')
 const sessionStore = safeStorage('sessionStorage')
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{storage:localStore}})
+// The native Android WebView must keep the PKCE code verifier in its own
+// storage while Google sign-in completes in the system browser.
+const isMemoraAndroidApp = /\bMemoraAndroid\/\d+\b/.test(navigator.userAgent)
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth:{storage:localStore,...(isMemoraAndroidApp?{flowType:'pkce'}:{})}
+})
 const app = document.getElementById('app')
 
 let user = null
@@ -2462,6 +2467,9 @@ async function oauthSignIn(provider,scopes){
     providerSetupHelp(provider)
     return
   }
+  // The app launches the provider in the user's browser. Returning with an
+  // authorization code is handled by Android's custom-scheme callback, then
+  // supabase-js exchanges it using the verifier saved in this WebView.
   const options={redirectTo:window.location.origin+'/'}
   if(scopes) options.scopes=scopes
   const {error}=await supabase.auth.signInWithOAuth({provider,options})
