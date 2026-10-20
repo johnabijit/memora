@@ -318,7 +318,7 @@ test('mobile signup always hides inactive email and OTP forms and lists country 
     assert.equal(w.document.getElementById('phoneAuthForm').hidden,false)
     assert.equal(w.document.getElementById('phoneOtpForm').hidden,true)
     assert.ok(w.document.querySelectorAll('#phoneCountry option').length>150)
-    assert.equal(w.document.getElementById('phoneCountry').value,'IN')
+    assert.equal(w.document.getElementById('phoneCountry').value,'US') // jsdom locale is en-US
     assert.equal(w.document.getElementById('phoneCustomDial').hidden,true)
     w.document.getElementById('phoneCountry').value='other'
     w.document.getElementById('phoneCountry').dispatchEvent(new w.Event('change'))
