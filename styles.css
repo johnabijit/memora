@@ -2567,3 +2567,40 @@ html[data-appearance="light"] .scene-layer{opacity:.14!important}
 .world-preview[data-preview-style="confetti"]{background:radial-gradient(var(--world-a) 2px,transparent 3px),radial-gradient(var(--world-c) 3px,transparent 4px),var(--world-bg0)!important;background-size:21px 33px,37px 19px!important}
 html[data-visual-style="hemisphere"] .home-hero:before{display:block!important;content:""!important;opacity:.38!important}
 @media(max-width:650px){.visual-world-dialog .world-commit-actions{flex-wrap:wrap}.visual-world-dialog .world-commit-actions .btn{flex:1}}
+
+/* v49: dedicated one-row Android mobile header with accessible account avatar */
+.profile-avatar{width:42px!important;height:42px!important;min-width:42px!important;padding:0!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:linear-gradient(135deg,var(--c1),var(--c2))!important;color:#10213b!important;font-size:17px!important;font-weight:800!important;border:2px solid #ffffff60!important}
+@media(max-width:700px){
+ :root{--dock-h:66px}
+ .topbar{position:sticky!important;top:0!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:6px!important;padding:8px max(10px,env(safe-area-inset-left))!important;min-height:62px!important;max-height:68px!important;background:#0a1120f5!important}
+ .topbar .top-left{display:flex!important;align-items:center!important;flex:0 1 auto!important;min-width:0!important;gap:5px!important}
+ .topbar .top-left .brand{padding:0!important;min-width:0!important;gap:5px!important}
+ .topbar .brand-symbol,.topbar .brand-symbol img{width:34px!important;height:34px!important;min-width:34px!important}
+ .topbar .brand strong{font-size:15px!important;white-space:nowrap!important}
+ .topbar .brand small{display:none!important}
+ .topbar .header-home-button{display:none!important}
+ .topbar .back-btn{display:none!important}
+ .topbar .header-menu-trigger{font-size:0!important;min-width:37px!important;max-width:37px!important;width:37px!important;height:38px!important;padding:0!important;overflow:hidden!important;white-space:nowrap!important}
+ .topbar .header-menu-trigger::first-letter{font-size:20px!important}
+ .topbar .top-actions{display:flex!important;flex:0 0 auto!important;min-width:0!important;gap:7px!important;margin-left:auto!important}
+ .topbar .top-actions .top-global-search,.topbar .top-actions .top-primary-nav,.topbar .top-actions .sound-button{display:none!important}
+ .topbar .top-actions .search-mobile-launch{display:grid!important;place-items:center!important;width:39px!important;min-width:39px!important;height:39px!important;padding:0!important;font-size:21px!important}
+ .topbar .top-actions .search-mobile-launch .global-search-label{display:none!important}
+ .topbar .top-actions #settingsButton{display:grid!important;width:40px!important;min-width:40px!important;height:40px!important;visibility:visible!important}
+ .main{padding:10px 12px 18px!important}
+ .main .hero{margin-top:5px!important}
+ .dock{position:fixed!important;left:8px!important;right:8px!important;bottom:calc(env(safe-area-inset-bottom) + 5px)!important;z-index:90!important;min-height:58px!important;max-height:66px!important;padding:5px!important;border-radius:20px!important;overflow:visible!important}
+ .dock button{min-width:46px!important;padding:5px!important}
+ .dock .capture{height:45px!important;width:45px!important;min-width:45px!important}
+ .memora-player.compact-player{bottom:calc(env(safe-area-inset-bottom) + 76px)!important;left:10px!important;transform:none!important;width:calc(100% - 20px)!important;max-width:calc(100% - 20px)!important;min-height:65px!important;padding:7px 9px!important;gap:6px!important}
+ .memora-player .player-mini-art{height:39px!important;width:39px!important;min-width:39px!important}
+ .memora-player .player-track{min-width:0!important;overflow:hidden!important}
+ .memora-player .player-actions{gap:4px!important}
+ .memora-player .player-action{height:38px!important;width:38px!important;min-width:38px!important}
+ .memora-player #playerPrevious,.memora-player #playerNext{display:none!important}
+ body.has-memora-player .main,body.has-memora-player .app{padding-bottom:calc(175px + env(safe-area-inset-bottom))!important}
+ .settings-card{scroll-margin-top:84px}
+}
+@media(max-width:360px){.topbar .brand strong{font-size:13px!important}.topbar .top-left{gap:3px!important}.topbar .top-actions{gap:4px!important}}
+
+@media(max-width:700px){.topbar .header-menu-trigger .menu-symbol{display:block!important;font-size:21px!important;line-height:1!important}.topbar .header-menu-trigger .menu-caption{display:none!important}}
