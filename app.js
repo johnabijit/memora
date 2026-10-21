@@ -5093,6 +5093,12 @@ async function answerSavedLocation(question){
     const score=terms.reduce((n,t)=>n+(hay.includes(t)?1:0),0)+(isFollowUp&&memory.id===conversationContext.lastMemoryId?10:0);
     return {memory,score};
   }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  if(!ranked.length&&/\b(this|that|there|it)\b/i.test(question)){
+    // An unqualified 'this place' can refer to the most recently captured location.
+    // Do not guess an address; only use an actual GPS attachment.
+    const recent=memories.slice(0,30).map(memory=>({memory,score:1}));
+    ranked.push(...recent);
+  }
   if(!ranked.length) return {text:'Which saved memory or place are you asking about? Please mention its name.',source:'Location lookup'};
   const candidates=ranked.slice(0,80).map(x=>x.memory.id);
   const {data:contexts,error:contextError}=await supabase.from('memory_contexts')
@@ -5122,7 +5128,7 @@ async function answer(question){
   }
   const direct=directConversationReply(rawQ)
   if(direct) return {text:direct,source:'Memora conversation'}
-  if(/\b(location|map|coordinates|gps|latitude|longitude|address|directions)\b/i.test(rawQ)){
+  if(/\b(location|map|coordinates|gps|latitude|longitude|address|directions|place)\b/i.test(rawQ)||/\bwhere\s+(?:is|was|am|did)\b/i.test(rawQ)){
     const located=await answerSavedLocation(rawQ);
     if(located) return located;
   }
@@ -5321,6 +5327,15 @@ async function answer(question){
     const relevant=data.filter(result=>resultRelevant(match[1],result))
     if(!relevant.length) return {text:"I don't have a relevant memory about that yet."}
     return {text:`The most recent relevant memory is: “${cleanAnswerText(relevant[0].summary||relevant[0].original_text)}” from ${when(relevant[0].occurred_at)}.`,source:'Most relevant stored memory'}
+  }
+
+  // If an AI provider has no credits, do not answer general conversation
+  // questions by disclosing an unrelated private memory.
+  const personalIntent=/\b(my|mine|i\s+(?:am|was|did|have|went|kept|put)|me|our|we|saved|remember|memory|memories|person|people|family|birthday|wedding|workplace|where\s+did\s+i)\b/i.test(rawQ);
+  if(!personalIntent){
+    return {text:aiUnavailable
+      ?'I can chat about your saved memories, but general AI answers are currently unavailable because the connected AI provider has no remaining API credits. You can reconnect a provider in Sources.'
+      :'I could not get an AI response right now. Please try again.',source:'AI provider status'};
   }
 
   // Do not give up on stored memories merely because the AI provider failed.
