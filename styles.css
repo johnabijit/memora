@@ -2702,3 +2702,19 @@ body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,c
   .now-playing-modal{max-height:calc(100dvh - env(safe-area-inset-top))!important;padding-bottom:calc(20px + env(safe-area-inset-bottom))!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}
  }
 }
+
+/* iPhone Safari and Home Screen app: keep dialogs below Dynamic Island. */
+@supports (-webkit-touch-callout:none){
+ @media(max-width:760px){
+  html{overflow-x:hidden}
+  body{padding-top:env(safe-area-inset-top,0px)}
+  .audio-hub-backdrop{inset:0!important;height:100dvh!important;padding:env(safe-area-inset-top,0px) 0 0!important;box-sizing:border-box!important;align-items:stretch!important}
+  .audio-hub-modal{height:100%!important;max-height:100%!important;min-height:0!important;width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0!important;padding:12px 12px calc(16px + env(safe-area-inset-bottom,0px))!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important}
+  .audio-hub-modal>.modal-head{position:relative!important;top:auto!important;z-index:50!important;flex:0 0 auto!important;min-height:48px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;overflow:visible!important}
+  .audio-hub-modal>.modal-head .close,.audio-hub-modal>.modal-head button{position:relative!important;top:auto!important;right:auto!important;flex-shrink:0!important;min-width:44px!important;min-height:44px!important;z-index:51!important;pointer-events:auto!important}
+  .audio-hub-modal>.audio-hub{min-height:0!important;flex:1 1 auto!important;overflow-y:auto!important;overflow-x:hidden!important;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))!important}
+ }
+}
+/* Keep the accessible skip link hidden until keyboard focus, including on iOS. */
+.skip-link:not(:focus-visible){position:fixed!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important;transform:none!important}
+.skip-link:focus-visible{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 8px)!important;left:12px!important;z-index:2147483647!important;width:auto!important;height:auto!important;clip:auto!important;clip-path:none!important;transform:none!important}
