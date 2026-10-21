@@ -5331,7 +5331,7 @@ async function answer(question){
 
   // If an AI provider has no credits, do not answer general conversation
   // questions by disclosing an unrelated private memory.
-  const personalIntent=/\\b(my|mine|i\\s+(?:am|was|did|have|went|kept|put)|me|our|we|saved|remember|memory|memories|person|people|family|birthday|wedding|workplace|where\\s+did\\s+i)\\b/i.test(rawQ);
+  const personalIntent=/\b(my|mine|i\s+(?:am|was|did|have|went|kept|put)|me|our|we|saved|remember|memory|memories|person|people|family|birthday|wedding|workplace|where\s+did\s+i)\b/i.test(rawQ);
   if(!personalIntent){
     return {text:aiUnavailable
       ?'I can chat about your saved memories, but general AI answers are currently unavailable because the connected AI provider has no remaining API credits. You can reconnect a provider in Sources.'
