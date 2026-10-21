@@ -1849,3 +1849,18 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .collection-open-head{grid-template-columns:1fr}.collection-open-head>a{justify-self:start}
   .music-kind-switch{width:100%}.music-kind-btn{flex:1}
 }
+
+
+/* Location and audio overlays: modal must always sit above persistent audio controls. */
+html,body{max-width:100%;overflow-x:clip}
+.modal-backdrop{z-index:10000!important;overflow-y:auto;overscroll-behavior:contain;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+.modal-backdrop .modal{max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain}
+body:has(.modal-backdrop) .memora-player,
+body:has(.modal-backdrop) .dock{pointer-events:none;filter:brightness(.65)}
+.memory-map-link{display:inline-flex;margin-top:10px;max-width:100%;white-space:normal;text-align:center}
+@media(max-width:760px){
+  .modal-backdrop{align-items:center;padding:12px}
+  .modal-backdrop .modal{width:min(100%,520px);max-height:calc(100dvh - 24px)}
+  .ask-main,.chat-panel,.ask-box,.bubble{min-width:0;max-width:100%}
+  .bubble-text{overflow-wrap:anywhere}
+}
