@@ -55,18 +55,18 @@ let moodActionSequence=0
 let sceneBackdropState={query:'',url:'',sourcePage:'',artist:'',license:'',loading:false}
 
 const moodCatalog={
-  great:{label:'Great',audio:{mode:'music',query:'uplifting happy'}},
-  happy:{label:'Happy',audio:{mode:'music',query:'feel good uplifting'}},
-  calm:{label:'Calm',audio:{mode:'nature',queries:['gentle ocean','forest birds','river stream','meditation instrumental','soft wind','rainforest']}},
-  okay:{label:'Okay',audio:{mode:'music',query:'easy listening'}},
-  low:{label:'Low',audio:{mode:'nature',queries:['gentle rain','forest birds','ocean waves','relaxing instrumental']}},
-  sad:{label:'Sad',audio:{mode:'nature',query:'forest'}},
-  stressed:{label:'Stressed',audio:{mode:'nature',queries:['forest','river','ocean','wind','meditation']}},
-  anxious:{label:'Anxious',audio:{mode:'nature',queries:['ocean waves','forest birds','soft rain','gentle river']}},
-  tired:{label:'Tired',audio:{mode:'nature',queries:['night nature','soft rain','calm ocean','ambient sleep']}},
-  focused:{label:'Focused',audio:{mode:'music',query:'focus instrumental'}},
-  prayerful:{label:'Prayerful',audio:{mode:'devotional',query:'',tradition:'all_faiths'}},
-  grateful:{label:'Grateful',audio:{mode:'music',query:'peaceful uplifting'}}
+  great:{label:'Great',audio:{mode:'music',queries:['upbeat dance','feel good pop','happy indie','celebration','energetic uplifting']}},
+  happy:{label:'Happy',audio:{mode:'music',queries:['happy pop','feel good music','upbeat acoustic','dance party','sunny indie']}},
+  calm:{label:'Calm',audio:{mode:'music',queries:['soft acoustic','calm piano','chill lofi','gentle instrumental','peaceful jazz','relaxing ambient']}},
+  okay:{label:'Okay',audio:{mode:'music',queries:['easy listening','indie acoustic','chill pop','mellow jazz']}},
+  low:{label:'Low',audio:{mode:'music',queries:['comforting acoustic','hopeful uplifting','gentle piano','soft indie','warm soul']}},
+  sad:{label:'Sad',audio:{mode:'music',queries:['comforting music','hopeful acoustic','gentle uplifting','soft piano','healing instrumental']}},
+  stressed:{label:'Stressed',audio:{mode:'music',queries:['stress relief instrumental','calming piano','soft lofi','relaxing acoustic','peaceful ambient','gentle jazz']}},
+  anxious:{label:'Anxious',audio:{mode:'music',queries:['soothing instrumental','slow piano','relaxing acoustic','peaceful lofi','gentle ambient']}},
+  tired:{label:'Tired',audio:{mode:'music',queries:['slow acoustic','sleepy jazz','soft piano','ambient chill','gentle instrumental']}},
+  focused:{label:'Focused',audio:{mode:'music',queries:['focus instrumental','study lofi','ambient electronic','concentration piano']}},
+  prayerful:{label:'Prayerful',audio:{mode:'devotional',queries:['worship','devotional','spiritual'],tradition:'all_faiths'}},
+  grateful:{label:'Grateful',audio:{mode:'music',queries:['peaceful uplifting','joyful acoustic','warm instrumental','feel good indie']}}
 }
 
 
@@ -832,27 +832,32 @@ async function playForMood(mood){
   const request=++moodPlaybackRequest
   const plan=moodCatalog[mood]?.audio||moodCatalog.calm.audio
   const queries=plan.queries||[plan.query||'']
-  const randomQueries=[...queries].sort(()=>Math.random()-.5)
-  for(const query of randomQueries.slice(0,4)){
-    const mode=plan.mode
-    mediaPlayerState.audioView=mode
-    const options={preserveCurrent:false}
-    if(mode==='devotional'){
-      mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths'
-      mediaPlayerState.devotionalQuery=query
-      Object.assign(options,{tradition:mediaPlayerState.devotionalTradition,language:mediaPlayerState.devotionalLanguage,countrycode:mediaPlayerState.radioCountry,sort:'popular'})
-    }else if(mode==='music')options.sort='relevant'
-    let items=[]
-    try{items=await loadMediaLibrary(mode,query,mode==='music'?50:100,options)||[]}catch{}
-    if(request!==moodPlaybackRequest)return false
-    const available=items.filter(item=>item?.url&&item.id!==previousMoodTrackId)
-    const candidates=available.length?available:items.filter(item=>item?.url)
-    if(candidates.length){
-      const item=candidates[Math.floor(Math.random()*Math.min(candidates.length,20))]
-      await selectMediaTrack(item,true)
+  // Shuffle without mutating the mood catalog. Rotate through songs rather than
+  // repeatedly picking the same nature recording or first search result.
+  const shuffled=[...queries].map(query=>({query,rank:Math.random()})).sort((a,b)=>a.rank-b.rank).map(x=>x.query)
+  const modes=plan.mode==='music'?['music','radio']:plan.mode==='devotional'?['devotional','music']:['music','radio']
+  for(const mode of modes){
+    for(const query of shuffled){
       if(request!==moodPlaybackRequest)return false
-      previousMoodTrackId=item.id
-      return Boolean(mediaAudio()&&!mediaAudio().paused)
+      const options={preserveCurrent:false}
+      if(mode==='devotional'){
+        Object.assign(options,{tradition:plan.tradition||'all_faiths',language:mediaPlayerState.devotionalLanguage,countrycode:mediaPlayerState.radioCountry,sort:'popular'})
+      }else if(mode==='music')options.sort='relevant'
+      let items=[]
+      try{items=await loadMediaLibrary(mode,query,mode==='music'?50:100,options)||[]}catch(error){console.warn('Mood audio search failed',error)}
+      if(request!==moodPlaybackRequest)return false
+      const playable=items.filter(item=>item?.url)
+      const fresh=playable.filter(item=>item.id!==previousMoodTrackId&&item.url!==mediaPlayerState.current?.url)
+      const candidates=fresh.length?fresh:playable
+      if(!candidates.length)continue
+      const item=candidates[Math.floor(Math.random()*Math.min(candidates.length,20))]
+      mediaPlayerState.audioView=mode
+      if(mode==='devotional'){mediaPlayerState.devotionalTradition=plan.tradition||'all_faiths';mediaPlayerState.devotionalQuery=query}
+      try{
+        await selectMediaTrack(item,true)
+        if(request!==moodPlaybackRequest)return false
+        if(mediaAudio()&&!mediaAudio().paused){previousMoodTrackId=item.id;return true}
+      }catch(error){console.warn('Mood track playback failed',error)}
     }
   }
   return false
