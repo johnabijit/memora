@@ -452,7 +452,7 @@ const typeLabel = type => ({
 
 function toast(message){
   const el=document.createElement('div')
-  el.className='toast'+(/location|gps|coordinates|position/i.test(String(message))?' location-toast':'')
+  el.className='toast'+(/location|gps|coordinates/i.test(String(message))?' location-toast':'')+(/location|gps|coordinates|position/i.test(String(message))?' location-toast':'')
   el.setAttribute('role','status')
   el.textContent=message
   document.body.appendChild(el)
@@ -4021,10 +4021,7 @@ function attachCurrentLocation(){
       restore()
       pendingLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy}
       renderPending()
-      if(/MemoraAndroid\/\d+(?:\.\d+)?/i.test(navigator.userAgent)){
-        const pill=document.querySelector('.context-pill.location')
-        if(pill){pill.setAttribute('role','status');pill.scrollIntoView({block:'nearest',behavior:'smooth'})}
-      }else toast('Current location attached. Tap Remember this to save it.')
+      toast('Current location attached. Tap Remember this to save it.')
     },
     err=>{restore();toast(err.message)},
     {enableHighAccuracy:true,timeout:12000,maximumAge:30000}

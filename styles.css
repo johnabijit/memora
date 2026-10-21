@@ -2629,3 +2629,7 @@ body.location-permission-active .dock{pointer-events:none!important}
 /* Location confirmation must remain above the persistent player and bottom dock. */
 .toast.location-toast{position:fixed!important;z-index:2147483646!important;left:50%!important;right:auto!important;top:max(84px,calc(env(safe-area-inset-top) + 72px))!important;bottom:auto!important;transform:translateX(-50%)!important;width:max-content!important;max-width:calc(100vw - 32px)!important;white-space:normal!important;text-align:center!important;padding:13px 18px!important;border:1px solid #94d8ef!important;background:#102840!important;color:#fff!important;box-shadow:0 12px 36px #0008!important;pointer-events:none!important}
 @media(max-width:760px){.toast.location-toast{top:max(80px,calc(env(safe-area-inset-top) + 74px))!important;max-width:calc(100vw - 24px)!important;font-size:13px!important;line-height:1.4!important}}
+
+/* Fix location notification overlapping the mobile music player */
+.toast:has(+ .nonexistent),.toast.location-toast{z-index:2147483646!important}
+body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,calc(env(safe-area-inset-top) + 72px))!important;bottom:auto!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;max-width:calc(100vw - 28px)!important;white-space:normal!important;text-align:center!important;pointer-events:none!important;background:#15324b!important;color:white!important;border:1px solid #84c9ea!important;box-shadow:0 12px 36px #0009!important}
