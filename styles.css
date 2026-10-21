@@ -1521,7 +1521,7 @@ html[data-audio-playing="true"][data-audio-scene="music"] .scene-layer:before{
   .audio-library-head.compact-head .btn{justify-self:start}
 }
 @media(max-width:430px){
-  .mini-actions .player-action:nth-child(2){display:none}
+  .mini-actions .player-action:nth-child(2){display:inline-flex}
   .now-playing-tools{grid-template-columns:1fr 1fr 1.3fr}
   .now-playing-art{width:min(270px,78vw)}
   .audio-mode-tabs.four .audio-mode-tab{min-width:98px}
@@ -1849,3 +1849,13 @@ html[data-audio-playing="true"][data-audio-scene="devotional"] .scene-layer:befo
   .collection-open-head{grid-template-columns:1fr}.collection-open-head>a{justify-self:start}
   .music-kind-switch{width:100%}.music-kind-btn{flex:1}
 }
+
+/* Keep previous, play, next and expand accessible on narrow mobile screens. */
+@media(max-width:760px){
+ .memora-player.compact-player{grid-template-columns:36px minmax(0,1fr) auto;gap:5px}
+ .memora-player .player-mini-art{width:36px;height:36px}
+ .memora-player .mini-actions{gap:2px}
+ .memora-player .mini-actions .player-action{display:inline-flex;align-items:center;justify-content:center;width:30px;min-width:30px;height:34px;padding:0 2px;font-size:12px}
+ .memora-player .mini-actions #playerMute{display:none}
+}
+@media(max-width:370px){.memora-player .mini-actions .player-action{width:27px;min-width:27px}.memora-player.compact-player{gap:3px}}
