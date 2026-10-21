@@ -2633,3 +2633,28 @@ body.location-permission-active .dock{pointer-events:none!important}
 /* Fix location notification overlapping the mobile music player */
 .toast:has(+ .nonexistent),.toast.location-toast{z-index:2147483646!important}
 body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,calc(env(safe-area-inset-top) + 72px))!important;bottom:auto!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;max-width:calc(100vw - 28px)!important;white-space:normal!important;text-align:center!important;pointer-events:none!important;background:#15324b!important;color:white!important;border:1px solid #84c9ea!important;box-shadow:0 12px 36px #0009!important}
+
+/* Mobile Ask: keep every grid item, user bubble and composer inside the viewport */
+@media(max-width:760px){
+ html,body,#app,.app,.main{max-width:100%;overflow-x:clip!important}
+ .main:has(.ask-layout){min-width:0!important;width:100%!important;padding-inline:12px!important;box-sizing:border-box!important}
+ .ask-layout,.ask-main,.ask-shell,.chat-panel,.chat,.ask-box,.ask-intelligence{
+  width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important
+ }
+ .ask-layout,.ask-main,.chat{grid-template-columns:minmax(0,1fr)!important}
+ .chat-panel{overflow-x:hidden!important;padding-inline:10px!important}
+ .chat .bubble,.bubble.user,.bubble.assistant{
+  box-sizing:border-box!important;min-width:0!important;
+  width:fit-content!important;max-width:min(100%,calc(100vw - 56px))!important;
+  overflow-wrap:anywhere!important;word-break:normal!important;white-space:normal!important
+ }
+ .chat .bubble.user{justify-self:end!important;margin-left:auto!important;margin-right:0!important}
+ .chat .bubble.assistant{justify-self:start!important;margin-right:auto!important;margin-left:0!important}
+ .bubble-text,.bubble .source,.bubble p,.bubble a{max-width:100%!important;overflow-wrap:anywhere!important;white-space:pre-wrap!important}
+ .ask-box{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px!important;padding:9px!important}
+ .ask-box #askInput{min-width:0!important;max-width:100%!important;width:100%!important;grid-column:1/-1!important}
+ .ask-box #askVoice{grid-column:1!important;justify-self:start!important;min-width:56px!important}
+ .ask-box #askButton{grid-column:2!important;justify-self:end!important;min-width:78px!important}
+ .ask-box .ask-hint{grid-column:1/-1!important}
+ .ask-intelligence,.ask-title-block{min-width:0!important;overflow-wrap:anywhere!important}
+}
