@@ -4011,14 +4011,18 @@ function renderPending(){
 
 function attachCurrentLocation(){
   if(!navigator.geolocation) return toast('Location is not available in this browser')
+  // Mobile WebView permission prompts can be obscured by the persistent player.
+  document.body.classList.add('location-permission-active')
+  const restore=()=>document.body.classList.remove('location-permission-active')
   toast('Requesting your location...')
   navigator.geolocation.getCurrentPosition(
     pos=>{
+      restore()
       pendingLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy}
       renderPending()
-      toast('Current location attached')
+      toast('Current location attached. Tap Remember this to save it.')
     },
-    err=>toast(err.message),
+    err=>{restore();toast(err.message)},
     {enableHighAccuracy:true,timeout:12000,maximumAge:30000}
   )
 }
