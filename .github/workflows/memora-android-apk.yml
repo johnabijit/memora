@@ -1,7 +1,7 @@
 name: Build Memora Android APK
 on:
   push:
-    branches: [android-v17-pull-to-refresh, mobile-installers]
+    branches: [android-v18-location-permission, mobile-installers]
     paths:
       - 'mobile/android/**'
       - '.github/workflows/memora-android-apk.yml'
@@ -31,9 +31,9 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon
       - name: Rename installable APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Memora-Android-v1.7.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Memora-Android-v1.8.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-Android-v1.7-APK
-          path: mobile/android/app/build/outputs/apk/debug/Memora-Android-v1.7.apk
+          name: Memora-Android-v1.8-APK
+          path: mobile/android/app/build/outputs/apk/debug/Memora-Android-v1.8.apk
           retention-days: 30
