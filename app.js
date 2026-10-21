@@ -5334,7 +5334,7 @@ async function answer(question){
   const personalIntent=/\b(my|mine|i\s+(?:am|was|did|have|went|kept|put)|me|our|we|saved|remember|memory|memories|person|people|family|birthday|wedding|workplace|where\s+did\s+i)\b/i.test(rawQ);
   if(!personalIntent){
     return {text:aiUnavailable
-      ?'I can chat about your saved memories, but general AI answers are currently unavailable because the connected AI provider has no remaining API credits. You can reconnect a provider in Sources.'
+      ?'AI reasoning is temporarily unavailable because the connected AI provider has no remaining API credits. I can still answer questions grounded in your saved memories. You can reconnect a provider in Sources.'
       :'I could not get an AI response right now. Please try again.',source:'AI unavailable; saved memory search checked'};
   }
 
