@@ -3097,6 +3097,7 @@ function shell(content,title,subtitle=''){
         
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
+        <button class="icon-btn memora-refresh-button" id="refreshMemoraButton" type="button" aria-label="Refresh Memora" title="Refresh Memora" style="min-width:44px;min-height:44px">↻</button>
         <button class="icon-btn profile-avatar" id="settingsButton" aria-label="Profile and settings" title="Profile and settings">${esc((user?.user_metadata?.display_name||user?.email||'M').trim().charAt(0).toUpperCase())}</button>
       </div>
     </header>
