@@ -4143,7 +4143,7 @@ async function answerSavedLocation(question){
     .select('memory_id,data').eq('user_id',user.id).eq('context_type','location').in('memory_id',candidates);
   if(contextError) return {text:'I found a related memory but could not access its saved location. Please try again.',source:'Location lookup'};
   const byId=new Map((contexts||[]).map(ctx=>[ctx.memory_id,ctx.data]));
-  for(const {memory} of scored){
+  for(const {memory} of scored.slice(0,30)){
     const point=byId.get(memory.id);
     const lat=Number(point?.latitude),lon=Number(point?.longitude);
     if(!point||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180) continue;
