@@ -5557,7 +5557,7 @@ async function ask({reload=true}={}){
     }
 
     // Handle greetings before any retrieval or AI fallback, even with extra punctuation.
-    const conversationalGreeting=/^\\s*(?:hey[,! ]*)?(?:how\\s+(?:are|r)\\s+(?:you|u)|how(?:'s| is)\\s+it\\s+going|how\\s+have\\s+you\\s+been)[?.!\\s]*$/i.test(q);
+    const conversationalGreeting=/^\s*(?:hey[,! ]*)?(?:how\s+(?:are|r)\s+(?:you|u)|how(?:'s| is)\s+it\s+going|how\s+have\s+you\s+been)[?.!\s]*$/i.test(q);
     if(conversationalGreeting){
       const reply='I am doing well, thanks for asking! How are you doing today?';
       const msg={role:'assistant',text:reply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()};
