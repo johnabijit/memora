@@ -2652,9 +2652,9 @@ body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,c
  .chat .bubble.assistant{justify-self:start!important;margin-right:auto!important;margin-left:0!important}
  .bubble-text,.bubble .source,.bubble p,.bubble a{max-width:100%!important;overflow-wrap:anywhere!important;white-space:pre-wrap!important}
  .ask-box{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px!important;padding:9px!important}
- .ask-box #askInput{min-width:0!important;max-width:100%!important;width:100%!important;grid-column:1!important}
- .ask-box #askMic{grid-column:2!important}
- .ask-box #askButton{grid-column:2!important;min-width:62px!important}
+ .ask-box #askInput{min-width:0!important;max-width:100%!important;width:100%!important;grid-column:1/-1!important}
+ .ask-box #askVoice{grid-column:1!important;justify-self:start!important;min-width:56px!important}
+ .ask-box #askButton{grid-column:2!important;justify-self:end!important;min-width:78px!important}
  .ask-box .ask-hint{grid-column:1/-1!important}
  .ask-intelligence,.ask-title-block{min-width:0!important;overflow-wrap:anywhere!important}
 }
