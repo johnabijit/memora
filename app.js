@@ -5075,6 +5075,33 @@ function directConversationReply(question){
   return null
 }
 
+async function answerSavedLocation(question){
+  if(!/\b(where|location|map|coordinates|gps|latitude|longitude|address|directions)\b/i.test(question)) return null;
+  const {data:memories,error}=await supabase.from('memories')
+    .select('id,original_text,summary,occurred_at,created_at')
+    .eq('user_id',user.id).order('created_at',{ascending:false}).limit(250);
+  if(error||!memories?.length) return null;
+  const terms=meaningfulTerms(question).filter(t=>!['location','map','coordinates','gps','latitude','longitude','address','directions','added','saved','today','when','there'].includes(t));
+  const scored=memories.map(memory=>{
+    const hay=(String(memory.original_text||'')+' '+String(memory.summary||'')).toLowerCase();
+    return {memory,score:terms.reduce((n,t)=>n+(hay.includes(t)?1:0),0)};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  if(!scored.length) return null;
+  const candidates=scored.slice(0,30).map(x=>x.memory.id);
+  const {data:contexts, error:contextError}=await supabase.from('memory_contexts')
+    .select('memory_id,data').eq('user_id',user.id).eq('context_type','location').in('memory_id',candidates);
+  if(contextError) return {text:'I found a related memory but could not access its saved location. Please try again.',source:'Location lookup'};
+  const byId=new Map((contexts||[]).map(ctx=>[ctx.memory_id,ctx.data]));
+  for(const {memory} of scored.slice(0,30)){
+    const point=byId.get(memory.id);
+    const lat=Number(point?.latitude),lon=Number(point?.longitude);
+    if(!point||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180) continue;
+    const mapUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);
+    return {text:'Saved map location for “'+(memory.summary||memory.original_text||'your memory').slice(0,120)+'”: '+lat.toFixed(6)+', '+lon.toFixed(6)+'. Open the map below to see the pinned location.',source:'Saved GPS location',mapUrl};
+  }
+  return {text:'I found a related memory, but no saved GPS coordinates are attached to it. You may need to attach the location and save the memory again.',source:'Saved memory location'};
+}
+
 async function answer(question){
   const rawQ=question.trim()
   const singleTopic=normalizeQuestion(rawQ).toLowerCase().replace(/[?.!]+$/,'').trim()
@@ -5085,6 +5112,10 @@ async function answer(question){
   }
   const direct=directConversationReply(rawQ)
   if(direct) return {text:direct,source:'Memora conversation'}
+  if(/\b(location|map|coordinates|gps|latitude|longitude|address|directions)\b/i.test(rawQ)){
+    const located=await answerSavedLocation(rawQ);
+    if(located) return located;
+  }
 
   try{
     const structured=await answerFromStructuredFacts(rawQ)
@@ -5352,7 +5383,8 @@ function renderChatMessage(message,index){
   const action=message.action?.type
     ?`<div class="chat-action-row"><button class="chat-action" data-chat-action="${esc(message.action.type)}" data-chat-mood="${esc(message.action.mood||'')}" data-chat-query="${esc(message.action.query||'')}">${esc(message.action.label||'Open')}</button></div>`
     :''
-  return `<div class="${classes}">${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
+  const mapLink=typeof message.mapUrl==='string'&&message.mapUrl.startsWith('https://www.google.com/maps/search/')?`<a class="btn memory-map-link" href="${esc(message.mapUrl)}" target="_blank" rel="noopener noreferrer">Open saved location in Google Maps ↗</a>`:''
+  return `<div class="${classes}">${mapLink}${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
 }
 
 function startThinkingAnimation(){
