@@ -3091,7 +3091,7 @@ function shell(content,title,subtitle=''){
         
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
-        <button class="icon-btn" id="settingsButton" aria-label="Profile and settings">Profile</button>
+        <button class="icon-btn profile-avatar" id="settingsButton" aria-label="Profile and settings" title="Profile and settings">${esc((user?.user_metadata?.display_name||user?.email||'M').trim().charAt(0).toUpperCase())}</button>
       </div>
     </header>
     <main class="main" id="mainContent" tabindex="-1">
@@ -6266,7 +6266,7 @@ async function settings(){
         <button class="btn" id="registerPasskey" type="button" ${passkeyDeviceSupported()?'':'disabled'}>Set up fingerprint, Face ID or PIN sign-in</button>
         <p class="small muted" id="passkeySetupStatus" role="status">${passkeyDeviceSupported()?'Sign in once with Google or email first, then register a passkey.':'Passkeys are not supported in this app view. Try the Memora website in Chrome or Safari.'}</p>
         <div class="setting-row"><span>App build</span><b>2026.10.09.43</b></div>
-        ${/\bMemoraAndroid\/1\.3\b/.test(navigator.userAgent)?`<details class="audio-disclosure" style="margin:10px 0">
+        ${/\bMemoraAndroid\/\d+(?:\.\d+)?\b/.test(navigator.userAgent)?`<details class="audio-disclosure" style="margin:10px 0">
           <summary>Android device security</summary>
           <p class="small muted">Protect the Android app when reopening it using your phone's fingerprint, strong face recognition, or screen-lock PIN when supported. This is an app lock, not a replacement for your Memora account sign-in.</p>
           <div class="filter-row"><button class="btn primary" id="enableAndroidDeviceLock" type="button">Enable device unlock</button><button class="btn" id="disableAndroidDeviceLock" type="button">Disable device unlock</button></div>
