@@ -3076,7 +3076,7 @@ function shell(content,title,subtitle=''){
         <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
         <button class="icon-btn header-home-button" data-nav="home">Home</button>
         <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">←</span><span>Back</span></button>
-        <button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu">☰ Menu</button>
+        <button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu"><span class="menu-symbol" aria-hidden="true">☰</span><span class="menu-caption"> Menu</span></button>
       </div>
       <div class="top-actions">
 
