@@ -2762,3 +2762,22 @@ html[data-appearance="light"] .audio-hub-modal>.modal-head .close{background:#df
 @media(prefers-color-scheme:light){
  html:not([data-appearance]){--text:#17283c;--muted:#40546b}
 }
+
+/* Light mode: targeted accessibility corrections for search, footer, navigation, and mood. */
+html[data-appearance="light"] .scope-chip:not(.active){color:#20354d!important;background:#e5ecf5!important;border-color:#a6b8cc!important}
+html[data-appearance="light"] .scope-chip.active,html[data-appearance="light"] .scope-chip[aria-pressed="true"]{color:#fff!important;background:#185487!important;border-color:#185487!important}
+html[data-appearance="light"] .global-search-form :is(label,.search-intro),html[data-appearance="light"] :is(#globalSearchNote,#globalSearchStatus,.global-search-results,.global-search-results p,.global-search-results small){color:#283e56!important;opacity:1!important}
+html[data-appearance="light"] .global-search-results .search-result{background:#edf3fa!important;color:#172b43!important;border:1px solid #a6b8cc!important}
+html[data-appearance="light"] .app-footer,html[data-appearance="light"] .footer-copy,html[data-appearance="light"] .footer-copy strong,html[data-appearance="light"] .footer-copy span{color:#273c53!important;opacity:1!important}
+html[data-appearance="light"] .footer-help{background:#e4edf7!important;color:#17334f!important;border-color:#99adc3!important}
+html[data-appearance="light"] .home-hub .mood-checkin :is(h2,h3,h4,p,small,.mood-copy,.mood-copy strong,.mood-copy small,.mood-response){color:#253a53!important;opacity:1!important}
+html[data-appearance="light"] .home-hub .mood-pill:not(.selected){color:#233950!important;background:#e5edf6!important;border-color:#9fb2c8!important}
+html[data-appearance="light"] .home-hub .mood-pill.selected{color:#fff!important;background:#185487!important}
+html[data-appearance="light"] .topbar .icon-btn{background:#e5edf6!important;color:#17324c!important;border-color:#a5b7c9!important}
+html[data-appearance="light"] .topbar .icon-btn :is(svg,span){color:#17324c!important}
+html[data-appearance="light"] .topbar .brand :is(h1,small,span){color:#fff!important}
+html[data-appearance="light"] .memora-player :is(.player-track span,.player-track b,.player-track small){color:#253b52!important}
+html[data-appearance="light"] .dock{background:rgba(25,45,65,.94)!important}
+html[data-appearance="light"] .dock :is(button,small,span){color:#e8f1fb!important}
+html[data-appearance="light"] .dock button.active{background:#375d79!important}
+html[data-appearance="light"] .dock .capture{background:#168c6d!important}
