@@ -944,7 +944,8 @@ function ensureMediaPlayer(){
       <span id="playerStatus">Ready</span>
     </button>
     <div class="player-actions mini-actions">
-      <button class="player-action primary" id="playerPlay" aria-label="Play or pause">▶</button>
+      <button class="player-action" id="playerPrevious" aria-label="Previous">‹‹</button>
+       <button class="player-action primary" id="playerPlay" aria-label="Play or pause">▶</button>
       <button class="player-action" id="playerNext" aria-label="Next">››</button>
       <button class="player-action" id="playerMute" aria-label="Mute or unmute">Mute</button>
       <button class="player-action expand-action" id="playerExpand" aria-label="Expand Now Playing">⌃</button>
@@ -974,7 +975,8 @@ function ensureMediaPlayer(){
     else refreshMediaPlayerUI()
   })
 
-  document.getElementById('playerPlay').onclick=toggleMediaPlayback
+  document.getElementById('playerPrevious').onclick=()=>previousMediaTrack(true)
+   document.getElementById('playerPlay').onclick=toggleMediaPlayback
   document.getElementById('playerNext').onclick=()=>nextMediaTrack(true)
   document.getElementById('playerMute').onclick=toggleMediaMute
   document.getElementById('playerExpand').onclick=openNowPlayingSheet
