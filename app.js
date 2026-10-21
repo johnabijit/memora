@@ -4011,14 +4011,18 @@ function renderPending(){
 
 function attachCurrentLocation(){
   if(!navigator.geolocation) return toast('Location is not available in this browser')
+  // Mobile WebView permission prompts can be obscured by the persistent player.
+  document.body.classList.add('location-permission-active')
+  const restore=()=>document.body.classList.remove('location-permission-active')
   toast('Requesting your location...')
   navigator.geolocation.getCurrentPosition(
     pos=>{
+      restore()
       pendingLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy}
       renderPending()
-      toast('Current location attached')
+      toast('Current location attached. Tap Remember this to save it.')
     },
-    err=>toast(err.message),
+    err=>{restore();toast(err.message)},
     {enableHighAccuracy:true,timeout:12000,maximumAge:30000}
   )
 }
@@ -5076,30 +5080,36 @@ function directConversationReply(question){
 }
 
 async function answerSavedLocation(question){
-  if(!/\b(where|location|map|coordinates|gps|latitude|longitude|address|directions)\b/i.test(question)) return null;
+  if(!/\b(where|location|map|coordinates|gps|latitude|longitude|address|directions|place)\b/i.test(question)) return null;
   const {data:memories,error}=await supabase.from('memories')
     .select('id,original_text,summary,occurred_at,created_at')
-    .eq('user_id',user.id).order('created_at',{ascending:false}).limit(250);
-  if(error||!memories?.length) return null;
-  const terms=meaningfulTerms(question).filter(t=>!['location','map','coordinates','gps','latitude','longitude','address','directions','added','saved','today','when','there'].includes(t));
-  const scored=memories.map(memory=>{
+    .eq('user_id',user.id).order('created_at',{ascending:false}).limit(500);
+  if(error) return {text:'I could not read your saved memories right now. Please try again.',source:'Location lookup'};
+  if(!memories?.length) return null;
+  const terms=meaningfulTerms(question).filter(t=>!['location','map','coordinates','gps','latitude','longitude','address','directions','added','saved','today','when','there','place','this','that','which','center','centre'].includes(t));
+  const isFollowUp=/\b(this|that|there|it)\b/i.test(question)&&terms.length===0;
+  const ranked=memories.map(memory=>{
     const hay=(String(memory.original_text||'')+' '+String(memory.summary||'')).toLowerCase();
-    return {memory,score:terms.reduce((n,t)=>n+(hay.includes(t)?1:0),0)};
+    const score=terms.reduce((n,t)=>n+(hay.includes(t)?1:0),0)+(isFollowUp&&memory.id===conversationContext.lastMemoryId?10:0);
+    return {memory,score};
   }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
-  if(!scored.length) return null;
-  const candidates=scored.slice(0,30).map(x=>x.memory.id);
-  const {data:contexts, error:contextError}=await supabase.from('memory_contexts')
+  if(!ranked.length) return {text:'Which saved memory or place are you asking about? Please mention its name.',source:'Location lookup'};
+  const candidates=ranked.slice(0,80).map(x=>x.memory.id);
+  const {data:contexts,error:contextError}=await supabase.from('memory_contexts')
     .select('memory_id,data').eq('user_id',user.id).eq('context_type','location').in('memory_id',candidates);
-  if(contextError) return {text:'I found a related memory but could not access its saved location. Please try again.',source:'Location lookup'};
+  if(contextError) return {text:'I found a matching memory, but could not read its GPS attachment. Please try again.',source:'Location lookup'};
   const byId=new Map((contexts||[]).map(ctx=>[ctx.memory_id,ctx.data]));
-  for(const {memory} of scored.slice(0,30)){
+  for(const {memory} of ranked.slice(0,80)){
     const point=byId.get(memory.id);
     const lat=Number(point?.latitude),lon=Number(point?.longitude);
     if(!point||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180) continue;
     const mapUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);
-    return {text:'Saved map location for “'+(memory.summary||memory.original_text||'your memory').slice(0,120)+'”: '+lat.toFixed(6)+', '+lon.toFixed(6)+'. Open the map below to see the pinned location.',source:'Saved GPS location',mapUrl};
+    conversationContext.lastMemoryId=memory.id;
+    persistConversationState();
+    const title=String(memory.original_text||memory.summary||'your memory').slice(0,130);
+    return {text:'The location attached to your saved memory “'+title+'” is at GPS coordinates '+lat.toFixed(6)+', '+lon.toFixed(6)+'. This is the pinned position, not a verified street address. Open the map to view the place.',source:'Saved GPS attachment',mapUrl};
   }
-  return {text:'I found a related memory, but no saved GPS coordinates are attached to it. You may need to attach the location and save the memory again.',source:'Saved memory location'};
+  return {text:'I found a matching saved memory, but it has no readable GPS attachment. Open the memory and check its location attachment.',source:'Location lookup'};
 }
 
 async function answer(question){
@@ -5550,6 +5560,13 @@ async function ask({reload=true}={}){
       }
     }
 
+    // Handle greetings before any retrieval or AI fallback, even with extra punctuation.
+    const conversationalGreeting=/^\s*(?:hey[,! ]*)?(?:how\s+(?:are|r)\s+(?:you|u)|how(?:'s| is)\s+it\s+going|how\s+have\s+you\s+been)[?.!\s]*$/i.test(q);
+    if(conversationalGreeting){
+      const reply='I am doing well, thanks for asking! How are you doing today?';
+      const msg={role:'assistant',text:reply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()};
+      chat.push(msg);await saveChatMessage('assistant',reply,msg);await ask({reload:false});return;
+    }
     const directReply=directConversationReply(q)
     if(directReply){
       const directMessage={role:'assistant',text:directReply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()}
