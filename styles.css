@@ -2781,3 +2781,8 @@ html[data-appearance="light"] .dock{background:rgba(25,45,65,.94)!important}
 html[data-appearance="light"] .dock :is(button,small,span){color:#e8f1fb!important}
 html[data-appearance="light"] .dock button.active{background:#375d79!important}
 html[data-appearance="light"] .dock .capture{background:#168c6d!important}
+
+/* Persistent refresh control for Safari Home Screen PWAs and browsers. */
+.memora-refresh-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 44px!important;width:44px!important;height:44px!important;padding:0!important;font-size:27px!important;font-weight:600!important;line-height:1!important;cursor:pointer!important;touch-action:manipulation!important}
+@media(max-width:760px){.top-actions{gap:6px!important}.memora-refresh-button{flex-basis:42px!important;width:42px!important;height:44px!important}}
+html[data-appearance="light"] .topbar .memora-refresh-button{background:#e5edf6!important;color:#17324c!important;border:1px solid #a5b7c9!important}
