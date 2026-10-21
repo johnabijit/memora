@@ -2658,3 +2658,15 @@ body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,c
  .ask-box .ask-hint{grid-column:1/-1!important}
  .ask-intelligence,.ask-title-block{min-width:0!important;overflow-wrap:anywhere!important}
 }
+
+/* Mobile audio transport controls: do not hide Previous/Next. */
+@media(max-width:700px){
+ .memora-player.compact-player{grid-template-columns:34px minmax(0,1fr) auto!important;gap:4px!important;padding:6px!important}
+ .memora-player .player-mini-art{width:34px!important;min-width:34px!important;height:34px!important}
+ .memora-player .mini-actions{display:flex!important;gap:2px!important;flex-wrap:nowrap!important}
+ .memora-player #playerPrevious,.memora-player #playerNext{display:inline-flex!important;align-items:center!important;justify-content:center!important}
+ .memora-player .mini-actions .player-action{width:32px!important;min-width:32px!important;height:36px!important;padding:2px!important}
+ .memora-player .mini-actions #playerMute{display:none!important}
+ .memora-player .mini-actions .player-action svg{width:19px;height:19px}
+}
+@media(max-width:370px){.memora-player .mini-actions .player-action{width:29px!important;min-width:29px!important}}
