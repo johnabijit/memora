@@ -35,6 +35,9 @@ public class MainActivity extends FragmentActivity {
     private static final String HOME = "https://memora-37z.pages.dev/";
     private static final int FILE_PICK_REQUEST = 1001;
     private static final int MEDIA_PERMISSION_REQUEST = 1002;
+    private static final int LOCATION_PERMISSION_REQUEST = 1003;
+    private android.webkit.GeolocationPermissions.Callback geoCallback;
+    private String geoOrigin;
     private WebView webView;
     private float touchStartY=0f;
     private boolean refreshing=false;
@@ -145,7 +148,17 @@ public class MainActivity extends FragmentActivity {
                 if (request.isForMainFrame()) { loading.setVisibility(View.GONE); errorPanel.setVisibility(View.VISIBLE); }
             }
         });
+        webView.getSettings().setGeolocationEnabled(true);
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public void onGeolocationPermissionsShowPrompt(String origin, android.webkit.GeolocationPermissions.Callback callback){
+                Uri uri=Uri.parse(origin);
+                if(!"https".equalsIgnoreCase(uri.getScheme())||!"memora-37z.pages.dev".equalsIgnoreCase(uri.getHost())){callback.invoke(origin,false,false);return;}
+                if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED){callback.invoke(origin,true,false);return;}
+                geoCallback=callback;
+                geoOrigin=origin;
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_PERMISSION_REQUEST);
+            }
+            @Override public void onGeolocationPermissionsHidePrompt(){}
             @Override public boolean onShowFileChooser(WebView view, android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
@@ -375,6 +388,13 @@ public class MainActivity extends FragmentActivity {
 
     @Override public void onRequestPermissionsResult(int req, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(req,permissions,grantResults);
+        if(req==LOCATION_PERMISSION_REQUEST){
+            boolean granted=false;
+            for(int result:grantResults)if(result==PackageManager.PERMISSION_GRANTED)granted=true;
+            if(geoCallback!=null){geoCallback.invoke(geoOrigin,granted,false);geoCallback=null;geoOrigin=null;}
+            if(!granted)Toast.makeText(this,"Location permission denied. Allow location in Android Settings to attach a place.",Toast.LENGTH_LONG).show();
+            return;
+        }
         if (req == MEDIA_PERMISSION_REQUEST && mediaRequest != null) {
             boolean allowed = true;
             for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) allowed = false;
