@@ -3188,6 +3188,8 @@ function inferGlobalSearchScope(query){
   return 'memories'
 }
 function openGlobalSearch(initial=''){
+  // Click handlers may pass PointerEvent; never stringify it into the search box.
+  initial=typeof initial==='string'?initial:''
   const wrap=modal('Search or Ask',`
     <form class="global-search-form">
       <p class="muted search-intro">Find a saved detail, listen to music or radio, or ask Memora directly.</p><label for="globalSearchScope" class="sr-only">Search in</label>
