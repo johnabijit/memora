@@ -5128,7 +5128,7 @@ async function answer(question){
   }
   const direct=directConversationReply(rawQ)
   if(direct) return {text:direct,source:'Memora conversation'}
-  if(/\b(location|map|coordinates|gps|latitude|longitude|address|directions|place)\b/i.test(rawQ)||/\bwhere\s+(?:is|was|am|did)\b/i.test(rawQ)){
+  if(/\b(map|coordinates|gps|latitude|longitude|directions|place)\b/i.test(rawQ)||(/\b(where|location|address)\b/i.test(rawQ)&&/\b(therapy|center|centre|diana|saved|attached|this|that|there)\b/i.test(rawQ))){
     const located=await answerSavedLocation(rawQ);
     if(located) return located;
   }
@@ -5335,7 +5335,7 @@ async function answer(question){
   if(!personalIntent){
     return {text:aiUnavailable
       ?'I can chat about your saved memories, but general AI answers are currently unavailable because the connected AI provider has no remaining API credits. You can reconnect a provider in Sources.'
-      :'I could not get an AI response right now. Please try again.',source:'AI provider status'};
+      :'I could not get an AI response right now. Please try again.',source:'AI unavailable; saved memory search checked'};
   }
 
   // Do not give up on stored memories merely because the AI provider failed.
