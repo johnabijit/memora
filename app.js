@@ -452,7 +452,7 @@ const typeLabel = type => ({
 
 function toast(message){
   const el=document.createElement('div')
-  el.className='toast'+(/location|gps|coordinates|position/i.test(String(message))?' location-toast':'')
+  el.className='toast'+(/location|gps|coordinates/i.test(String(message))?' location-toast':'')+(/location|gps|coordinates|position/i.test(String(message))?' location-toast':'')
   el.setAttribute('role','status')
   el.textContent=message
   document.body.appendChild(el)
