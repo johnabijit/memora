@@ -4379,7 +4379,7 @@ function renderChatMessage(message,index){
   const action=message.action?.type
     ?`<div class="chat-action-row"><button class="chat-action" data-chat-action="${esc(message.action.type)}" data-chat-mood="${esc(message.action.mood||'')}" data-chat-query="${esc(message.action.query||'')}">${esc(message.action.label||'Open')}</button></div>`
     :''
-  const mapLink=message.mapUrl&&/^https:\\/\\/www\\.google\\.com\\/maps\\/search\\//.test(message.mapUrl)?`<a class="btn memory-map-link" href="${esc(message.mapUrl)}" target="_blank" rel="noopener noreferrer">Open saved location in Google Maps ↗</a>`:''
+  const mapLink=typeof message.mapUrl==='string'&&message.mapUrl.startsWith('https://www.google.com/maps/search/')?`<a class="btn memory-map-link" href="${esc(message.mapUrl)}" target="_blank" rel="noopener noreferrer">Open saved location in Google Maps ↗</a>`:''
   return `<div class="${classes}">${mapLink}${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
 }
 
