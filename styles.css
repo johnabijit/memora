@@ -2604,3 +2604,12 @@ html[data-visual-style="hemisphere"] .home-hero:before{display:block!important;c
 @media(max-width:360px){.topbar .brand strong{font-size:13px!important}.topbar .top-left{gap:3px!important}.topbar .top-actions{gap:4px!important}}
 
 @media(max-width:700px){.topbar .header-menu-trigger .menu-symbol{display:block!important;font-size:21px!important;line-height:1!important}.topbar .header-menu-trigger .menu-caption{display:none!important}}
+
+
+/* Mobile dialogs stay above the persistent music player. */
+html,body{max-width:100%;overflow-x:clip}
+.modal-backdrop{z-index:10000!important;overflow-y:auto;overscroll-behavior:contain;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+.modal-backdrop .modal{max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain}
+body:has(.modal-backdrop) .memora-player,body:has(.modal-backdrop) .dock{pointer-events:none;filter:brightness(.65)}
+.memory-map-link{display:inline-flex;margin-top:10px;max-width:100%;white-space:normal;text-align:center}
+@media(max-width:760px){.modal-backdrop{align-items:center;padding:12px}.modal-backdrop .modal{width:min(100%,520px);max-height:calc(100dvh - 24px)}.ask-main,.chat-panel,.ask-box,.bubble{min-width:0;max-width:100%}.bubble-text{overflow-wrap:anywhere}}
