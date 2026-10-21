@@ -3,6 +3,8 @@ on:
   push:
     branches: [build/android-apk-20261021]
   workflow_dispatch:
+  pull_request:
+    branches: [cloudflare-v43-fixes]
 jobs:
   apk:
     runs-on: ubuntu-latest
