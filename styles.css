@@ -2602,3 +2602,5 @@ html[data-visual-style="hemisphere"] .home-hero:before{display:block!important;c
  .settings-card{scroll-margin-top:84px}
 }
 @media(max-width:360px){.topbar .brand strong{font-size:13px!important}.topbar .top-left{gap:3px!important}.topbar .top-actions{gap:4px!important}}
+
+@media(max-width:700px){.topbar .header-menu-trigger .menu-symbol{display:block!important;font-size:21px!important;line-height:1!important}.topbar .header-menu-trigger .menu-caption{display:none!important}}
