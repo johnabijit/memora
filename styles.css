@@ -2718,3 +2718,47 @@ body .toast{position:fixed!important;z-index:2147483645!important;top:max(85px,c
 /* Keep the accessible skip link hidden until keyboard focus, including on iOS. */
 .skip-link:not(:focus-visible){position:fixed!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important;transform:none!important}
 .skip-link:focus-visible{position:fixed!important;top:calc(env(safe-area-inset-top,0px) + 8px)!important;left:12px!important;z-index:2147483647!important;width:auto!important;height:auto!important;clip:auto!important;clip-path:none!important;transform:none!important}
+
+/* Light appearance contrast correction across all theme families and screens. */
+html[data-appearance="light"]{
+ color-scheme:light;
+ --text:#17283c!important;--muted:#40546b!important;
+ --glass:rgba(255,255,255,.96)!important;--glass2:rgba(247,250,254,.98)!important;
+ --line:rgba(40,64,91,.28)!important;
+}
+html[data-appearance="light"] body{color:var(--text)!important}
+html[data-appearance="light"] :is(.glass,.modal,.audio-hub-modal,.audio-mode-panel,.audio-for-you,.audio-library-toolbar,.home-panel,.memory-card,.vault-card,.source-card,.chat-panel,.ask-box,.setting-row,.collection-card,.theme-picker,.mood-checkin,.mood-response){
+ color:#17283c!important;
+}
+html[data-appearance="light"] :is(.glass,.modal,.audio-hub-modal,.audio-mode-panel,.audio-for-you,.chat-panel,.ask-box,.mood-checkin){
+ background:rgba(248,250,254,.97)!important;border-color:#aebed0!important;
+}
+html[data-appearance="light"] :is(.glass,.modal,.audio-hub-modal,.audio-mode-panel,.audio-for-you,.chat-panel,.ask-box,.mood-checkin) :is(h1,h2,h3,h4,h5,h6,p,b,strong,small,label,span,.eyebrow,.muted,.small){
+ color:#20354d!important;opacity:1!important;text-shadow:none!important;
+}
+html[data-appearance="light"] :is(.glass,.modal,.audio-hub-modal,.audio-mode-panel,.audio-for-you,.chat-panel,.ask-box,.mood-checkin) :is(.muted,small,.eyebrow){color:#40546b!important}
+html[data-appearance="light"] :is(.btn:not(.primary),.tool,.chip:not(.active),.audio-mode-tab,.home-tab,.source-tab,.mood-pill,.icon-btn,.close){
+ background:#e9eff7!important;color:#172b43!important;border-color:#a3b4c8!important;text-shadow:none!important;
+}
+html[data-appearance="light"] :is(.btn.primary,.chip.active,.audio-mode-tab.active,.home-tab.active,.source-tab.active,.mood-pill.selected){
+ background:#194e82!important;color:#fff!important;border-color:#194e82!important;box-shadow:none!important;
+}
+html[data-appearance="light"] :is(.btn.primary,.chip.active,.audio-mode-tab.active,.home-tab.active,.source-tab.active,.mood-pill.selected) :is(span,b,strong,small){color:#fff!important}
+html[data-appearance="light"] :is(input,textarea,select,.input){
+ background:#fff!important;color:#152a42!important;border-color:#8fa4bc!important;
+}
+html[data-appearance="light"] :is(input,textarea,.input)::placeholder{color:#53677f!important;opacity:1!important}
+html[data-appearance="light"] .composer{background:#fff!important;border-color:#9aacc1!important}
+html[data-appearance="light"] .composer textarea{color:#17283c!important}
+html[data-appearance="light"] .composer textarea::placeholder{color:#50647d!important}
+html[data-appearance="light"] .hero.home-hero .gradient-text{background:none!important;-webkit-text-fill-color:#162d46!important;color:#162d46!important}
+html[data-appearance="light"] .topbar{background:rgba(18,36,58,.94)!important}
+html[data-appearance="light"] .topbar :is(.brand,.brand h1,.brand small){color:#fff!important}
+html[data-appearance="light"] .theme-card{color:#fff!important}
+html[data-appearance="light"] .theme-card small{color:#fff!important;text-shadow:0 1px 5px #000!important}
+html[data-appearance="light"] .memora-player :is(.player-action,.player-track,.player-track-button){color:#17283c!important}
+html[data-appearance="light"] .audio-hub-modal>.modal-head{background:#f8fafd!important}
+html[data-appearance="light"] .audio-hub-modal>.modal-head .close{background:#dfe8f4!important;color:#152c46!important}
+@media(prefers-color-scheme:light){
+ html:not([data-appearance]){--text:#17283c;--muted:#40546b}
+}
