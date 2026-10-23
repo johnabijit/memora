@@ -3353,9 +3353,10 @@ function wire(){
     try{await audio.play()}catch{toast('Tap the player to start audio')}
     updateSoundButton()
   })
+  document.getElementById('refreshMemoraButton')?.addEventListener('click',()=>window.location.reload())
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
-    if(window.history.length>1) window.history.back()
+    if(window.history.state?.memora && window.history.length>1) window.history.back()
     else go('home')
   })
   updateSoundButton()
@@ -4296,7 +4297,7 @@ async function home(){
       <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
-    <section class="glass daily-quote" id="dailyQuote" aria-label="Quote of the day"><div class="quote-heading"><span class="eyebrow">A MOMENT OF INSPIRATION</span><span class="quote-date">Quote of the day</span></div><blockquote id="dailyQuoteText">“${esc(dailyMemoraQuote(latestMood?.mood).quote)}”</blockquote><div class="quote-actions"><span id="dailyQuoteMood">Inspired by ${esc(latestMood?.mood||'today')}</span></div></section>
+    <section class="glass daily-quote" id="dailyQuote" aria-label="Quote of the day"><div class="quote-heading"><span class="eyebrow">A MOMENT OF INSPIRATION</span><span class="quote-date">Quote of the day</span></div><blockquote id="dailyQuoteText">“${esc(dailyMemoraQuote(latestMood?.mood).quote)}”</blockquote><div class="quote-actions"><span id="dailyQuoteMood">Inspired by ${esc(latestMood?.mood||'today')}</span><button class="btn compact" id="nextDailyQuote" type="button">Next thought</button></div></section>
     <section class="glass home-hub">
       <div class="home-hub-head">
         <div><div class="eyebrow">Your memory space</div><h3>Everything organized, nothing dumped.</h3></div>
@@ -4367,6 +4368,22 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
+  document.getElementById('nextDailyQuote')?.addEventListener('click',()=>{
+    const pool=[...new Set(Object.values(memoraDailyQuotes).flat())]
+    const key='memora-daily-thought-v2-'+String(user?.id||'guest')
+    try{
+      const state=JSON.parse(localStorage.getItem(key)||'{}')
+      const used=Array.isArray(state.used)?state.used.filter(q=>pool.includes(q)):[]
+      const available=pool.filter(q=>!used.includes(q))
+      const options=available.length?available:pool.filter(q=>q!==state.quote)
+      const quote=(options.length?options:pool)[Math.floor(Math.random()*Math.max(1,options.length||pool.length))]
+      if(!quote)return
+      const nextUsed=available.length?[...used,quote]:[quote]
+      localStorage.setItem(key,JSON.stringify({day:new Date().toISOString().slice(0,10),quote,used:nextUsed}))
+      const element=document.getElementById('dailyQuoteText')
+      if(element)element.textContent='“'+quote+'”'
+    }catch{toast('Could not load another thought')}
+  })
   let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
     const request=++latestHomeMoodRequest
