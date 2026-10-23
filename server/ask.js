@@ -321,18 +321,25 @@ async function run(req,res){
     let model=''
     let provider=''
 
-    // Prefer the account's daily free Workers AI allowance over credit-based providers.
-    // Cloudflare Pages exposes the AI binding as env.AI when configured.
+    // Free Workers AI first. Fast Llama avoids long reasoning-only responses;
+    // GLM provides a second free model if the first cannot answer.
     if(!answer && env.AI && !image.dataUrl){
-      try{
-        const freeResult=await env.AI.run('@cf/zai-org/glm-4.7-flash',{
-          messages:[{role:'system',content:system},{role:'user',content:userPrompt}],
-          max_tokens:1400
-        })
-        answer=String(freeResult?.response||freeResult?.result?.response||freeResult?.choices?.[0]?.message?.content||freeResult?.result?.choices?.[0]?.message?.content||'').trim()
-        if(answer){model='@cf/zai-org/glm-4.7-flash';provider='cloudflare-workers-ai'}
-      }catch(error){
-        console.warn('Free Workers AI unavailable; trying connected provider',String(error?.message||error).slice(0,180))
+      for(const candidate of [
+        {id:'@cf/meta/llama-3.1-8b-instruct-fast',max_tokens:700},
+        {id:'@cf/zai-org/glm-4.7-flash',max_tokens:1400}
+      ]){
+        try{
+          const result=await env.AI.run(candidate.id,{
+            messages:[{role:'system',content:system},{role:'user',content:userPrompt}],
+            max_tokens:candidate.max_tokens
+          })
+          const content=result?.response??result?.result?.response??
+            result?.choices?.[0]?.message?.content??result?.result?.choices?.[0]?.message?.content
+          answer=typeof content==='string'?content.trim():''
+          if(answer){model=candidate.id;provider='cloudflare-workers-ai';break}
+        }catch(error){
+          console.warn('Workers AI model unavailable',candidate.id,String(error?.message||error).slice(0,160))
+        }
       }
     }
 
