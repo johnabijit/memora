@@ -336,7 +336,7 @@ async function run(req,res){
       }
     }
 
-    if(gatewayToken){
+    if(!answer && gatewayToken){
       try{
         const aiResponse=await fetch('https://ai-gateway.vercel.sh/v1/responses',{
           signal:AbortSignal.timeout(45000),
