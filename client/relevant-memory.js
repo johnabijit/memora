@@ -131,7 +131,7 @@ export function answerFromEventMemory(question,items=[]){
    'Your saved '+intent.topic+' '+intent.property+' is '+value+'.'
   return {text,source:'Saved memory',memoryId:candidate.id,evidence:fields.source,event:intent.topic}
  }
- if(candidates.some(x=>extractEventDetails(x,intent.topic)))
-  return {text:'I found a saved '+intent.topic+' memory, but it does not state a clear '+intent.property+'.',source:'Saved memory',insufficientEvidence:true,event:intent.topic}
+ // Do not block AI reasoning with a premature negative answer: the place may be
+ // expressed as a shop name, nearby area, or a payment note rather than an event venue.
  return null
 }
