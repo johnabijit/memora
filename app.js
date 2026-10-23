@@ -4234,10 +4234,24 @@ const memoraDailyQuotes={
  general:['Every moment holds a detail worth remembering.','Curiosity can turn an ordinary day into a discovery.','A meaningful life is made of many small moments.','The next chapter begins with what you choose today.','Notice what brings you joy and carry it forward.','New possibilities often start with a single question.','Your story grows with every thoughtful step.','Remember the good, learn from the hard, welcome what comes next.']
 }
 function dailyMemoraQuote(mood){
- const group=memoraDailyQuotes[mood]||memoraDailyQuotes.general
- const day=Math.floor(Date.now()/86400000)
- const seed=String(user?.id||'memora').split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)
- return {quote:group[(day+seed)%group.length],mood:mood||'general'}
+ // One quote per user per calendar day; avoid repeats until the full pool is used.
+ const pool=[...new Set(Object.values(memoraDailyQuotes).flat())]
+ const day=new Date().toISOString().slice(0,10)
+ const key='memora-daily-thought-v2-'+String(user?.id||'guest')
+ try{
+   const state=JSON.parse(localStorage.getItem(key)||'{}')
+   if(state.day===day && pool.includes(state.quote)) return {quote:state.quote,mood:mood||'general'}
+   const used=Array.isArray(state.used)?state.used.filter(q=>pool.includes(q)):[]
+   const available=pool.filter(q=>!used.includes(q))
+   const candidates=available.length?available:pool.filter(q=>q!==state.quote)
+   const selection=candidates.length?candidates:pool
+   const quote=selection[Math.floor(Math.random()*selection.length)]||''
+   localStorage.setItem(key,JSON.stringify({day,quote,used:available.length?[...used,quote]:[quote]}))
+   return {quote,mood:mood||'general'}
+ }catch{
+   const index=Math.floor(Date.now()/86400000)%Math.max(1,pool.length)
+   return {quote:pool[index]||'',mood:mood||'general'}
+ }
 }
 async function home(){
   const [{count:memoryCount},{count:thingCount},{count:docCount},{data:recent},{data:profile}]=await Promise.all([
@@ -4282,7 +4296,7 @@ async function home(){
       <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
-    <section class="glass daily-quote" id="dailyQuote" aria-label="Quote of the day"><div class="quote-heading"><span class="eyebrow">A MOMENT OF INSPIRATION</span><span class="quote-date">Quote of the day</span></div><blockquote id="dailyQuoteText">“${esc(dailyMemoraQuote(latestMood?.mood).quote)}”</blockquote><div class="quote-actions"><span id="dailyQuoteMood">Inspired by ${esc(latestMood?.mood||'today')}</span><button class="btn compact" id="nextDailyQuote" type="button">Another thought</button></div></section>
+    <section class="glass daily-quote" id="dailyQuote" aria-label="Quote of the day"><div class="quote-heading"><span class="eyebrow">A MOMENT OF INSPIRATION</span><span class="quote-date">Quote of the day</span></div><blockquote id="dailyQuoteText">“${esc(dailyMemoraQuote(latestMood?.mood).quote)}”</blockquote><div class="quote-actions"><span id="dailyQuoteMood">Inspired by ${esc(latestMood?.mood||'today')}</span></div></section>
     <section class="glass home-hub">
       <div class="home-hub-head">
         <div><div class="eyebrow">Your memory space</div><h3>Everything organized, nothing dumped.</h3></div>
@@ -4353,8 +4367,6 @@ async function home(){
   })
 
   document.getElementById('homeSoundscapes').onclick=openSoundscapePicker
-  let quoteOffset=0
-  document.getElementById('nextDailyQuote')?.addEventListener('click',()=>{quoteOffset++;const options=memoraDailyQuotes[latestMood?.mood]||memoraDailyQuotes.general;document.getElementById('dailyQuoteText').textContent='“'+options[(Math.floor(Date.now()/86400000)+quoteOffset)%options.length]+'”'})
   let latestHomeMoodRequest=0
   document.querySelectorAll('[data-mood-checkin]').forEach(button=>button.onclick=async()=>{
     const request=++latestHomeMoodRequest
