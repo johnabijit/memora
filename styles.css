@@ -2796,3 +2796,28 @@ html[data-appearance="light"] .topbar .memora-refresh-button{background:#e5edf6!
  .topbar .brand-button small{display:none!important}
  .topbar .top-actions{gap:5px!important}
 }
+
+/* Compact, theme-neutral mobile navigation: no neon blocks or oversized glyphs. */
+@media(max-width:780px){
+ .topbar .back-btn,.topbar .memora-refresh-button{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:39px!important;min-width:39px!important;max-width:39px!important;
+  height:39px!important;min-height:39px!important;flex:0 0 39px!important;
+  padding:0!important;border-radius:12px!important;
+  background:rgba(255,255,255,.065)!important;
+  border:1px solid rgba(210,226,246,.16)!important;
+  color:#edf5ff!important;box-shadow:none!important;
+  font-size:25px!important;font-weight:400!important;line-height:1!important;
+ }
+ .topbar .back-btn span:first-child{display:block!important;font-size:30px!important;line-height:1!important;transform:translateY(-2px)}
+ .topbar .back-btn span:last-child{display:none!important}
+ .topbar .back-btn:disabled{display:none!important}
+ .topbar .memora-refresh-button svg{width:19px!important;height:19px!important;display:block!important}
+ .topbar .top-left{gap:4px!important}
+ .topbar .top-actions{gap:4px!important}
+}
+html[data-appearance="light"] .topbar .back-btn,
+html[data-appearance="light"] .topbar .memora-refresh-button{
+ background:rgba(255,255,255,.07)!important;color:#edf5ff!important;
+ border-color:rgba(210,226,246,.16)!important;
+}
