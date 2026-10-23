@@ -321,6 +321,21 @@ async function run(req,res){
     let model=''
     let provider=''
 
+    // Prefer the account's daily free Workers AI allowance over credit-based providers.
+    // Cloudflare Pages exposes the AI binding as env.AI when configured.
+    if(!answer && env.AI && !image.dataUrl){
+      try{
+        const freeResult=await env.AI.run('@cf/zai-org/glm-4.7-flash',{
+          messages:[{role:'system',content:system},{role:'user',content:userPrompt}],
+          max_tokens:600
+        })
+        answer=String(freeResult?.response||freeResult?.result?.response||'').trim()
+        if(answer){model='@cf/zai-org/glm-4.7-flash';provider='cloudflare-workers-ai'}
+      }catch(error){
+        console.warn('Free Workers AI unavailable; trying connected provider',String(error?.message||error).slice(0,180))
+      }
+    }
+
     if(gatewayToken){
       try{
         const aiResponse=await fetch('https://ai-gateway.vercel.sh/v1/responses',{
@@ -356,21 +371,6 @@ async function run(req,res){
         }
       }catch(error){
         console.warn('Vercel AI Gateway failed, trying connected provider',error)
-      }
-    }
-
-    // Prefer the account's daily free Workers AI allowance over credit-based providers.
-    // Cloudflare Pages exposes the AI binding as env.AI when configured.
-    if(!answer && env.AI && !image.dataUrl){
-      try{
-        const freeResult=await env.AI.run('@cf/zai-org/glm-4.7-flash',{
-          messages:[{role:'system',content:system},{role:'user',content:userPrompt}],
-          max_tokens:600
-        })
-        answer=String(freeResult?.response||freeResult?.result?.response||'').trim()
-        if(answer){model='@cf/zai-org/glm-4.7-flash';provider='cloudflare-workers-ai'}
-      }catch(error){
-        console.warn('Free Workers AI unavailable; trying connected provider',String(error?.message||error).slice(0,180))
       }
     }
 
