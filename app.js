@@ -3354,6 +3354,24 @@ function wire(){
     updateSoundButton()
   })
   document.getElementById('refreshMemoraButton')?.addEventListener('click',()=>window.location.reload())
+  // Pull down from the top of the page to refresh on mobile/PWA.
+  if(!window.__memoraPullRefreshInstalled){
+    window.__memoraPullRefreshInstalled=true
+    let startY=0,startX=0,eligible=false
+    document.addEventListener('touchstart',event=>{
+      const target=event.target
+      eligible=window.scrollY<3 && !target?.closest?.('input,textarea,select,[contenteditable="true"],.chat-messages,.chat-sidebar')
+      if(eligible){startY=event.touches[0].clientY;startX=event.touches[0].clientX}
+    },{passive:true})
+    document.addEventListener('touchend',event=>{
+      if(!eligible)return
+      eligible=false
+      const touch=event.changedTouches[0]
+      if(touch && touch.clientY-startY>130 && Math.abs(touch.clientX-startX)<70 && window.scrollY<3){
+        window.location.reload()
+      }
+    },{passive:true})
+  }
   document.getElementById('settingsButton')?.addEventListener('click',()=>go('settings'))
   document.getElementById('appBackButton')?.addEventListener('click',()=>{
     if(window.history.state?.memora && window.history.length>1) window.history.back()
