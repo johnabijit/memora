@@ -56,6 +56,7 @@ function aiFixture({blocked=false,providerError=false}={}) {
     calls.push({url,options})
     assert.equal(options.headers?.Authorization || options.headers?.authorization,'Bearer fixture-session')
     if(url.includes('/auth/v1/user')) return json({id:'fixture-user'})
+    if(url.includes('/policy_acceptances?')) return json([{id:'fixture-acceptance'}])
     if(url.includes('check_and_record_ai_usage')) return json({allowed:!blocked})
     if(url.includes('ai_request_logs')) return new Response(null,{status:204})
     if(url.includes('search_memory_universe')) return json([{entity_type:'memory',title:'My manager is Alice.',content:'My manager is Alice. {}',metadata:{}}])
