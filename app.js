@@ -6552,6 +6552,42 @@ async function settings(){
   }
 }
 
+const MEMORA_POLICY_VERSION='2026-10-24-v1'
+const MEMORA_TERMS="# Memora Terms of Service\nEffective: 24 October 2026 | Version: 2026-10-24-v1\nOperator: Memora, created by John Abijit J A. Contact details and legal entity identification must be confirmed before commercial release.\n\n## Eligibility and agreement\nBy selecting Agree, you accept these Terms and acknowledge the Privacy Notice. Do not use Memora if you disagree. If you use Memora for someone else, ensure you have appropriate legal authority and consent.\n\n## Your memories and rights\nYou retain rights to content you submit. You grant Memora a limited license to host, process, retrieve and display that content only to provide the service and features you authorize. Do not upload data you lack permission to process. You are responsible for the accuracy and legality of your submissions.\n\n## Prohibited conduct\nNo unlawful surveillance, stalking, harassment, threats, child exploitation, impersonation, infringement, unauthorized personal data collection, malware, credential theft, scraping, unauthorized access, bypassing security, abuse of integrations or attempts to obtain another user's memories. Accounts may be suspended or restricted for abuse, subject to applicable law.\n\n## AI and connected services\nAI-generated answers may be incomplete or inaccurate. Verify important information. Memora is not an emergency service or a substitute for professional medical, legal or financial advice. Third-party hosting, AI and authorized connectors may process information to provide features. Do not submit passwords or secrets as memories.\n\n## Intellectual property\nMemora's original software, interface, branding, and proprietary materials belong to their respective rights holders. © 2026 Memora. Created by John Abijit J A. All rights reserved. You may not reproduce or redistribute protected Memora materials without authorization, except where law or applicable open-source licenses permit. No patent registration or patent-pending status is claimed by these Terms.\n\n## Availability and limitations\nThe service is provided on an as-available basis. Reasonable security precautions are used, but no online service can guarantee absolute security, uninterrupted availability or perfect accuracy. To the maximum extent permitted by applicable law, liability for indirect or consequential losses is limited; nothing excludes liability or consumer rights that cannot lawfully be excluded, including obligations concerning personal data and security incidents.\n\n## Changes and termination\nMaterial changes require renewed acceptance before continued use. Users can decline and request applicable account or data deletion. Memora may restrict misuse or terminate access consistent with applicable law.\n\n## Governing law\nIndian law applies, subject to mandatory rights and jurisdiction rules. Any dispute resolution and contact mechanism must be finalized before commercial launch.\n\n**Legal review required before commercial/public rollout.**\n"
+const MEMORA_PRIVACY="# Memora Privacy Notice\nEffective: 24 October 2026 | Version: 2026-10-24-v1\n\nMemora stores user-supplied memories, images, audio, documents, location details where granted, saved people/places, and account information to provide personal memory retrieval. Some records may contain personal information about other people; upload only where lawful and authorized.\n\n## Processing and sharing\nMemora uses authentication, database and file-storage infrastructure and may use AI services to answer questions. Data is processed to save, organize, search and answer user requests, maintain security and troubleshoot the service. External integrations must be explicitly authorized, with limited scopes and revocable access. Do not assume WhatsApp or third-party apps provide the same privacy guarantees as Memora.\n\n## Security and access\nAccount access is authenticated; memory records should be restricted by per-user authorization. Network and service security risks cannot be eliminated. Report suspected unauthorized access promptly. Do not store passwords, access tokens or other secrets in memories.\n\n## Retention and rights\nSaved information remains until deleted by the user or according to a disclosed retention policy. Operational records and backups may have different retention periods; exact periods and a verified deletion/contact workflow must be published before commercial rollout. Users may request access, correction or deletion where applicable.\n\n## Children\nMemora is not designed for independent use by children without appropriate parental or guardian authorization. Before enabling child-focused features, age, guardian consent and applicable child-data requirements must be implemented.\n\n## Contact and disclosures pending\nBefore a public commercial launch, publish the operator's verified contact details, applicable grievance contact, processors, processing locations, retention schedules and incident response procedures. This notice must be reviewed against applicable Indian data-protection law.\n\n**Draft for legal review.**\n"
+function legalHtml(text){
+  return text.split('\n').map(line=>{
+    const escaped=esc(line)
+    if(line.startsWith('# '))return '<h2>'+esc(line.slice(2))+'</h2>'
+    if(line.startsWith('## '))return '<h3>'+esc(line.slice(3))+'</h3>'
+    return escaped?'<p>'+escaped+'</p>':''
+  }).join('')
+}
+async function requireMemoraPolicyConsent(){
+  const {data,error}=await supabase.from('policy_acceptances').select('id').eq('policy_version',MEMORA_POLICY_VERSION).limit(1)
+  if(error)throw new Error('Could not verify current terms acceptance: '+error.message)
+  if(data?.length)return
+  await new Promise((resolve,reject)=>{
+    app.innerHTML='<div class="memora-consent-page"><section class="memora-consent-card" role="dialog" aria-modal="true" aria-labelledby="memoraConsentTitle"><h1 id="memoraConsentTitle">Welcome to Memora</h1><p>Before continuing, please review and accept the updated Terms of Service and acknowledge the Privacy Notice.</p><div class="memora-consent-tabs"><button type="button" id="showMemoraTerms">Terms of Service</button><button type="button" id="showMemoraPrivacy">Privacy Notice</button><button type="button" id="jumpMemoraPolicy">Jump to bottom ↓</button></div><div class="memora-consent-scroll" id="memoraPolicyText" tabindex="0"></div><label class="memora-consent-check"><input type="checkbox" id="memoraPolicyCheckbox"> I agree to the Terms of Service and acknowledge the Privacy Notice.</label><p id="memoraPolicyError" role="alert"></p><div class="memora-consent-actions"><button type="button" id="memoraDecline">Decline & sign out</button><button type="button" id="memoraAccept" disabled>Agree & continue</button></div><small>Version '+MEMORA_POLICY_VERSION+' · Your acceptance is saved to your account.</small></section></div>'
+    const scroll=app.querySelector('#memoraPolicyText')
+    const terms=()=>{scroll.innerHTML=legalHtml(MEMORA_TERMS);scroll.scrollTop=0}
+    const privacy=()=>{scroll.innerHTML=legalHtml(MEMORA_PRIVACY);scroll.scrollTop=0}
+    terms()
+    app.querySelector('#showMemoraTerms').onclick=terms
+    app.querySelector('#showMemoraPrivacy').onclick=privacy
+    app.querySelector('#jumpMemoraPolicy').onclick=()=>scroll.scrollTo({top:scroll.scrollHeight,behavior:'smooth'})
+    const check=app.querySelector('#memoraPolicyCheckbox'),button=app.querySelector('#memoraAccept')
+    check.onchange=()=>button.disabled=!check.checked
+    app.querySelector('#memoraDecline').onclick=async()=>{await supabase.auth.signOut();reject(new Error('Terms declined'))}
+    button.onclick=async()=>{
+      button.disabled=true
+      const {error:saveError}=await supabase.from('policy_acceptances').upsert({user_id:user.id,policy_version:MEMORA_POLICY_VERSION,acceptance_method:'checkbox'},{onConflict:'user_id,policy_version'})
+      if(saveError){app.querySelector('#memoraPolicyError').textContent='Could not save acceptance. Please retry.';button.disabled=false;return}
+      resolve()
+    }
+  })
+}
+
 let signedInBootstrap=null
 async function bootstrapSignedIn(){
   if(signedInBootstrap) return signedInBootstrap
@@ -6559,6 +6595,7 @@ async function bootstrapSignedIn(){
   return signedInBootstrap
 }
 async function prepareSignedIn(){
+  await requireMemoraPolicyConsent()
   removeStrayEscapedNewline()
   await loadExperiencePreferences()
   stopAmbient()
