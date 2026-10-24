@@ -2839,3 +2839,14 @@ html[data-appearance="light"] .topbar .memora-refresh-button{
 .memora-consent-actions #memoraAccept:disabled{opacity:.4;cursor:not-allowed}
 .memora-consent-card small{color:#afc1d3}
 #memoraPolicyError{color:#ffb9b9!important}
+
+/* Minimal authenticated Ask-only entry point for home-screen shortcuts. */
+body.memora-quick-ask .top-primary-nav,
+body.memora-quick-ask .dock,
+body.memora-quick-ask .app-footer,
+body.memora-quick-ask .top-global-search,
+body.memora-quick-ask .header-menu-trigger,
+body.memora-quick-ask .header-home-button{display:none!important}
+body.memora-quick-ask .main{padding-bottom:max(90px,env(safe-area-inset-bottom))!important}
+body.memora-quick-ask .topbar{padding:8px 12px!important}
+body.memora-quick-ask .page-head{padding-top:6px!important;padding-bottom:6px!important}
