@@ -5500,6 +5500,8 @@ async function ask({reload=true}={}){
   await loadChatThreads()
   const currentThread=chatThreads.find(item=>item.id===currentThreadId)||{title:'New chat'}
 
+  const quickChat=new URL(window.location.href).searchParams.get('quick')==='1'
+  const quickHeader=quickChat?`<div class="quick-chat-header"><div class="quick-chat-brand"><img src="/icon-192.png" alt="" width="42" height="42"><div><strong>Memora</strong><small>Your private memory companion</small></div></div><button class="quick-chat-new" id="quickChatNew" type="button" aria-label="Start a new conversation">＋ New</button></div>`:''
   const threadList=chatThreads.slice(0,30).map(thread=>`
     <div class="chat-thread ${thread.id===currentThreadId?'active':''}" data-thread-id="${thread.id}">
       <button class="thread-open" data-open-thread="${thread.id}">
@@ -5511,6 +5513,7 @@ async function ask({reload=true}={}){
   `).join('')
 
   app.innerHTML=shell(`
+    ${quickHeader}
     <div class="ask-layout" aria-label="Your Memora conversations">
       <button class="chat-drawer-scrim" id="chatDrawerScrim" aria-label="Close chats"></button>
       <aside class="glass chat-sidebar" id="chatSidebar">
@@ -5568,6 +5571,7 @@ async function ask({reload=true}={}){
     if(chatEl?.parentElement) chatEl.parentElement.scrollTop=chatEl.parentElement.scrollHeight
   })
 
+  document.getElementById('quickChatNew')?.addEventListener('click',async()=>{await createChatThread('New chat');await go('ask',false,{push:true})})
   document.getElementById('newChatButton').onclick=async()=>{
     await createChatThread('New chat')
     await go('ask',false,{push:true})
