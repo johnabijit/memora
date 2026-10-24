@@ -9,6 +9,9 @@ import androidx.core.content.ContextCompat;
 import androidx.browser.customtabs.CustomTabsIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -60,7 +63,7 @@ public class MainActivity extends FragmentActivity {
         if (state != null) webView.restoreState(state);
         String callbackUrl = callbackUrlFromIntent(getIntent());
         if (callbackUrl != null) openAuthCallback(callbackUrl);
-        else if (state == null) webView.loadUrl(HOME);
+        else if (state == null) webView.loadUrl(quickAskIntent(getIntent()) ? HOME + "?view=ask&quick=1" : HOME);
     }
 
     private void initUi() {
@@ -83,7 +86,7 @@ public class MainActivity extends FragmentActivity {
         });
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
-        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.7");
+        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.9");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
@@ -207,6 +210,37 @@ public class MainActivity extends FragmentActivity {
         setIntent(intent);
         String url = callbackUrlFromIntent(intent);
         if (url != null) openAuthCallback(url);
+        else if(quickAskIntent(intent)){webView.loadUrl(HOME+"?view=ask&quick=1");}
+    }
+
+    private boolean quickAskIntent(Intent intent){
+        if(intent==null)return false;
+        Uri uri=intent.getData();
+        return uri!=null && "memora".equalsIgnoreCase(uri.getScheme())
+            && "shortcut".equalsIgnoreCase(uri.getHost())
+            && "/quick-ask".equals(uri.getPath());
+    }
+
+    private void pinQuickAskShortcut(){
+        if(Build.VERSION.SDK_INT<26){
+            Toast.makeText(this,"Home-screen shortcut pinning requires Android 8 or later.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        ShortcutManager manager=getSystemService(ShortcutManager.class);
+        if(manager==null || !manager.isRequestPinShortcutSupported()){
+            Toast.makeText(this,"Your launcher does not support pinned shortcuts.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        Intent intent=new Intent(this,MainActivity.class);
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse("memora://shortcut/quick-ask"));
+        ShortcutInfo shortcut=new ShortcutInfo.Builder(this,"memora-quick-ask")
+            .setShortLabel("Quick Ask")
+            .setLongLabel("Ask Memora")
+            .setIcon(Icon.createWithResource(this,com.memora.mobile.R.drawable.ic_memora))
+            .setIntent(intent)
+            .build();
+        manager.requestPinShortcut(shortcut,null);
     }
 
     private boolean deviceLockEnabled(){
@@ -313,6 +347,9 @@ public class MainActivity extends FragmentActivity {
     private boolean handleNavigation(Uri uri) {
         String scheme = uri.getScheme();
         String host = uri.getHost();
+        if("memora".equalsIgnoreCase(scheme)&&"shortcut".equalsIgnoreCase(host)&&"/quick-ask".equals(uri.getPath())){
+            runOnUiThread(()->pinQuickAskShortcut());return true;
+        }
         if("memora".equalsIgnoreCase(scheme)&&"security".equalsIgnoreCase(host)){
             String path=uri.getPath();
             // An OS-verified prompt is always required before changing the
