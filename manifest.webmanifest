@@ -31,5 +31,20 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Ask",
+      "short_name": "Ask Memora",
+      "description": "Ask your private Memora memories directly",
+      "url": "/?view=ask&quick=1",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
