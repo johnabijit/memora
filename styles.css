@@ -2850,3 +2850,19 @@ body.memora-quick-ask .header-home-button{display:none!important}
 body.memora-quick-ask .main{padding-bottom:max(90px,env(safe-area-inset-bottom))!important}
 body.memora-quick-ask .topbar{padding:8px 12px!important}
 body.memora-quick-ask .page-head{padding-top:6px!important;padding-bottom:6px!important}
+
+/* Dedicated Quick Ask conversation UI */
+body.memora-quick-ask{background:radial-gradient(circle at top left,#233458,#101526 65%)!important;color:#f4f6ff}
+body.memora-quick-ask .topbar,body.memora-quick-ask .page-head{display:none!important}
+body.memora-quick-ask .main{width:100%!important;max-width:none!important;padding:0!important;margin:0!important}
+body.memora-quick-ask .quick-chat-header{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#101b32;position:sticky;top:0;z-index:20}
+body.memora-quick-ask .quick-chat-brand{display:flex;align-items:center;gap:10px}
+body.memora-quick-ask .quick-chat-brand strong,body.memora-quick-ask .quick-chat-brand small{display:block;color:#fff}
+body.memora-quick-ask .quick-chat-brand img{width:42px;height:42px}
+body.memora-quick-ask .quick-chat-new{border:1px solid #7182a2;border-radius:24px;padding:10px;color:#fff;background:#273a5c}
+body.memora-quick-ask .ask-layout{display:block!important;max-width:760px!important;margin:auto!important;padding:12px 12px 130px!important}
+body.memora-quick-ask .chat-sidebar,body.memora-quick-ask .chat-drawer-scrim,body.memora-quick-ask .ask-intelligence,body.memora-quick-ask .ask-suggestions,body.memora-quick-ask .ask-hint{display:none!important}
+body.memora-quick-ask .chat-panel{background:transparent!important;border:0!important;box-shadow:none!important}
+body.memora-quick-ask .chat{min-height:calc(100dvh - 240px)!important;max-height:none!important;overflow:visible!important}
+body.memora-quick-ask .ask-box{position:fixed!important;bottom:calc(12px + env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%);width:min(95%,740px)!important;z-index:25;background:#1b2943!important;border-radius:22px!important;padding:10px!important}
+body.memora-quick-ask .ask-box textarea{color:#fff!important;background:#293b5b!important}
