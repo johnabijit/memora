@@ -6593,8 +6593,14 @@ async function requireMemoraPolicyConsent(){
     app.querySelector('#memoraDecline').onclick=async()=>{await supabase.auth.signOut();reject(new Error('Terms declined'))}
     button.onclick=async()=>{
       button.disabled=true
-      const {error:saveError}=await supabase.from('policy_acceptances').upsert({user_id:user.id,policy_version:MEMORA_POLICY_VERSION,acceptance_method:'checkbox'},{onConflict:'user_id,policy_version'})
-      if(saveError){app.querySelector('#memoraPolicyError').textContent='Could not save acceptance. Please retry.';button.disabled=false;return}
+      const {error:saveError}=await supabase.from('policy_acceptances').insert({user_id:user.id,policy_version:MEMORA_POLICY_VERSION,acceptance_method:'checkbox'})
+      // Acceptance is append-only. Upsert requires UPDATE permissions that are intentionally
+      // denied by the consent audit table's row-level security policy.
+      if(saveError?.code==='23505'){
+        const {data:alreadyAccepted,error:checkError}=await supabase.from('policy_acceptances').select('id').eq('policy_version',MEMORA_POLICY_VERSION).limit(1)
+        if(!checkError&&alreadyAccepted?.length){resolve();return}
+      }
+      if(saveError){app.querySelector('#memoraPolicyError').textContent='Could not save acceptance ('+String(saveError.code||'unknown')+'). Please retry.';button.disabled=false;return}
       resolve()
     }
   })
