@@ -3956,24 +3956,33 @@ async function reindexVaultFromMemories(){
 }
 
 async function uploadMedia(memoryId,files){
-  const uploadedRows=[]
-  for(const file of files){
-    const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
-    const path=`${user.id}/${memoryId}/${Date.now()}-${safe}`
-    const upload=await supabase.storage.from('memora-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false})
-    if(upload.error) throw upload.error
-    const mediaType=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':'image'
-    const row=await supabase.from('memory_media').insert({
-      user_id:user.id,memory_id:memoryId,storage_path:path,file_name:file.name,mime_type:file.type,media_type:mediaType,
-      analysis_status:mediaType==='image'?'pending':'not_applicable'
-    }).select().single()
-    if(row.error) throw row.error
-    uploadedRows.push(row.data)
+  // Upload up to three files concurrently instead of waiting for each one.
+  // Keep metadata creation associated with each successful storage transfer.
+  const entries=Array.from(files)
+  const uploadedRows=new Array(entries.length)
+  let next=0
+  const worker=async()=>{
+    while(next<entries.length){
+      const index=next++
+      const file=entries[index]
+      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
+      const path=`${user.id}/${memoryId}/${Date.now()}-${index}-${safe}`
+      const upload=await supabase.storage.from('memora-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false})
+      if(upload.error)throw upload.error
+      const mediaType=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':'image'
+      const row=await supabase.from('memory_media').insert({
+        user_id:user.id,memory_id:memoryId,storage_path:path,file_name:file.name,mime_type:file.type,media_type:mediaType,
+        analysis_status:mediaType==='image'?'pending':'not_applicable'
+      }).select().single()
+      if(row.error)throw row.error
+      uploadedRows[index]=row.data
+    }
   }
-  for(const media of uploadedRows.filter(item=>item.media_type==='image')){
-    await analyzeImageMedia(media,{quiet:true})
-  }
-  return uploadedRows
+  await Promise.all(Array.from({length:Math.min(3,entries.length)},()=>worker()))
+  // Analyze images without serially blocking every image on the preceding one.
+  const images=uploadedRows.filter(item=>item?.media_type==='image')
+  await Promise.allSettled(images.map(media=>analyzeImageMedia(media,{quiet:true})))
+  return uploadedRows.filter(Boolean)
 }
 async function saveMemory(text,files=[],location=null){
   if(looksLikeSecret(text)) throw new Error('Sensitive credential detected. Store API keys in Sources, not Memories.')
