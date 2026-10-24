@@ -6450,7 +6450,7 @@ async function settings(){
   document.getElementById('addQuickAskShortcut')?.addEventListener('click',async()=>{
     const url=new URL('/?view=ask&quick=1',window.location.origin).href
     const info=document.getElementById('quickAskShortcutInstructions')
-    const androidApp=/\\bMemoraAndroid\\/\\d+\\b/.test(navigator.userAgent)
+    const androidApp=navigator.userAgent.includes('MemoraAndroid/')
     if(androidApp){
       // The native wrapper can intercept this URL to request a pinned Android shortcut.
       window.location.href='memora://shortcut/quick-ask'
