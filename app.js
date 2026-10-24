@@ -3062,6 +3062,7 @@ function routeUrl(next=view,threadId=currentThreadId){
   const url=new URL(window.location.href)
   url.search=''
   url.searchParams.set('view',next)
+  if(next==='ask'&&new URL(window.location.href).searchParams.get('quick')==='1') url.searchParams.set('quick','1')
   if(next==='ask'&&threadId) url.searchParams.set('thread',threadId)
   return url.pathname+url.search
 }
@@ -3402,6 +3403,7 @@ async function renderRoute(next,focus=false){
 async function go(next,focus=false,{push=true,replace=false}={}){
   if(next==='ask'&&!currentThreadId) await ensureChatThread()
   view=next
+  document.body.classList.toggle('memora-quick-ask',next==='ask'&&new URL(window.location.href).searchParams.get('quick')==='1')
   if(navigationInitialized){
     const state=routeState(next)
     const url=routeUrl(next)
@@ -3416,6 +3418,7 @@ async function initializeNavigation(){
   const requested=url.searchParams.get('view')
   const allowed=new Set(['home','memories','ask','timeline','sources','vault','people','places','things','documents','settings','help'])
   view=allowed.has(requested)?requested:'home'
+  document.body.classList.toggle('memora-quick-ask',view==='ask'&&url.searchParams.get('quick')==='1')
   const requestedThread=url.searchParams.get('thread')
   if(view==='ask'){
     if(requestedThread) currentThreadId=requestedThread
