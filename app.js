@@ -6452,9 +6452,10 @@ async function settings(){
     const info=document.getElementById('quickAskShortcutInstructions')
     const androidApp=navigator.userAgent.includes('MemoraAndroid/')
     if(androidApp){
-      // The native wrapper can intercept this URL to request a pinned Android shortcut.
-      window.location.href='memora://shortcut/quick-ask'
-      if(info)info.textContent='If your installed APK does not support shortcut pinning yet, use the browser Add to Home screen option.'
+      // Native launcher shortcut pinning needs a corresponding Android APK handler.
+      // Do not navigate to an unimplemented custom scheme.
+      if(info)info.textContent='This APK version does not yet support pinning a native shortcut. Open Quick Ask in Chrome and choose Add to Home screen until the APK is updated.'
+      try{await navigator.clipboard.writeText(url)}catch{}
       return
     }
     try{await navigator.clipboard.writeText(url)}catch{}
