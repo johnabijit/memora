@@ -69,6 +69,21 @@ function aiFixture({blocked=false,providerError=false}={}) {
   return {stub,calls}
 }
 
+test('Ask requires accepted current terms before retrieving private memories',async()=>{
+  let queriedMemories=false
+  await withFetch(async(url)=>{
+    if(url.includes('/auth/v1/user'))return json({id:'fixture-user'})
+    if(url.includes('/policy_acceptances?'))return json([])
+    queriedMemories=true
+    return json([])
+  },async()=>{
+    const res=await ask({request:request('ask',{question:'Where are my keys?'},'fixture-session')})
+    assert.equal(res.status,403)
+    assert.match((await res.json()).error,/accept the latest/i)
+    assert.equal(queriedMemories,false)
+  })
+})
+
 test('AI passes session-scoped evidence and the selected image to connected reasoning', async () => {
   const {stub,calls}=aiFixture()
   await withFetch(stub,async()=>{
