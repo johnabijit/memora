@@ -6344,6 +6344,16 @@ async function settings(){
         </div>
       </section>
 
+      <section class="glass settings-card" id="quickAskShortcutSettings">
+        <div class="eyebrow">Quick access</div><h3>Quick Ask shortcut</h3>
+        <p class="muted">Ask your saved memories directly from your phone's home screen, without navigating through the rest of Memora.</p>
+        <div class="filter-row">
+          <button class="btn primary" id="addQuickAskShortcut" type="button">Add Quick Ask shortcut</button>
+          <button class="btn" id="openQuickAskShortcut" type="button">Try Quick Ask</button>
+        </div>
+        <p class="small muted" id="quickAskShortcutInstructions" role="status"></p>
+      </section>
+
       <section class="glass settings-card">
         <div class="eyebrow">Atmosphere</div><h3>Visual world</h3>
         <p class="muted">Adaptive mode changes the color theme every hour. Live background motion responds to daypart and the calendar season.</p>
@@ -6436,6 +6446,26 @@ async function settings(){
       status.textContent=friendlyPasskeyError(error)
     }finally{if(setupPasskey.isConnected)setupPasskey.disabled=false}
   }
+  document.getElementById('openQuickAskShortcut')?.addEventListener('click',()=>{window.location.href='/?view=ask&quick=1'})
+  document.getElementById('addQuickAskShortcut')?.addEventListener('click',async()=>{
+    const url=new URL('/?view=ask&quick=1',window.location.origin).href
+    const info=document.getElementById('quickAskShortcutInstructions')
+    const androidApp=/\\bMemoraAndroid\\/\\d+\\b/.test(navigator.userAgent)
+    if(androidApp){
+      // The native wrapper can intercept this URL to request a pinned Android shortcut.
+      window.location.href='memora://shortcut/quick-ask'
+      if(info)info.textContent='If your installed APK does not support shortcut pinning yet, use the browser Add to Home screen option.'
+      return
+    }
+    try{await navigator.clipboard.writeText(url)}catch{}
+    if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+      if(info)info.textContent='Quick Ask link copied. In Safari, open it, tap Share, then Add to Home Screen.'
+    }else if(/Android/.test(navigator.userAgent)){
+      if(info)info.textContent='Quick Ask link copied. Open it in Chrome, tap the menu and choose Add to Home screen. Installed PWA users can also check the app icon shortcut menu.'
+    }else{
+      if(info)info.textContent='Quick Ask link copied. Open it and create a browser or desktop shortcut.'
+    }
+  })
   document.getElementById('settingsTheme').onclick=openThemePicker
   document.getElementById('settingsSound').onclick=openSoundscapePicker
   document.getElementById('retakeTour').onclick=()=>showOnboardingTour({force:true})
