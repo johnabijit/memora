@@ -150,6 +150,10 @@ async function run(req,res){
 
     user=await verifyUser(token)
     if(!user?.id) return json(res,401,{error:'Invalid Memora session'})
+    // A direct API call must not bypass the latest required consent screen.
+    const accepted=await supabaseFetch('/rest/v1/policy_acceptances?select=id&policy_version=eq.2026-10-24-v1&limit=1',token)
+    if(!accepted?.length) return json(res,403,{error:'Please accept the latest Memora Terms and Privacy Notice before using Ask.'})
+
 
     const mediaId=req.body?.mediaId||null
     if(mediaId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mediaId)) return json(res,400,{error:'Invalid image reference'})
