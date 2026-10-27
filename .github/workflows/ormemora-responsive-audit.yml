@@ -1,0 +1,28 @@
+name: Ormemora responsive CSS audit assets
+on:
+  push:
+    branches: [qa/ormemora-responsive-audit-20261027]
+    paths:
+      - '.github/workflows/ormemora-responsive-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ormemora-mobile-ui-audit-assets
+          path: |
+            dist/assets/*.css
+            dist/index.html
+          if-no-files-found: error
+          retention-days: 5
