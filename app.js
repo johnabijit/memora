@@ -6355,6 +6355,18 @@ async function settings(){
         </div>
       </section>
 
+      <section class="glass settings-card ormemora-faq" id="ormemoraFaq">
+        <div class="eyebrow">Help and transparency</div><h3>Ormemora FAQs</h3>
+        <p class="muted">Clear answers about memories, AI and your privacy.</p>
+        <details><summary>How does Ormemora remember information?</summary><p>It searches memories and structured facts saved to your account. AI responses may use those retrieved records and should show a source when available. It cannot guarantee every answer is correct.</p></details>
+        <details><summary>Can I verify where an AI answer came from?</summary><p>When matching saved memories were retrieved, Ask displays their titles below the answer. You can review or correct the original memory. A displayed source is evidence of retrieval, not proof that an AI inference is correct.</p></details>
+        <details><summary>Does Ormemora already support full vector RAG?</summary><p>Not yet. The current release ranks saved information by relevance and retrieves structured facts. Semantic vector indexing, richer knowledge graphs and automated contradiction checks are planned and must be tested before release.</p></details>
+        <details><summary>Is it free to use?</summary><p>Core memory tools and local search are available without a paid subscription. AI calls may have fair-use limits or require a connected provider, because hosted model usage incurs cost.</p></details>
+        <details><summary>Does Ormemora track my location?</summary><p>Location access is optional and requires device or browser permission. Saved coordinates should be treated as location evidence, not a verified postal address.</p></details>
+        <details><summary>Will my existing Memora account and saved memories remain?</summary><p>Yes. Ormemora is the proposed new public identity of the same service; your existing account, saved memories and authentication data are not replaced by this interface update.</p></details>
+        <details><summary>How do I export or delete my memories?</summary><p>Use the available account and memory management tools in Settings. Some backup and operational records may have separate retention periods described in the Privacy Notice.</p></details>
+      </section>
+
       <section class="glass settings-card" id="quickAskShortcutSettings">
         <div class="eyebrow">Quick access</div><h3>Quick Ask shortcut</h3>
         <p class="muted">Ask your saved memories directly from your phone's home screen, without navigating through the rest of Ormemora.</p>
