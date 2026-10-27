@@ -59,15 +59,7 @@ jobs:
             adb shell am start -W -n com.memora.mobile/.MainActivity
             sleep 9
             adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 120; exit 1)
-            adb shell screencap -p /sdcard/ormemora-login.png
-            adb pull /sdcard/ormemora-login.png ../../ormemora-login-api${{ matrix.api-level }}.png
+            echo "Verified native launch on Android API ${{ matrix.api-level }}"
             adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'memora://auth/callback?code=0123456789abcdef' com.memora.mobile
             sleep 3
             adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 120; exit 1)
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: Ormemora-Android-API-${{ matrix.api-level }}-smoke
-          path: ormemora-login-api${{ matrix.api-level }}.png
-          retention-days: 10
-          if-no-files-found: warn
