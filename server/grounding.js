@@ -3,7 +3,7 @@
 const ignored=new Set('a an and are as at be been but by can could did do does for from had has have how i in is it me my of on or our please show tell the their there these this those to was were what when where which who why will with you your about saved memory memories information find'.split(' '))
 const aliases={wedding:'marriage',married:'marriage',ceremony:'marriage',wed:'marriage',kalyanam:'marriage',thirumanam:'marriage',shaadi:'marriage',location:'place',address:'place',venue:'place',gps:'place',mom:'mother',mum:'mother',dad:'father',daddy:'father',boss:'manager',job:'work',office:'work',employment:'work',birthday:'birth',born:'birth'}
 export function queryTerms(text){
-  return [...new Set((String(text||'').normalize('NFKC').toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu)||[]).map(t=>aliases[t]||t).filter(t=>t.length>1&&!ignored.has(t)))]
+  return [...new Set((String(text||'').normalize('NFKC').replace(/[_-]/g,' ').toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu)||[]).map(t=>aliases[t]||t).filter(t=>t.length>1&&!ignored.has(t)))]
 }
 function clean(value,limit=2400){return String(value??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,limit)}
 function rank(question,items){
@@ -19,6 +19,8 @@ function rank(question,items){
 }
 export function selectGroundedEvidence(question,items,{limit=12,maxChars=11000}={}){
   const q=queryTerms(question),chosen=[],seen=new Set()
+  // A context-free pronoun question must not dump unrelated memories.
+  if(!q.length)return {items:[],hasEvidence:false,sources:[]}
   let total=0
   for(const result of rank(question,items)){
     if(chosen.length>=limit||total>=maxChars)break
