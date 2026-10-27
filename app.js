@@ -892,6 +892,8 @@ async function playMemoryMix(){
     if(items?.length) await selectMediaTrack(items[0],true)
   }
   maybeApplyContextScene(text)
+  if(!mediaPlayerState.library.length){setPlayerStatus('No playable results for this mix; try a different search');return false}
+  return Boolean(mediaAudio()&&!mediaAudio().paused)
 }
 
 async function playWorldSurprise(){
@@ -901,6 +903,8 @@ async function playWorldSurprise(){
   mediaPlayerState.radioSort='random'
   const items=await loadMediaLibrary('radio','',100,{preserveCurrent:false,random:true,countrycode:'',language:'',sort:'random'})
   if(items?.length) await selectMediaTrack(items[0],true)
+  else setPlayerStatus('No radio stations are available; try a different region')
+  return Boolean(items?.length&&mediaAudio()&&!mediaAudio().paused)
 }
 
 async function completeOnboarding(skipped=false){
@@ -1405,9 +1409,62 @@ function openNowPlayingSheet(){
   syncNowPlayingProgress()
 }
 
+// The main mini player is deliberately obscured by dialogs. The audio hub
+// therefore exposes its own always-visible transport bar backed by the SAME
+// underlying <audio> element, preventing duplicate streams or lost playback.
+function syncAudioHubTransport(){
+  const bar=document.querySelector('.audio-hub-modal .audio-hub-transport')
+  if(!bar) return
+  const audio=mediaAudio(), current=mediaPlayerState.current
+  const playing=Boolean(audio&&!audio.paused&&!audio.ended)
+  const title=bar.querySelector('[data-hub-track]')
+  const state=bar.querySelector('[data-hub-state]')
+  const toggle=bar.querySelector('[data-hub-play]')
+  const mute=bar.querySelector('[data-hub-mute]')
+  if(title) title.textContent=current?.title||'Choose something to listen to'
+  if(state){
+    const shared=document.getElementById('playerStatus')?.textContent
+    state.textContent=shared|| (playing?'Playing':'Paused')
+  }
+  if(toggle){
+    toggle.textContent=playing?'Pause':'Play'
+    toggle.setAttribute('aria-label',playing?'Pause current audio':'Play current audio')
+  }
+  if(mute) mute.textContent=audio?.muted?'Unmute':'Mute'
+}
+
+function mountAudioHubTransport(box){
+  const modalElement=box.querySelector('.audio-hub-modal')
+  if(!modalElement) return
+  const bar=document.createElement('div')
+  bar.className='audio-hub-transport'
+  bar.setAttribute('role','region')
+  bar.setAttribute('aria-label','Music playback controls')
+  bar.innerHTML=`
+    <div class="audio-hub-track" aria-live="polite" aria-atomic="true">
+      <span class="audio-hub-transport-label">NOW PLAYING</span>
+      <strong data-hub-track>Choose something to listen to</strong>
+      <small data-hub-state>Ready</small>
+    </div>
+    <div class="audio-hub-transport-actions">
+      <button type="button" data-hub-previous aria-label="Previous track">‹</button>
+      <button type="button" data-hub-play aria-label="Play current audio">Play</button>
+      <button type="button" data-hub-next aria-label="Next track">›</button>
+      <button type="button" data-hub-mute aria-label="Mute current audio">Mute</button>
+    </div>
+  `
+  modalElement.appendChild(bar)
+  bar.querySelector('[data-hub-previous]').addEventListener('click',()=>previousMediaTrack(true).catch(()=>setPlayerStatus('Could not open previous track')))
+  bar.querySelector('[data-hub-play]').addEventListener('click',()=>toggleMediaPlayback().catch(()=>setPlayerStatus('Tap again to start playback')))
+  bar.querySelector('[data-hub-next]').addEventListener('click',()=>nextMediaTrack(true).catch(()=>setPlayerStatus('Could not open next track')))
+  bar.querySelector('[data-hub-mute]').addEventListener('click',()=>toggleMediaMute().catch(()=>setPlayerStatus('Could not change volume')))
+  syncAudioHubTransport()
+}
+
 function setPlayerStatus(message){
   const el=document.getElementById('playerStatus')
   if(el) el.textContent=message
+  syncAudioHubTransport()
 }
 
 function updateAudioVisualScene(item,playing){
@@ -1484,6 +1541,7 @@ function refreshMediaPlayerUI(){
   updateAudioVisualScene(current,playing)
   updateSoundButton()
   syncNowPlayingProgress()
+  syncAudioHubTransport()
 }
 
 async function loadRadioCountries(){
@@ -2320,6 +2378,7 @@ async function openSoundscapePicker(){
   }).catch(()=>{})
   box.classList.add('audio-hub-backdrop')
   box.querySelector('.modal')?.classList.add('audio-hub-modal')
+  mountAudioHubTransport(box)
   const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
   const panels=[...box.querySelectorAll('[data-audio-panel]')]
   const discoverMore=box.querySelector('#audioDiscoverMore')
@@ -2352,24 +2411,27 @@ async function openSoundscapePicker(){
     button.disabled=true
     button.textContent='Finding something...'
     try{
-      await playForMood(latestMood?.mood||'calm')
-      button.textContent='Playing'
+      const playing=await playForMood(latestMood?.mood||'calm')
+      button.textContent=playing?'Playing':'Choose another mood or tap Play'
+      button.disabled=false
+      syncAudioHubTransport()
     }catch{
       button.disabled=false
       button.textContent='Try again'
+      setPlayerStatus('Mood selection unavailable; try another track')
     }
   })
   box.querySelector('#audioMemoryMix')?.addEventListener('click',async event=>{
     const button=event.currentTarget
     button.disabled=true
     button.textContent='Building mix...'
-    try{await playMemoryMix();button.textContent='Playing'}catch{button.disabled=false;button.textContent='Try again'}
+    try{const playing=await playMemoryMix();button.textContent=playing?'Playing':'Choose a track or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Memory Mix unavailable; try a search')}finally{button.disabled=false;syncAudioHubTransport()}
   })
   box.querySelector('#audioWorldSurprise')?.addEventListener('click',async event=>{
     const button=event.currentTarget
     button.disabled=true
     button.textContent='Tuning...'
-    try{await playWorldSurprise();button.textContent='Playing'}catch{button.disabled=false;button.textContent='Try again'}
+    try{const playing=await playWorldSurprise();button.textContent=playing?'Playing':'Choose a station or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Radio unavailable; try another station')}finally{button.disabled=false;syncAudioHubTransport()}
   })
 
   const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'music'
@@ -3363,9 +3425,13 @@ function wire(){
     let startY=0,startX=0,eligible=false
     document.addEventListener('touchstart',event=>{
       const target=event.target
-      eligible=window.scrollY<3 && !target?.closest?.('input,textarea,select,[contenteditable="true"],.chat-messages,.chat-sidebar')
+      // Never refresh during internal scrolling, dialogs, audio browsing or form input.
+      eligible=window.scrollY<3
+        && !document.querySelector('.modal-backdrop')
+        && !target?.closest?.('input,textarea,select,[contenteditable="true"],.chat-messages,.chat-sidebar,.chat-panel,.audio-hub,.audio-mode-panel,.now-playing-modal,.settings-card,[role="dialog"]')
       if(eligible){startY=event.touches[0].clientY;startX=event.touches[0].clientX}
     },{passive:true})
+    document.addEventListener('touchcancel',()=>{eligible=false},{passive:true})
     document.addEventListener('touchend',event=>{
       if(!eligible)return
       eligible=false

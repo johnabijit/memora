@@ -460,3 +460,50 @@ test('Memora Visual Worlds has real theme families manual region festival and Cl
    assert.equal(w.localStorage.getItem('memora-world-mode'),'auto')
  }finally{dom.window.close()}
 })
+
+
+test('audio hub keeps a second accessible transport visible while catalog scrolls',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   api.ensureMediaPlayer()
+   api.openSoundscapePicker()
+   const sheet=w.document.querySelector('.audio-hub-modal')
+   assert.ok(sheet,'audio dialog missing')
+   assert.ok(sheet.querySelector('.audio-hub'),'scrollable catalog missing')
+   const bar=sheet.querySelector('.audio-hub-transport')
+   assert.ok(bar,'always-visible transport must be inside audio dialog')
+   assert.equal(bar.parentElement,sheet)
+   for(const control of ['play','previous','next','mute']){
+     assert.ok(bar.querySelector('[data-hub-'+control+']'),'missing '+control)
+   }
+   const track={id:'audio-hub-test',title:'Fixture radio station',type:'radio',url:'https://fixture.test/stream.mp3'}
+   api.mediaPlayerState.library=[track]
+   await api.selectMediaTrack(track,false)
+   assert.match(bar.querySelector('[data-hub-track]').textContent,/Fixture radio station/)
+   assert.equal(bar.querySelector('[data-hub-play]').getAttribute('aria-label'),'Play current audio')
+   bar.querySelector('[data-hub-play]').click()
+   await new Promise(resolve=>setTimeout(resolve,10))
+   assert.equal(w.document.getElementById('memoraAudio').paused,false)
+   assert.equal(bar.querySelector('[data-hub-play]').getAttribute('aria-label'),'Pause current audio')
+   sheet.querySelector('.close').click()
+   assert.equal(w.document.querySelector('.audio-hub-modal'),null)
+   assert.equal(w.document.getElementById('memoraMediaPlayer').parentElement,w.document.body)
+ }finally{dom.window.close()}
+})
+
+test('audio surprise does not claim playback when catalog returns no stations',async()=>{
+ const {dom,w,api}=await appFixture()
+ try{
+   api.setUser()
+   w.fetch=async()=>Response.json({items:[],hasMore:false})
+   api.openSoundscapePicker()
+   const button=w.document.getElementById('audioWorldSurprise')
+   assert.ok(button)
+   button.click()
+   await new Promise(resolve=>setTimeout(resolve,55))
+   assert.notEqual(button.textContent,'Playing')
+   assert.equal(button.disabled,false)
+   assert.ok(w.document.querySelector('.audio-hub-transport'))
+ }finally{dom.window.close()}
+})
