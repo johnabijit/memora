@@ -1,7 +1,7 @@
-name: Build Ormemora Android 2.0 APK
+name: Build Ormemora Android 2.1 APK
 on:
   push:
-    branches: [release/ormemora-android-v2-20261027]
+    branches: [release/ormemora-android-v2.1-safe-areas]
     paths:
       - 'mobile/android/**'
       - '.github/workflows/memora-android-apk.yml'
@@ -51,7 +51,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12'
-      - name: Build Ormemora Android debug APK
+      - name: Build Ormemora Android 2.1 debug APK
         working-directory: mobile/android
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify brand metadata, APK signature and integrity
@@ -60,13 +60,13 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E "^(package:|application-label:|sdkVersion:|targetSdkVersion:)"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -Fx "application-label:'Ormemora'"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E "^package: name='com.memora.mobile' versionCode='11' versionName='2.0.0'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E "^package: name='com.memora.mobile' versionCode='12' versionName='2.1.0'"
           unzip -l "$APK" | grep "res/mipmap" | grep "ic_ormemora"
           sha256sum "$APK"
-          cp "$APK" mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.0.apk
+          cp "$APK" mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.1.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Ormemora-Android-v2.0-APK
-          path: mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.0.apk
+          name: Ormemora-Android-v2.1-APK
+          path: mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.1.apk
           if-no-files-found: error
           retention-days: 30
