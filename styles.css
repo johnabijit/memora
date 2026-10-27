@@ -2866,3 +2866,12 @@ body.memora-quick-ask .chat-panel{background:transparent!important;border:0!impo
 body.memora-quick-ask .chat{min-height:calc(100dvh - 240px)!important;max-height:none!important;overflow:visible!important}
 body.memora-quick-ask .ask-box{position:fixed!important;bottom:calc(12px + env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%);width:min(95%,740px)!important;z-index:25;background:#1b2943!important;border-radius:22px!important;padding:10px!important}
 body.memora-quick-ask .ask-box textarea{color:#fff!important;background:#293b5b!important}
+
+/* Ormemora: selected neural M identity and accessible retrieval citations. */
+.brand-symbol{border-radius:14px!important;box-shadow:0 6px 22px rgba(10,42,102,.27)!important;isolation:isolate}
+.brand-symbol img{object-fit:contain!important;border-radius:14px!important}
+.chat-evidence-sources{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--text) 14%,transparent);font-size:12px;line-height:1.5;color:var(--text)}
+.chat-evidence-sources strong{font-weight:700;font-size:12px;color:var(--text)}
+.chat-evidence-tag{display:inline-flex;max-width:100%;overflow-wrap:anywhere;padding:4px 8px;border:1px solid color-mix(in srgb,var(--c1) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--c1) 9%,var(--glass2));color:var(--text)}
+html[data-appearance="light"] .chat-evidence-tag{background:#e8f4fc!important;color:#173956!important;border-color:#91b7d5!important}
+@media(max-width:430px){.chat-evidence-sources{font-size:11px;gap:5px}.chat-evidence-tag{font-size:11px;max-width:100%}}
