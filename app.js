@@ -540,6 +540,7 @@ async function loadChatThread(threadId){
     source:row.source||null,
     ai:Boolean(row.metadata?.ai),
     action:row.metadata?.action||null,
+    memorySources:Array.isArray(row.metadata?.memorySources)?row.metadata.memorySources.slice(0,12):[],
     created_at:row.created_at
   }))
   return thread.data
@@ -572,7 +573,8 @@ async function saveChatMessage(role,text,extra={}){
       ai:Boolean(extra.ai),
       imageUsed:Boolean(extra.imageUrl||extra.imageUsed),
       structured:Boolean(extra.structured),
-      action:extra.action||null
+      action:extra.action||null,
+      memorySources:Array.isArray(extra.memorySources)?extra.memorySources.slice(0,12):[]
     }
   }).select().single()
   if(error) throw error
@@ -916,20 +918,20 @@ async function showOnboardingTour({force=false}={}){
   if(!user||(!force&&experiencePreferences.onboardingCompleted)) return
   const steps=[
     {
-      eyebrow:'Welcome to Memora',
+      eyebrow:'Welcome to Ormemora',
       title:'A memory companion, not just a storage app.',
-      body:'Talk naturally, save moments, photos, places and files, then ask about them later. Memora can also chat with you normally when you just want to talk.',
+      body:'Talk naturally, save moments, photos, places and files, then ask about them later. Ormemora can also chat with you normally when you just want to talk.',
       action:'Begin tour'
     },
     {
       eyebrow:'Remember',
-      title:'Tell Memora what matters.',
-      body:'Type or speak a memory, attach a photo or file, capture a place, or simply say something like “I kept my keys in the top drawer.” Memora keeps the source and context with it.'
+      title:'Tell Ormemora what matters.',
+      body:'Type or speak a memory, attach a photo or file, capture a place, or simply say something like “I kept my keys in the top drawer.” Ormemora keeps the source and context with it.'
     },
     {
       eyebrow:'Talk and check in',
       title:'Your mood can be part of your story.',
-      body:'Tell Memora “I feel stressed today” or use the mood check-in on Home. Memora can remember the check-in, respond naturally, and offer audio that fits the moment.'
+      body:'Tell Ormemora “I feel stressed today” or use the mood check-in on Home. Ormemora can remember the check-in, respond naturally, and offer audio that fits the moment.'
     },
     {
       eyebrow:'Listen',
@@ -940,11 +942,11 @@ async function showOnboardingTour({force=false}={}){
       eyebrow:'Private and yours',
       title:'One shared memory vault, separate conversations.',
       body:'Create different chats for work, family or anything else. They keep separate conversational context while still using the same private memory vault. You can export or delete your data from Settings.',
-      action:'Enter Memora'
+      action:'Enter Ormemora'
     }
   ]
   let index=0
-  const box=modal('Welcome to Memora','<div id="tourBody"></div>')
+  const box=modal('Welcome to Ormemora','<div id="tourBody"></div>')
   box.classList.add('tour-backdrop')
   box.querySelector('.modal')?.classList.add('tour-modal')
   const renderStep=()=>{
@@ -957,7 +959,7 @@ async function showOnboardingTour({force=false}={}){
       <p>${esc(step.body)}</p>
       <div class="tour-actions">
         <button class="btn ghost" id="tourSkip">${index===steps.length-1?'Close':'Skip tour'}</button>
-        <button class="btn primary" id="tourNext">${esc(step.action||(index===steps.length-1?'Enter Memora':'Next'))}</button>
+        <button class="btn primary" id="tourNext">${esc(step.action||(index===steps.length-1?'Enter Ormemora':'Next'))}</button>
       </div>`
     body.querySelector('#tourSkip').onclick=async()=>{
       await completeOnboarding(true)
@@ -1213,7 +1215,7 @@ function ensureMediaPlayer(){
   player.id='memoraMediaPlayer'
   player.className='memora-player glass compact-player'
   player.setAttribute('role','region')
-  player.setAttribute('aria-label','Memora audio mini player')
+  player.setAttribute('aria-label','Ormemora audio mini player')
   player.innerHTML=`
     <audio id="memoraAudio" preload="metadata" playsinline></audio>
     <button class="player-mini-art" id="playerNowPlaying" aria-label="Open Now Playing">
@@ -1343,7 +1345,7 @@ function openNowPlayingSheet(){
       </div>
       <div class="now-playing-copy">
         <span class="eyebrow" id="nowPlayingSource">${esc(source)}</span>
-        <h3 id="nowPlayingTitle">${esc(current.title||'Memora Audio')}</h3>
+        <h3 id="nowPlayingTitle">${esc(current.title||'Ormemora Audio')}</h3>
         <p id="nowPlayingArtist">${esc(current.artist||current.country||current.devotionalLanguage||current.category||'')}</p>
       </div>
       <div class="now-playing-progress">
@@ -1446,7 +1448,7 @@ function refreshMediaPlayerUI(){
   const artwork=document.getElementById('playerArtwork')
   const artButton=document.getElementById('playerNowPlaying')
 
-  if(title) title.textContent=current.title||'Memora Audio'
+  if(title) title.textContent=current.title||'Ormemora Audio'
   if(source){
     if(current.type==='music'){
       source.textContent=['Open Music',current.artist,current.genre].filter(Boolean).join(' · ')
@@ -2001,7 +2003,7 @@ function renderAudioLibraryResults(box){
     if(current?.type==='music'){
       const providerName=current.provider==='commons'?'Wikimedia Commons':'Audius'
       const providerHome=current.provider==='commons'?'https://commons.wikimedia.org':'https://audius.co'
-      note.innerHTML=`Open Music track from <a href="${esc(current.sourcePage||providerHome)}" target="_blank" rel="noopener">${providerName}</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}. Memora streams from the source and does not copy Spotify, Apple Music or Amazon Music catalogs.`
+      note.innerHTML=`Open Music track from <a href="${esc(current.sourcePage||providerHome)}" target="_blank" rel="noopener">${providerName}</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}. Ormemora streams from the source and does not copy Spotify, Apple Music or Amazon Music catalogs.`
     }else if(current?.type==='nature'&&current.sourcePage){
       note.innerHTML=`Now playing from <a href="${esc(current.sourcePage)}" target="_blank" rel="noopener">Wikimedia Commons</a>${current.artist?` · ${esc(current.artist)}`:''}${current.license?` · ${esc(current.license)}`:''}`
     }else if(current?.devotional){
@@ -2125,7 +2127,7 @@ async function openSoundscapePicker(){
     </section>
   `).join('')
 
-  const box=modal('Memora Audio',`
+  const box=modal('Ormemora Audio',`
     <div class="audio-hub">
       <div class="audio-library-head compact-head">
         <div>
@@ -2186,7 +2188,7 @@ async function openSoundscapePicker(){
             ].map(([group,items])=>`<section><h4>${esc(group)}</h4><div>${items.map(item=>`<button class="chip" data-music-query="${esc(item)}">${esc(item)}</button>`).join('')}</div></section>`).join('')}
           </div>
         </details>
-        <div class="open-music-note">Commercial catalogs such as Spotify and Apple Music are not copied into Memora. Their playback requires each provider's own account, licensing and authorization.</div>
+        <div class="open-music-note">Commercial catalogs such as Spotify and Apple Music are not copied into Ormemora. Their playback requires each provider's own account, licensing and authorization.</div>
       </section>
 
       <section class="audio-mode-panel ${currentMode==='radio'?'active':''}" data-audio-panel="radio">
@@ -2293,7 +2295,7 @@ async function openSoundscapePicker(){
         <summary>Playback and visual settings</summary>
         <div class="audio-library-footer">
           <label class="volume-row"><span>Volume</span><input id="libraryVolume" type="range" min="0" max="1" value="${ambientPreferences.volume}" step="0.01"><b id="libraryVolumeLabel">${Math.round(ambientPreferences.volume*100)}%</b></label>
-          <label class="setting-switch"><input id="startupAutoplayToggle" type="checkbox" ${localStore.getItem('memora-startup-autoplay')==='1'?'checked':''}><span>Play a random music selection when I open Memora (browser permission may require a tap)</span></label><label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
+          <label class="setting-switch"><input id="startupAutoplayToggle" type="checkbox" ${localStore.getItem('memora-startup-autoplay')==='1'?'checked':''}><span>Play a random music selection when I open Ormemora (browser permission may require a tap)</span></label><label class="setting-switch"><input id="dynamicBackgroundToggle" type="checkbox" ${ambientPreferences.dynamicBackground?'checked':''}><span>Audio-reactive and seasonal background motion</span></label>
         </div>
       </details>
     </div>
@@ -2720,7 +2722,7 @@ function openThemePicker(){
       <label>Selected region (optional)<select class="input" id="worldRegion">${worldRegions.map(([id,label])=>`<option value="${id}" ${region===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
       <label>Appearance <select class="input" id="worldAppearance"><option value="system">System automatic</option><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Festival scene (manual opt-in)<select class="input" id="worldFestival">${worldFestivals.map(([id,label])=>`<option value="${id}" ${festival===id?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
     </div>
-    <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Memora does not need precise location or your religious preferences.</p>
+    <p class="world-privacy-note">Your region is used only to suggest a visual atmosphere. Ormemora does not need precise location or your religious preferences.</p>
     <div class="world-search-row">
       <input class="input" type="search" id="worldSearch" placeholder="Search spring, festival, coastal, minimal...">
       <button class="btn" id="worldSurprise" type="button">Surprise me</button>
@@ -2730,7 +2732,7 @@ function openThemePicker(){
     </div>
     <div class="world-grid" id="visualWorldGrid">${worldMarkup}</div>
     <details class="world-classic">
-      <summary>Classic Memora: 120 color palettes</summary>
+      <summary>Classic Ormemora: 120 color palettes</summary>
       <p class="small muted">Your original combinations are preserved here.</p>
       <div class="theme-gallery" id="themeGallery">
         ${themeCatalog.map(t=>`<button class="theme-card" data-theme="${t.id}" aria-label="${esc(t.label)}" style="--t1:${t.c1};--t2:${t.c2};--t3:${t.c3};--tb:${t.bg1}"><span></span><small>${esc(t.label)}</small></button>`).join('')}
@@ -2738,7 +2740,7 @@ function openThemePicker(){
     </details>
     <div class="world-selection-status" role="status" id="worldSelectionStatus">Preview your choices, then select Apply changes to save.</div><div class="world-commit-actions"><button class="btn" type="button" id="worldCancel">Cancel and close</button><button class="btn primary" type="button" id="worldApply">Apply changes</button></div>
   `
-  const box=modal('Memora Visual Worlds',body)
+  const box=modal('Ormemora Visual Worlds',body)
   const themeKeys=['memora-world-mode','memora-world','memora-auto-rotate','memora-world-region','memora-world-festival','memora-theme','memora-appearance']
   const original=Object.fromEntries(themeKeys.map(k=>[k,localStore.getItem(k)]))
   let committed=false
@@ -2765,7 +2767,7 @@ function openThemePicker(){
     localStore.setItem('memora-world-festival','none')
     localStore.setItem('memora-auto-rotate','0')
     localStore.setItem('memora-world-mode','auto')
-    applied('Seasonal mode active. Memora uses your device date, local time and optional region.')
+    applied('Seasonal mode active. Ormemora uses your device date, local time and optional region.')
   }
   box.querySelector('#worldRotate').onclick=()=>{
     localStore.setItem('memora-world-festival','none')
@@ -2782,7 +2784,7 @@ function openThemePicker(){
   box.querySelectorAll('[data-theme]').forEach(button=>button.onclick=()=>{
     localStore.setItem('memora-world-mode','classic')
     localStore.setItem('memora-theme',button.dataset.theme)
-    applied('Classic Memora palette selected.')
+    applied('Classic Ormemora palette selected.')
   })
   box.querySelector('#worldRegion').onchange=event=>{
     localStore.setItem('memora-world-region',event.target.value)
@@ -2858,7 +2860,7 @@ function providerSetupHelp(provider){
   }
   modal(`${label} sign-in setup`,`
     <p class="muted">${details[provider]||'This sign-in provider is not enabled yet.'}</p>
-    <p class="small muted">Until it is enabled, Memora keeps email and password sign-in available and will not redirect you to a broken provider page.</p>
+    <p class="small muted">Until it is enabled, Ormemora keeps email and password sign-in available and will not redirect you to a broken provider page.</p>
   `)
 }
 
@@ -2900,7 +2902,7 @@ function passkeyDeviceSupported(){
 }
 function friendlyPasskeyError(error){
   const code=String(error?.code||error?.message||'')
-  if(/passkey_disabled/i.test(code)) return 'Passkey login is not enabled on the Memora authentication server yet.'
+  if(/passkey_disabled/i.test(code)) return 'Passkey login is not enabled on the Ormemora authentication server yet.'
   if(/NotAllowedError|cancel|abort/i.test(code)) return 'Passkey verification was cancelled. You can still sign in with email or Google.'
   if(/email_not_confirmed|phone_not_confirmed/i.test(code)) return 'Confirm your email or phone number before using a passkey.'
   return String(error?.message||'This device could not complete passkey authentication. Use another sign-in method.').slice(0,260)
@@ -2923,7 +2925,7 @@ async function signInUsingPasskey(){
   }
 }
 async function authScreen(mode='login'){
-  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
+  app.innerHTML=`<div class="auth-wrap"><div class="glass auth-card auth-loading"><div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Ormemora</h1><small>Preparing your private universe...</small></div></div><div class="auth-loader"><span></span><span></span><span></span></div></div></div>`
   const external=authProviderCache||{}
   const socialButton=(provider,label)=>{
     const enabled=Boolean(external?.[provider])
@@ -2934,7 +2936,7 @@ async function authScreen(mode='login'){
   app.innerHTML=`
   <div class="auth-wrap">
     <div class="glass auth-card">
-      <div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Memora</h1><small>A private universe for your life</small></div></div>
+      <div class="brand"><div class="logo brand-symbol"><img src="/icon.svg" alt="" width="42" height="42"></div><div><h1>Ormemora</h1><small>A private universe for your life</small></div></div>
       <div class="eyebrow">Your memory, beautifully organized</div>
       <h2>${mode==='login'?'Welcome back':'Create an account'}</h2>
       <p class="muted">${mode==='login'?'Sign in securely to your private memories.':'Keep your memories safe and easy to find.'}</p>
@@ -2951,7 +2953,7 @@ async function authScreen(mode='login'){
         ${mode==='signup'?'<input class="input" id="name" placeholder="Your name" required>':''}
         <input class="input" id="email" name="email" type="email" autocomplete="username" aria-label="Email" placeholder="Email" required>
         <input class="input" id="password" name="password" type="password" autocomplete="${mode==='signup'?'new-password':'current-password'}" aria-label="Password" ${mode==='signup'?'minlength="8"':''} placeholder="Password" required>
-        <button class="btn primary" type="submit">${mode==='login'?'Enter Memora':'Create account'}</button>
+        <button class="btn primary" type="submit">${mode==='login'?'Enter Ormemora':'Create account'}</button>
       </form>
       <div class="auth-secondary">
         <button class="btn" id="magicLink">Email a sign-in link</button>
@@ -2960,8 +2962,8 @@ async function authScreen(mode='login'){
       <div id="authMsg" class="muted" role="status" aria-live="polite"></div>
 
       <div class="auth-public-footer">
-        <span>© 2026 Memora. Created by John Abijit J A. All rights reserved.</span>
-        <a href="mailto:johnabijit@gmail.com?subject=Memora%20support">Contact & feedback</a>
+        <span>© 2026 Ormemora. Created by John Abijit J A. All rights reserved.</span>
+        <a href="mailto:johnabijit@gmail.com?subject=Ormemora%20support">Contact & feedback</a>
       </div>
     </div>
   </div>`
@@ -3020,7 +3022,7 @@ async function authScreen(mode='login'){
         const heading=document.createElement('strong')
         heading.textContent='Check your email to finish signup'
         const guidance=document.createElement('p')
-        guidance.textContent='If this address can register, Memora will send a verification link. Open that link in your email, then return here and sign in. Check spam or promotions if needed.'
+        guidance.textContent='If this address can register, Ormemora will send a verification link. Open that link in your email, then return here and sign in. Check spam or promotions if needed.'
         const resend=document.createElement('button')
         resend.className='btn'
         resend.type='button'
@@ -3080,7 +3082,7 @@ function shell(content,title,subtitle=''){
     <div class="scene-layer" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <header class="topbar" role="banner">
       <div class="top-left">
-        <button class="brand brand-button" id="brandHome" aria-label="Memora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Memora</strong><small>Your life, remembered beautifully</small></span></button>
+        <button class="brand brand-button" id="brandHome" aria-label="Ormemora home"><span class="logo brand-symbol" aria-hidden="true"><img src="/icon.svg" alt="" width="42" height="42"></span><span><strong>Ormemora</strong><small>Your life, remembered beautifully</small></span></button>
         <button class="icon-btn header-home-button" data-nav="home">Home</button>
         <button class="back-btn" id="appBackButton" aria-label="Go back" ${canBack?'':'disabled title="You are on Home"'}><span aria-hidden="true">‹</span><span>Back</span></button>
         <button class="icon-btn header-menu-trigger" id="leftMenuButton" aria-label="Open navigation menu"><span class="menu-symbol" aria-hidden="true">☰</span><span class="menu-caption"> Menu</span></button>
@@ -3098,17 +3100,17 @@ function shell(content,title,subtitle=''){
         
         <button class="icon-btn sound-button" id="soundButton" title="Music, radio and devotionals" aria-label="Open music, live radio and devotionals"><span class="sound-icon" aria-hidden="true">▶</span><span class="sound-label">Play music</span></button>
         
-        <button class="icon-btn memora-refresh-button" id="refreshMemoraButton" type="button" aria-label="Refresh Memora" title="Refresh Memora" style="min-width:44px;min-height:44px"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 1-2.4-5.7"/><path d="M20 4v6h-6"/></svg></button>
+        <button class="icon-btn memora-refresh-button" id="refreshMemoraButton" type="button" aria-label="Refresh Ormemora" title="Refresh Ormemora" style="min-width:44px;min-height:44px"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 1-2.4-5.7"/><path d="M20 4v6h-6"/></svg></button>
         <button class="icon-btn profile-avatar" id="settingsButton" aria-label="Profile and settings" title="Profile and settings">${esc((user?.user_metadata?.display_name||user?.email||'M').trim().charAt(0).toUpperCase())}</button>
       </div>
     </header>
     <main class="main" id="mainContent" tabindex="-1">
-      ${title?`<div class="page-head"><div><div class="eyebrow">Memora</div><h2>${esc(title)}</h2>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div></div>`:''}
+      ${title?`<div class="page-head"><div><div class="eyebrow">Ormemora</div><h2>${esc(title)}</h2>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div></div>`:''}
       ${content}
-      <footer class="app-footer" aria-label="Memora footer">
+      <footer class="app-footer" aria-label="Ormemora footer">
         <div class="footer-copy">
-          <strong>Memora</strong>
-          <span>© 2026 Memora. Created by John Abijit J A. All rights reserved.</span>
+          <strong>Ormemora</strong>
+          <span>© 2026 Ormemora. Created by John Abijit J A. All rights reserved.</span>
         </div>
         <div class="footer-actions">
           <a class="scene-credit hidden" id="sceneCredit" target="_blank" rel="noopener">Scene: Wikimedia Commons</a>
@@ -3194,11 +3196,11 @@ function openGlobalSearch(initial=''){
   initial=typeof initial==='string'?initial:''
   const wrap=modal('Search or Ask',`
     <form class="global-search-form">
-      <p class="muted search-intro">Find a saved detail, listen to music or radio, or ask Memora directly.</p><label for="globalSearchScope" class="sr-only">Search in</label>
+      <p class="muted search-intro">Find a saved detail, listen to music or radio, or ask Ormemora directly.</p><label for="globalSearchScope" class="sr-only">Search in</label>
       <select class="input unified-scope-select" id="globalSearchScope"><option value="memories">My memories</option><option value="music">Music and songs</option><option value="radio">Live radio</option><option value="web">The web</option></select><div class="unified-scope-tabs" role="group" aria-label="Search category"><button type="button" class="scope-chip active" data-search-category="memories">My memories</button><button type="button" class="scope-chip" data-search-category="music">Music</button><button type="button" class="scope-chip" data-search-category="radio">Radio</button><button type="button" class="scope-chip" data-search-category="web">Web</button></div>
       <label for="globalSearchQuery">What are you looking for?</label>
       <input class="input unified-search-input" id="globalSearchQuery" type="search" maxlength="300" required placeholder="My wedding date, Anirudh songs, Hindu radio...">
-      <div class="unified-search-actions"><button class="btn primary" type="submit">Find matches</button><button type="button" class="btn" id="globalAskButton">Ask Memora →</button></div>
+      <div class="unified-search-actions"><button class="btn primary" type="submit">Find matches</button><button type="button" class="btn" id="globalAskButton">Ask Ormemora →</button></div>
     </form>
     <p class="small muted" id="globalSearchNote">Private by default. Only Music, Radio or Web searches contact public services.</p>
     <p role="status" aria-live="polite" id="globalSearchStatus"></p>
@@ -3241,7 +3243,7 @@ function openGlobalSearch(initial=''){
     if(!query) return
     results.replaceChildren();status.textContent='Searching…'
     const encoded=encodeURIComponent(query)
-    const links=mode==='music'?`<p class="small muted">Search available Audius and Wikimedia recordings below. For other songs, open a provider. Availability and subscriptions vary.</p><div class="search-external">${link('https://www.youtube.com/results?search_query='+encoded,'YouTube')}${link('https://open.spotify.com/search/'+encoded,'Spotify')}</div>`:mode==='web'?`<p class="small muted">Choose a search engine to open results outside Memora.</p><div class="search-external">${link('https://www.google.com/search?q='+encoded,'Google')}${link('https://www.bing.com/search?q='+encoded,'Bing')}</div>`:''
+    const links=mode==='music'?`<p class="small muted">Search available Audius and Wikimedia recordings below. For other songs, open a provider. Availability and subscriptions vary.</p><div class="search-external">${link('https://www.youtube.com/results?search_query='+encoded,'YouTube')}${link('https://open.spotify.com/search/'+encoded,'Spotify')}</div>`:mode==='web'?`<p class="small muted">Choose a search engine to open results outside Ormemora.</p><div class="search-external">${link('https://www.google.com/search?q='+encoded,'Google')}${link('https://www.bing.com/search?q='+encoded,'Bing')}</div>`:''
     results.innerHTML=links
     if(mode==='web'){status.textContent='Ready to search the web';return}
     try{
@@ -3257,7 +3259,7 @@ function openGlobalSearch(initial=''){
         :mode==='radio'?await fetchApi('/api/audio-library?'+radioParams):null
       const items=mediaData?mediaData.items||[]:await smartMemorySearch(query,20)
       if(id!==request||!wrap.isConnected) return
-      status.textContent=items.length?`${items.length} results${mediaData?.matchedQuery&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Memora.'
+      status.textContent=items.length?`${items.length} results${mediaData?.matchedQuery&&mediaData.matchedQuery!==input.value.trim()?' for “'+mediaData.matchedQuery+'”':''}`:mode==='music'||mode==='radio'?'No matching open streams found. Try another name or browse the audio directory.':'No matching saved memories. Try another phrase, or select Ask Ormemora.'
       items.forEach(item=>{
         const card=document.createElement('article');card.className='search-result'
         const title=document.createElement('strong');title.textContent=String(item.title||item.summary||'Saved memory').slice(0,180);card.append(title)
@@ -3302,12 +3304,12 @@ document.addEventListener('keydown',event=>{
 })
 
 function openExploreMenu(){
-  const wrap=modal('Explore Memora',`
-    <p class="small muted">Everything in Memora, grouped in one place.</p>
+  const wrap=modal('Explore Ormemora',`
+    <p class="small muted">Everything in Ormemora, grouped in one place.</p>
     <div class="memora-explore-grid">
       <button class="btn" data-explore="home">Home <small>Capture and overview</small></button>
       <button class="btn" data-explore="memories">Memories <small>Search, edit and review</small></button>
-      <button class="btn" data-explore="ask">Ask Memora <small>Questions and chat history</small></button>
+      <button class="btn" data-explore="ask">Ask Ormemora <small>Questions and chat history</small></button>
       <button class="btn" data-explore="people">People <small>Saved names and relationships</small></button>
       <button class="btn" data-explore="vault">Vault <small>Places, things and files</small></button>
       <button class="btn" data-explore="timeline">Timeline <small>Life events in order</small></button>
@@ -4205,7 +4207,7 @@ async function openEditMemory(memoryId){
   if(error||!memory) return toast('Could not open this memory for editing.')
   const box=modal('Edit saved memory',`
     <form id="memoryEditForm" class="memory-edit-form">
-      <label for="memoryEditText">What would you like Memora to remember?</label>
+      <label for="memoryEditText">What would you like Ormemora to remember?</label>
       <textarea class="input" id="memoryEditText" rows="7" maxlength="12000" required>${esc(memory.original_text||'')}</textarea>
       <p class="small muted">Corrections update this saved memory. Earlier text is retained in a limited edit history. Attached media is not removed.</p>
       <p id="memoryEditStatus" class="small muted" role="status" aria-live="polite"></p>
@@ -4298,7 +4300,7 @@ async function home(){
       <div class="hero-content">
         <div class="eyebrow">${firstName?`Hello ${esc(firstName)} · `:''}Capture anything</div>
         <h2><span class="gradient-text">Remember the detail. Find it later.</span></h2>
-        <p>Text, camera, video, voice, location or a file. Memora keeps the memory, its source and the context together.</p>
+        <p>Text, camera, video, voice, location or a file. Ormemora keeps the memory, its source and the context together.</p>
         <div class="composer">
           <textarea id="memoryInput" placeholder="I kept my keys in the top drawer beside the watch..."></textarea>
           <div id="pendingPreview" class="preview-strip"></div>
@@ -4323,7 +4325,7 @@ async function home(){
 
     <nav class="home-quick-nav" aria-label="Quick destinations">
       <button class="btn" data-nav="memories">Browse memories</button>
-      <button class="btn" data-nav="ask">Ask Memora</button>
+      <button class="btn" data-nav="ask">Ask Ormemora</button>
       <button class="btn primary" id="homeSearchQuick">⌕ Search or Ask</button>
       <button class="btn" id="homeMusicQuick">Music & Radio</button>
     </nav>
@@ -4349,7 +4351,7 @@ async function home(){
           <div class="mood-copy">
             <span class="eyebrow">A small check-in</span>
             <strong>How are you feeling today?</strong>
-            <small>${latestMood?`Last check-in: ${esc(moodCatalog[latestMood.mood]?.label||latestMood.mood)}`:'Memora can remember this gently and use it only when useful.'}</small>
+            <small>${latestMood?`Last check-in: ${esc(moodCatalog[latestMood.mood]?.label||latestMood.mood)}`:'Ormemora can remember this gently and use it only when useful.'}</small>
           </div>
           <div class="mood-pills" role="group" aria-label="Mood check-in">
             ${[
@@ -4370,7 +4372,7 @@ async function home(){
 
       <div class="home-panel" data-home-panel="shortcuts">
         <div class="shortcut-grid">
-          <button class="shortcut-card" data-nav="ask"><span>◎</span><div><b>Ask Memora</b><small>Search and reason across your life</small></div></button>
+          <button class="shortcut-card" data-nav="ask"><span>◎</span><div><b>Ask Ormemora</b><small>Search and reason across your life</small></div></button>
           <button class="shortcut-card" data-nav="vault"><span>◇</span><div><b>Open Vault</b><small>People, places, things and documents</small></div></button>
           <button class="shortcut-card" data-nav="sources"><span>◉</span><div><b>Sources</b><small>AI, imports and connected data</small></div></button>
           <button class="shortcut-card" id="homeSoundscapes"><span>◌</span><div><b>Soundscapes</b><small>Rain, ocean, forest and focus</small></div></button>
@@ -4521,7 +4523,7 @@ async function memories(){
     const q=document.getElementById('memorySearch').value.trim()
     if(!q) return memories()
     const found=rankMemoryResults(q,all,80)
-    document.getElementById('memoryList').innerHTML=found.length?found.map(memoryCard).join(''):'<div class="glass empty"><strong>No matching memory</strong>Try a person, event, place, or another phrase. Memora will not display unrelated memories.</div>'
+    document.getElementById('memoryList').innerHTML=found.length?found.map(memoryCard).join(''):'<div class="glass empty"><strong>No matching memory</strong>Try a person, event, place, or another phrase. Ormemora will not display unrelated memories.</div>'
     bindDeletes()
     bindMemoryViews(found)
     await hydrateMemoryExtras(found)
@@ -5119,8 +5121,10 @@ async function aiReasonedAnswer(question){
   if(data.imageUsed) imageUrl=await latestImageSignedUrl(data.imageId).catch(()=>null)
   return {
     text:data.answer,
-    source:data.source||'Memora AI grounded in your saved memories',
+    source:data.source||'Ormemora AI grounded in your saved memories',
     imageUrl,
+    memorySources:Array.isArray(data.memorySources)?data.memorySources.slice(0,12):[],
+    hasRetrievedMemoryEvidence:Boolean(data.hasRetrievedMemoryEvidence),
     ai:true
   }
 }
@@ -5136,13 +5140,13 @@ function directConversationReply(question){
     return 'Hello. I am here with you and ready to help with your memories, questions, plans or anything you want to talk about.'
   }
   if(/^(how are you|how r you|how are u|how r u|how're you|how are you doing|how r u doing|how is it going|how's it going|how do you feel|are you okay|are you ok)$/.test(casual)){
-    return 'I am doing well and ready. You can talk to me normally too, not only ask memory questions. When you ask about your life, I will use your saved Memora memories and sources.'
+    return 'I am doing well and ready. You can talk to me normally too, not only ask memory questions. When you ask about your life, I will use your saved Ormemora memories and sources.'
   }
   if(/^(what are you doing|what r u doing|what do you do)$/.test(casual)){
     return 'Right now I am here to help you. I can chat normally, search your memories, connect related facts, find saved details and help you organize what matters.'
   }
   if(/^(thanks|thank you|thank u|thx|thanks a lot|thank you so much)$/.test(casual)){
-    return 'You are welcome. This conversation stays separate from your other chats, while your Memora memory vault remains available whenever it is relevant.'
+    return 'You are welcome. This conversation stays separate from your other chats, while your Ormemora memory vault remains available whenever it is relevant.'
   }
   return null
 }
@@ -5195,7 +5199,7 @@ async function answer(question){
     if(ordered.length)return {text:'I found '+ordered.length+' relevant memories, newest first:\n'+ordered.map((item,i)=>`${i+1}. ${shortDate(item.occurred_at||item.created_at)}: ${cleanAnswerText(item.summary||item.original_text).slice(0,230)}`).join('\n'),source:'Saved memories in date order'}
   }
   const direct=directConversationReply(rawQ)
-  if(direct) return {text:direct,source:'Memora conversation'}
+  if(direct) return {text:direct,source:'Ormemora conversation'}
   if(/\b(map|coordinates|gps|latitude|longitude|directions|place)\b/i.test(rawQ)||(/\b(where|location|address)\b/i.test(rawQ)&&/\b(therapy|center|centre|diana|saved|attached|this|that|there)\b/i.test(rawQ))){
     const located=await answerSavedLocation(rawQ);
     if(located) return located;
@@ -5235,7 +5239,7 @@ async function answer(question){
     aiUnavailable=true
   }catch(error){
     aiUnavailable=true
-    console.warn('Memora AI error, using local memory engine',error)
+    console.warn('Ormemora AI error, using local memory engine',error)
   }
 
   const q=normalizeQuestion(rawQ)
@@ -5254,7 +5258,7 @@ async function answer(question){
       }
     }
     const {data:profile}=await supabase.from('profiles').select('display_name').maybeSingle()
-    if(profile?.display_name) return {text:`You are ${profile.display_name}.`,source:'Your Memora profile'}
+    if(profile?.display_name) return {text:`You are ${profile.display_name}.`,source:'Your Ormemora profile'}
   }
 
   if(/\b(phone|mobile|contact)\s*(number)?\b|\bmy\s+number\b/i.test(q)){
@@ -5477,7 +5481,10 @@ function renderChatMessage(message,index){
     ?`<div class="chat-action-row"><button class="chat-action" data-chat-action="${esc(message.action.type)}" data-chat-mood="${esc(message.action.mood||'')}" data-chat-query="${esc(message.action.query||'')}">${esc(message.action.label||'Open')}</button></div>`
     :''
   const mapLink=typeof message.mapUrl==='string'&&message.mapUrl.startsWith('https://www.google.com/maps/search/')?`<a class="btn memory-map-link" href="${esc(message.mapUrl)}" target="_blank" rel="noopener noreferrer">Open saved location in Google Maps ↗</a>`:''
-  return `<div class="${classes}">${mapLink}${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Memora reasoning</div>':''}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
+  const evidence=message.role==='assistant'&&Array.isArray(message.memorySources)&&message.memorySources.length
+    ?`<div class="chat-evidence-sources" aria-label="Retrieved memory sources"><strong>Retrieved memories:</strong> ${message.memorySources.slice(0,4).map(s=>`<span class="chat-evidence-tag" title="${esc(s.kind||'memory')}">${esc(String(s.title||'Saved memory').slice(0,70))}</span>`).join('')}${message.memorySources.length>4?` <small>+${message.memorySources.length-4} more</small>`:''}</div>`
+    :''
+  return `<div class="${classes}">${mapLink}${message.imageUrl?`<img class="chat-evidence-image" src="${esc(message.imageUrl)}" alt="Memory evidence">`:''}<div class="bubble-text">${esc(cleanAnswerText(message.text))}</div>${action}${message.ai?'<div class="answer-engine"><span class="live-dot"></span>Ormemora reasoning</div>':''}${evidence}${message.source?`<div class="source">Source: ${esc(message.source)}</div>`:''}</div>`
 }
 
 function startThinkingAnimation(){
@@ -5501,7 +5508,7 @@ async function ask({reload=true}={}){
   const currentThread=chatThreads.find(item=>item.id===currentThreadId)||{title:'New chat'}
 
   const quickChat=new URL(window.location.href).searchParams.get('quick')==='1'
-  const quickHeader=quickChat?`<div class="quick-chat-header"><div class="quick-chat-brand"><img src="/icon-192.png" alt="" width="42" height="42"><div><strong>Memora</strong><small>Your private memory companion</small></div></div><button class="quick-chat-new" id="quickChatNew" type="button" aria-label="Start a new conversation">＋ New</button></div>`:''
+  const quickHeader=quickChat?`<div class="quick-chat-header"><div class="quick-chat-brand"><img src="/icon-192.png" alt="" width="42" height="42"><div><strong>Ormemora</strong><small>Your private memory companion</small></div></div><button class="quick-chat-new" id="quickChatNew" type="button" aria-label="Start a new conversation">＋ New</button></div>`:''
   const threadList=chatThreads.slice(0,30).map(thread=>`
     <div class="chat-thread ${thread.id===currentThreadId?'active':''}" data-thread-id="${thread.id}">
       <button class="thread-open" data-open-thread="${thread.id}">
@@ -5514,7 +5521,7 @@ async function ask({reload=true}={}){
 
   app.innerHTML=shell(`
     ${quickHeader}
-    <div class="ask-layout" aria-label="Your Memora conversations">
+    <div class="ask-layout" aria-label="Your Ormemora conversations">
       <button class="chat-drawer-scrim" id="chatDrawerScrim" aria-label="Close chats"></button>
       <aside class="glass chat-sidebar" id="chatSidebar">
         <div class="chat-sidebar-head">
@@ -5542,18 +5549,18 @@ async function ask({reload=true}={}){
             <button class="chip" data-ask-suggestion="Where did I keep my things?">Find a thing</button>
             <button class="chip" data-nav="memories">Browse memories</button>
           </div>
-          <div class="chat" id="chat" role="log" aria-live="polite">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>What would you like to know?</strong>Ask about a person, date, place or anything you saved. Memora will explain when information is missing.</div>'}</div>
+          <div class="chat" id="chat" role="log" aria-live="polite">${chat.length?chat.map(renderChatMessage).join(''):'<div class="empty companion-empty"><strong>What would you like to know?</strong>Ask about a person, date, place or anything you saved. Ormemora will explain when information is missing.</div>'}</div>
         </div>
 
         <div class="glass ask-box">
           <textarea class="input" id="askInput" rows="2" maxlength="4000" aria-label="Your question" placeholder="Ask about a memory, person, date or place..."></textarea>
-          <button class="btn voice-btn" id="askVoice" aria-label="Speak to Memora">Mic</button>
+          <button class="btn voice-btn" id="askVoice" aria-label="Speak to Ormemora">Mic</button>
           <button class="btn primary" id="askButton">Ask →</button>
           <p class="ask-hint">Enter to send · Shift+Enter for a new line. Your saved memories stay private.</p>
         </div>
       </div>
     </div>
-  `,'Ask Memora','Separate conversations, one shared personal memory.')
+  `,'Ask Ormemora','Separate conversations, one shared personal memory.')
   wire()
 
   const sidebar=document.getElementById('chatSidebar')
@@ -5619,8 +5626,8 @@ async function ask({reload=true}={}){
     if(looksLikeSecret(q)){
       input.value=''
       const safe='I detected what looks like an API key or credential. For safety I will not save it in chat or memory. Add credentials through Sources instead.'
-      chat.push({role:'assistant',text:safe,source:'Memora security',fresh:true})
-      await saveChatMessage('assistant',safe,{source:'Memora security'})
+      chat.push({role:'assistant',text:safe,source:'Ormemora security',fresh:true})
+      await saveChatMessage('assistant',safe,{source:'Ormemora security'})
       await ask()
       return
     }
@@ -5651,12 +5658,12 @@ async function ask({reload=true}={}){
     const conversationalGreeting=/^\s*(?:hey[,! ]*)?(?:how\s+(?:are|r)\s+(?:you|u)|how(?:'s| is)\s+it\s+going|how\s+have\s+you\s+been)[?.!\s]*$/i.test(q);
     if(conversationalGreeting){
       const reply='I am doing well, thanks for asking! How are you doing today?';
-      const msg={role:'assistant',text:reply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()};
+      const msg={role:'assistant',text:reply,source:'Ormemora conversation',fresh:true,created_at:new Date().toISOString()};
       chat.push(msg);await saveChatMessage('assistant',reply,msg);await ask({reload:false});return;
     }
     const directReply=directConversationReply(q)
     if(directReply){
-      const directMessage={role:'assistant',text:directReply,source:'Memora conversation',fresh:true,created_at:new Date().toISOString()}
+      const directMessage={role:'assistant',text:directReply,source:'Ormemora conversation',fresh:true,created_at:new Date().toISOString()}
       chat.push(directMessage)
       await saveChatMessage('assistant',directReply,directMessage)
       await ask({reload:false})
@@ -5674,7 +5681,7 @@ async function ask({reload=true}={}){
       let responseText=cleanAnswerText(response.text)
       let action=response.action||null
       if(autoMemorySaved&&!/saved|remembered|stored.*memory/i.test(responseText)){
-        responseText+=` I’ve saved that to your Memora memory.`
+        responseText+=` I’ve saved that to your Ormemora memory.`
       }
       if(detectedMood){
         const label=moodCatalog[detectedMood]?.label||detectedMood
@@ -5693,7 +5700,7 @@ async function ask({reload=true}={}){
     }catch(error){
       stopThinking()
       chat=chat.filter(message=>!message.pending)
-      const failure={role:'assistant',text:'I could not complete that lookup just now. Your saved memories are safe, so please try the question again.',source:'Memora',fresh:true}
+      const failure={role:'assistant',text:'I could not complete that lookup just now. Your saved memories are safe, so please try the question again.',source:'Ormemora',fresh:true}
       chat.push(failure)
       await saveChatMessage('assistant',failure.text,failure)
     }
@@ -5775,7 +5782,7 @@ async function vault(){
       <div class="glass vault-card" role="button" tabindex="0" data-vault="people"><div class="vault-icon">◎</div><h3>People</h3><p>Names, relationships and encounters recognized from memories.</p><div class="memory-meta">${peopleCount||0} people</div></div>
       <div class="glass vault-card" role="button" tabindex="0" data-vault="places"><div class="vault-icon">⌖</div><h3>Places</h3><p>Homes, cafes, cities and locations connected to your story.</p><div class="memory-meta">${placeCount||0} places</div></div>
       <div class="glass vault-card" role="button" tabindex="0" data-vault="things"><div class="vault-icon">◇</div><h3>Things</h3><p>Keys, documents, jewellery and anything whose location matters.</p><div class="memory-meta">${thingCount||0} things</div></div>
-      <div class="glass vault-card" role="button" tabindex="0" data-vault="documents"><div class="vault-icon">▣</div><h3>Documents</h3><p>Files, policies, receipts and records you asked Memora to keep.</p><div class="memory-meta">${docCount||0} files</div></div>
+      <div class="glass vault-card" role="button" tabindex="0" data-vault="documents"><div class="vault-icon">▣</div><h3>Documents</h3><p>Files, policies, receipts and records you asked Ormemora to keep.</p><div class="memory-meta">${docCount||0} files</div></div>
     </div>
   `,'Vault','People, places, things and documents without cluttering the main navigation.')
   wire()
@@ -5848,7 +5855,7 @@ async function documents(){
         <div class="filter-row"><span class="chip active">Private storage</span><span class="chip">Provenance</span><span class="chip">AI ready</span></div>
       </div>
     </div>
-    <section class="section"><div class="section-head"><div><h3>Your files</h3><p>Documents you asked Memora to remember.</p></div></div>
+    <section class="section"><div class="section-head"><div><h3>Your files</h3><p>Documents you asked Ormemora to remember.</p></div></div>
       <div class="grid two">${data?.length?data.map(d=>`<div class="glass" style="padding:18px;border-radius:22px"><div class="memory-top"><div><strong>${esc(d.file_name)}</strong><div class="muted" style="margin-top:5px">${esc(d.description||d.mime_type||'Stored document')}</div></div><span class="badge alt">File</span></div><div class="memory-meta">${when(d.created_at)}</div></div>`).join(''):'<div class="glass empty"><strong>No files yet</strong>Add a document above and give it a note.</div>'}</div>
     </section>
   `,'Documents')
@@ -6023,14 +6030,14 @@ async function checkMemoraBackend(){
 function oauthSetupModal(provider){
   const isGoogle=provider==='google'
   modal(isGoogle?'Google Workspace connection':'Microsoft 365 connection',`
-    <p class="muted">The Memora connector flow is ready for this source, but the provider requires a one-time OAuth application registration owned by you before a live account can be authorized.</p>
+    <p class="muted">The Ormemora connector flow is ready for this source, but the provider requires a one-time OAuth application registration owned by you before a live account can be authorized.</p>
     <div class="filter-row">
       <span class="chip active">${isGoogle?'Gmail':'Outlook'}</span>
       <span class="chip">${isGoogle?'Calendar':'Calendar'}</span>
       <span class="chip">${isGoogle?'Drive':'OneDrive'}</span>
       <span class="chip">${isGoogle?'Photos':'SharePoint'}</span>
     </div>
-    <p class="small muted" style="margin-top:14px">Memora will request read-only permissions first. Provider tokens must stay server-side and will never be written into the browser code.</p>
+    <p class="small muted" style="margin-top:14px">Ormemora will request read-only permissions first. Provider tokens must stay server-side and will never be written into the browser code.</p>
   `)
 }
 
@@ -6038,7 +6045,7 @@ function sourceInfo(kind){
   const info={
     openai:{
       title:'OpenAI and GPT agents',
-      body:'Memora is designed to connect through the current OpenAI Responses and agent stack. A real live connection needs a secure server-side API key or OAuth style integration. The key must never be stored in browser JavaScript.'
+      body:'Ormemora is designed to connect through the current OpenAI Responses and agent stack. A real live connection needs a secure server-side API key or OAuth style integration. The key must never be stored in browser JavaScript.'
     },
     google:{
       title:'Google Workspace',
@@ -6050,7 +6057,7 @@ function sourceInfo(kind){
     },
     claude:{
       title:'Claude',
-      body:'Claude can be supported through export import and a server-side API integration. A future secure AI gateway can let users choose Claude as a reasoning provider without changing Memora storage.'
+      body:'Claude can be supported through export import and a server-side API integration. A future secure AI gateway can let users choose Claude as a reasoning provider without changing Ormemora storage.'
     },
     gemini:{
       title:'Gemini',
@@ -6097,8 +6104,8 @@ async function sources(){
     <div class="glass source-hero">
       <div>
         <div class="eyebrow">Intelligence and data sources</div>
-        <h3>Memora now has a built-in reasoning brain.</h3>
-        <p>Ask Memora reasons over your private memory vault. It can use Vercel AI Gateway when configured, or your securely connected OpenAI API key.</p>
+        <h3>Ormemora now has a built-in reasoning brain.</h3>
+        <p>Ask Ormemora reasons over your private memory vault. It can use Vercel AI Gateway when configured, or your securely connected OpenAI API key.</p>
       </div>
       <div class="source-summary"><b>${aiAvailable?'LIVE':'CHECK'}</b><span>${openAiConnected?'OpenAI ready':'AI reasoning'}</span></div>
     </div>
@@ -6114,8 +6121,8 @@ async function sources(){
       <div class="glass source-card">
         <span class="status ${aiHealthy||(!lastAi&&health.aiGateway)?'live':''}">${esc(aiLabel)}</span>
         <div class="source-icon">✦</div>
-        <h3>Memora AI</h3>
-        <p>Your reasoning layer. Memora uses Vercel AI Gateway when available and securely falls back to your connected OpenAI API key. Both paths stay grounded in your memories.</p>
+        <h3>Ormemora AI</h3>
+        <p>Your reasoning layer. Ormemora uses Vercel AI Gateway when available and securely falls back to your connected OpenAI API key. Both paths stay grounded in your memories.</p>
         <div class="ai-diagnostic" id="aiDiagnostic">
           ${lastAi
             ?`<strong>${lastAi.status==='success'?'Reasoning healthy':'Needs attention'}</strong><span>${lastAi.status==='success'
@@ -6123,14 +6130,14 @@ async function sources(){
                 :esc(lastAi.error_message||lastAi.error_code||'Last reasoning call failed')}</span>`
             :'<strong>No live reasoning test yet</strong><span>Run the test below while signed in.</span>'}
         </div>
-        <div class="source-actions"><button class="btn primary" data-nav="ask">Ask Memora</button><button class="btn" id="testMemoraAi">Run AI test</button></div>
+        <div class="source-actions"><button class="btn primary" data-nav="ask">Ask Ormemora</button><button class="btn" id="testMemoraAi">Run AI test</button></div>
       </div>
 
       <div class="glass source-card">
         <span class="status ${connections.openai?.status==='connected'?'live':''}">${connections.openai?.status==='connected'?'Connected':'Optional'}</span>
         <div class="source-icon">AI</div>
         <h3>OpenAI API</h3>
-        <p>Your OpenAI API key is stored encrypted in Supabase Vault and now powers Ask Memora when Vercel AI Gateway is unavailable. OpenAI API charges are separate from ChatGPT Plus.</p>
+        <p>Your OpenAI API key is stored encrypted in Supabase Vault and now powers Ask Ormemora when Vercel AI Gateway is unavailable. OpenAI API charges are separate from ChatGPT Plus.</p>
         <div class="source-actions">${providerButton('openai','OpenAI')}</div>
       </div>
 
@@ -6178,7 +6185,7 @@ async function sources(){
         <span class="status">Business API</span>
         <div class="source-icon">W</div>
         <h3>WhatsApp</h3>
-        <p>Personal WhatsApp does not provide a live chat-history connection to Memora. Export a chat and import the TXT or ZIP here. Live automation is a separate WhatsApp Business API setup.</p>
+        <p>Personal WhatsApp does not provide a live chat-history connection to Ormemora. Export a chat and import the TXT or ZIP here. Live automation is a separate WhatsApp Business API setup.</p>
         <div class="source-actions"><button class="btn primary" id="whatsappImportBtn">Import WhatsApp export</button><button class="btn ghost" id="whatsappInfo">Business API setup</button><input class="hidden" id="whatsappFile" type="file" accept=".txt,.zip,text/plain,application/zip"></div>
       </div>
 
@@ -6201,14 +6208,14 @@ async function sources(){
 
     <div class="glass" style="padding:16px;border-radius:20px;margin-top:16px">
       <b>${connectedCount} optional AI provider connection${connectedCount===1?'':'s'} active · ${socialEnabled} social sign-in provider${socialEnabled===1?'':'s'} enabled</b>
-      <div class="muted small" style="margin-top:5px">Ask Memora uses your connected AI provider. Saved memory search remains available when AI is unavailable.</div>
+      <div class="muted small" style="margin-top:5px">Ask Ormemora uses your connected AI provider. Saved memory search remains available when AI is unavailable.</div>
       <div id="sourceMsg" class="muted" style="margin-top:8px"></div>
     </div>
   `,'Source Universe','Live AI, optional provider APIs, device context and external data connectors.')
   wire()
 
   const sourceGroups={
-    ai:new Set(['Memora AI','OpenAI API','Gemini API','Claude API']),
+    ai:new Set(['Ormemora AI','OpenAI API','Gemini API','Claude API']),
     accounts:new Set(['Google Workspace','Microsoft 365','Maps and location']),
     imports:new Set(['WhatsApp','Files and documents','ChatGPT history'])
   }
@@ -6232,7 +6239,7 @@ async function sources(){
       const latest=await supabase.from('ai_request_logs').select('status,model,latency_ms,error_message,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle()
       const row=latest.data
       target.innerHTML=`<strong>${row?.status==='success'?'Live reasoning passed':'AI answered'}</strong><span>${esc(cleanAnswerText(response.text))}${row?.latency_ms?` · ${(Number(row.latency_ms)/1000).toFixed(1)}s`:''}</span>`
-      toast('Memora AI test completed')
+      toast('Ormemora AI test completed')
     }catch(error){
       const latest=await supabase.from('ai_request_logs').select('status,error_message,error_code,created_at').order('created_at',{ascending:false}).limit(1).maybeSingle()
       target.innerHTML=`<strong>Live reasoning failed</strong><span>${esc(latest.data?.error_message||error.message||'Unknown error')}</span>`
@@ -6244,7 +6251,7 @@ async function sources(){
   document.getElementById('googleSetup').onclick=()=>oauthSetupModal('google')
   document.getElementById('microsoftSetup').onclick=()=>oauthSetupModal('microsoft')
   document.getElementById('filesJump').onclick=()=>go('documents')
-  document.getElementById('whatsappInfo').onclick=()=>modal('WhatsApp live connection','<p class="muted">A genuine live WhatsApp connector requires a Meta developer application, WhatsApp Business account, Phone Number ID, access token and webhook configuration. Memora will keep this separate from consumer chat imports so permissions remain explicit.</p>')
+  document.getElementById('whatsappInfo').onclick=()=>modal('WhatsApp live connection','<p class="muted">A genuine live WhatsApp connector requires a Meta developer application, WhatsApp Business account, Phone Number ID, access token and webhook configuration. Ormemora will keep this separate from consumer chat imports so permissions remain explicit.</p>')
 
   document.getElementById('chatgptImportBtn').onclick=()=>document.getElementById('chatgptFile').click()
   document.getElementById('whatsappImportBtn').onclick=()=>document.getElementById('whatsappFile').click()
@@ -6276,13 +6283,13 @@ async function sources(){
   }
 }
 async function help(){
-  const whatsappText=encodeURIComponent('Hello John, I am contacting you from Memora.')
-  const feedbackSubject=encodeURIComponent('Memora feedback')
+  const whatsappText=encodeURIComponent('Hello John, I am contacting you from Ormemora.')
+  const feedbackSubject=encodeURIComponent('Ormemora feedback')
   app.innerHTML=shell(`
     <section class="glass support-hero">
       <div class="support-hero-copy">
         <div class="eyebrow">Support · Accessibility · Feedback</div>
-        <h3>Memora is being built for everyone.</h3>
+        <h3>Ormemora is being built for everyone.</h3>
         <p>Questions, ideas, bug reports and accessibility feedback are welcome. Choose the easiest way to reach the creator.</p>
       </div>
       <div class="support-status"><span></span><b>Community feedback welcome</b></div>
@@ -6314,14 +6321,14 @@ async function help(){
       <div>
         <div class="eyebrow">Accessibility</div>
         <h3>Designed to remain usable, not just beautiful.</h3>
-        <p class="muted">Memora uses labeled controls, keyboard focus states, reduced-motion support, large touch targets, semantic navigation and responsive layouts. If anything is difficult to read, hear, tap or navigate, please report it through the contact options above.</p>
+        <p class="muted">Ormemora uses labeled controls, keyboard focus states, reduced-motion support, large touch targets, semantic navigation and responsive layouts. If anything is difficult to read, hear, tap or navigate, please report it through the contact options above.</p>
       </div>
       <button class="btn" data-nav="settings">Accessibility and appearance settings</button>
     </section>
 
     <section class="glass support-note">
       <strong>About support</strong>
-      <p class="muted">Memora is offered as a goodwill project. Response times may vary, but useful feedback will help improve the experience for people using different phones, browsers, languages and accessibility tools around the world.</p>
+      <p class="muted">Ormemora is offered as a goodwill project. Response times may vary, but useful feedback will help improve the experience for people using different phones, browsers, languages and accessibility tools around the world.</p>
     </section>
   `,'Help & Feedback','Contact, accessibility support and product feedback.')
   wire()
@@ -6350,7 +6357,7 @@ async function settings(){
 
       <section class="glass settings-card" id="quickAskShortcutSettings">
         <div class="eyebrow">Quick access</div><h3>Quick Ask shortcut</h3>
-        <p class="muted">Ask your saved memories directly from your phone's home screen, without navigating through the rest of Memora.</p>
+        <p class="muted">Ask your saved memories directly from your phone's home screen, without navigating through the rest of Ormemora.</p>
         <div class="filter-row">
           <button class="btn primary" id="addQuickAskShortcut" type="button">Add Quick Ask shortcut</button>
           <button class="btn" id="openQuickAskShortcut" type="button">Try Quick Ask</button>
@@ -6390,7 +6397,7 @@ async function settings(){
 
       <section class="glass settings-card">
         <div class="eyebrow">Guidance</div><h3>Personal experience</h3>
-        <p class="muted">Use the guided tour anytime, let Memora remember explicit mood check-ins, and choose whether memories can influence the live background scene.</p>
+        <p class="muted">Use the guided tour anytime, let Ormemora remember explicit mood check-ins, and choose whether memories can influence the live background scene.</p>
         <div class="setting-row"><span>Mood check-ins</span><b>${experiencePreferences.moodCheckinsEnabled?'On':'Off'}</b></div>
         <div class="setting-row"><span>Contextual scenery</span><b>${experiencePreferences.contextualScenery?'On':'Off'}</b></div>
         <div class="filter-row">
@@ -6402,19 +6409,19 @@ async function settings(){
 
       <section class="glass settings-card">
         <div class="eyebrow">Conversations</div><h3>Chat history</h3>
-        <p class="muted">Ask conversations are saved separately. All chats share the same Memora memory vault while recent conversational context stays inside its thread.</p>
+        <p class="muted">Ask conversations are saved separately. All chats share the same Ormemora memory vault while recent conversational context stays inside its thread.</p>
         <div class="filter-row"><button class="btn" data-nav="ask">Open chats</button><button class="btn danger" id="deleteChats">Delete all chats</button></div>
       </section>
 
       <section class="glass settings-card">
         <div class="eyebrow">Security</div><h3>Sign-in security</h3>
-        <p class="muted">Memora protects memories by account. When enabled by the service and supported by your device, passkeys allow secure login with biometrics or your phone's screen lock.</p>
+        <p class="muted">Ormemora protects memories by account. When enabled by the service and supported by your device, passkeys allow secure login with biometrics or your phone's screen lock.</p>
         <button class="btn" id="registerPasskey" type="button" ${passkeyDeviceSupported()?'':'disabled'}>Set up fingerprint, Face ID or PIN sign-in</button>
-        <p class="small muted" id="passkeySetupStatus" role="status">${passkeyDeviceSupported()?'Sign in once with Google or email first, then register a passkey.':'Passkeys are not supported in this app view. Try the Memora website in Chrome or Safari.'}</p>
+        <p class="small muted" id="passkeySetupStatus" role="status">${passkeyDeviceSupported()?'Sign in once with Google or email first, then register a passkey.':'Passkeys are not supported in this app view. Try the Ormemora website in Chrome or Safari.'}</p>
         <div class="setting-row"><span>App build</span><b>2026.10.09.43</b></div>
         ${/\bMemoraAndroid\/\d+(?:\.\d+)?\b/.test(navigator.userAgent)?`<details class="audio-disclosure" style="margin:10px 0">
           <summary>Android device security</summary>
-          <p class="small muted">Protect the Android app when reopening it using your phone's fingerprint, strong face recognition, or screen-lock PIN when supported. This is an app lock, not a replacement for your Memora account sign-in.</p>
+          <p class="small muted">Protect the Android app when reopening it using your phone's fingerprint, strong face recognition, or screen-lock PIN when supported. This is an app lock, not a replacement for your Ormemora account sign-in.</p>
           <div class="filter-row"><button class="btn primary" id="enableAndroidDeviceLock" type="button">Enable device unlock</button><button class="btn" id="disableAndroidDeviceLock" type="button">Disable device unlock</button></div>
         </details>`:''}
         <button class="btn" id="logoutButton">Sign out</button>
@@ -6461,7 +6468,7 @@ async function settings(){
         window.location.href='memora://shortcut/quick-ask'
         if(info)info.textContent='Approve the Android home-screen shortcut request when your launcher prompts.'
       }else{
-        if(info)info.textContent='Update to Memora Android v1.9 for native Quick Ask shortcuts. Meanwhile, open the Quick Ask link in Chrome and use Add to Home screen.'
+        if(info)info.textContent='Update to Ormemora Android v1.9 for native Quick Ask shortcuts. Meanwhile, open the Quick Ask link in Chrome and use Add to Home screen.'
         try{await navigator.clipboard.writeText(url)}catch{}
       }
       return
