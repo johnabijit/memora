@@ -1,7 +1,7 @@
-name: Generate Memora app icons
+name: Generate Ormemora app icons
 on:
   push:
-    branches: [memora-navigation-player-v2]
+    branches: [cloudflare-v43-fixes, feature/ormemora-rebrand-grounded-memory-20261027]
     paths:
       - icon.svg
       - .github/workflows/memora-icon-assets.yml
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: memora-navigation-player-v2
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -38,6 +38,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png
           if ! git diff --cached --quiet; then
-            git commit -m "Generate Memora icons for Android, iOS and PWA"
-            git push origin HEAD:memora-navigation-player-v2
+            git commit -m "Generate Ormemora icons for Android, iOS and PWA"
+            git push origin HEAD:${{ github.ref_name }}
           fi
