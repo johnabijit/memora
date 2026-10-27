@@ -96,7 +96,7 @@ test('HTML API failures produce a readable error instead of JSON parse text',asy
   const {dom,w,api}=await appFixture()
   try{
     w.fetch=async()=>new Response('<!doctype html>',{headers:{'content-type':'text/html'}})
-    await assert.rejects(api.loadMediaLibrary('music','fixture'),/Memora service is unavailable/)
+    await assert.rejects(api.loadMediaLibrary('music','fixture'),/Ormemora service is unavailable/)
     assert.equal(api.mediaPlayerState.loading,false)
   }finally{dom.window.close()}
 })
