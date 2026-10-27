@@ -3425,9 +3425,13 @@ function wire(){
     let startY=0,startX=0,eligible=false
     document.addEventListener('touchstart',event=>{
       const target=event.target
-      eligible=window.scrollY<3 && !target?.closest?.('input,textarea,select,[contenteditable="true"],.chat-messages,.chat-sidebar')
+      // Never refresh during internal scrolling, dialogs, audio browsing or form input.
+      eligible=window.scrollY<3
+        && !document.querySelector('.modal-backdrop')
+        && !target?.closest?.('input,textarea,select,[contenteditable="true"],.chat-messages,.chat-sidebar,.chat-panel,.audio-hub,.audio-mode-panel,.now-playing-modal,.settings-card,[role="dialog"]')
       if(eligible){startY=event.touches[0].clientY;startX=event.touches[0].clientX}
     },{passive:true})
+    document.addEventListener('touchcancel',()=>{eligible=false},{passive:true})
     document.addEventListener('touchend',event=>{
       if(!eligible)return
       eligible=false
