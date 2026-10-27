@@ -1,50 +1,73 @@
-name: Memora Android launch smoke test
-
+name: Ormemora Android 15 and 16 launcher/safe-area smoke test
 on:
   push:
-    branches: [mobile-installers]
+    branches: [release/ormemora-android-v2.1-safe-areas]
     paths:
       - 'mobile/android/**'
       - '.github/workflows/memora-android-smoke.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  smoke-test:
+  smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [35, 36]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Create launcher icons
+        run: |
+          python -m pip install --disable-pip-version-check cairosvg pillow
+          python - <<'PY'
+          from pathlib import Path
+          import cairosvg
+          root=Path('mobile/android')
+          for density,size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
+              path=root/f'app/src/main/res/mipmap-{density}/ic_ormemora.png'
+              path.parent.mkdir(parents=True,exist_ok=True)
+              cairosvg.svg2png(url=str(root/'branding/ormemora.svg'),write_to=str(path),output_width=size,output_height=size)
+          PY
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
-      - name: Enable KVM access
+          gradle-version: '8.12'
+      - name: Allow emulator KVM
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-      - name: Boot Android emulator and verify launch
+      - name: Launch Android and check app + OAuth callback
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           profile: pixel_4
           disable-animations: true
           working-directory: mobile/android
           script: |
-            sdkmanager "platforms;android-36" "build-tools;35.0.0"
+            sdkmanager "platforms;android-36" "build-tools;36.0.0"
             gradle --no-daemon :app:assembleDebug
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.memora.mobile/.MainActivity
-            sleep 7
-            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 200; exit 1)
-            echo "Memora native activity started and remained running"
+            sleep 9
+            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 120; exit 1)
+            adb shell screencap -p /sdcard/ormemora-login.png
+            adb pull /sdcard/ormemora-login.png ../../ormemora-login-api${{ matrix.api-level }}.png
             adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'memora://auth/callback?code=0123456789abcdef' com.memora.mobile
-            sleep 5
-            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 200; exit 1)
-            echo "Memora remained running after Android OAuth callback deep link"
+            sleep 3
+            adb shell pidof com.memora.mobile || (adb logcat -d -b crash | tail -n 120; exit 1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Ormemora-Android-API-${{ matrix.api-level }}-smoke
+          path: ormemora-login-api${{ matrix.api-level }}.png
+          retention-days: 10
+          if-no-files-found: warn
