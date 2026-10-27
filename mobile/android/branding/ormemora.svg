@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ormemora: connected memories and mind">
+<defs>
+ <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#06c9cc"/><stop offset=".43" stop-color="#30c8eb"/><stop offset=".73" stop-color="#487aff"/><stop offset="1" stop-color="#9461f6"/></linearGradient>
+ <linearGradient id="mind" x1="0" y1="0" x2=".93" y2=".95"><stop stop-color="#3fdbf7"/><stop offset=".45" stop-color="#167be8"/><stop offset=".8" stop-color="#234edd"/><stop offset="1" stop-color="#173bba"/></linearGradient>
+ <linearGradient id="dot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4c9eff"/><stop offset="1" stop-color="#3868e5"/></linearGradient>
+ <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b188ff"/><stop offset="1" stop-color="#8151ef"/></linearGradient>
+ </defs>
+ <rect width="512" height="512" rx="108" fill="#081c45"/>
+ <path d="M113 219 C120 164 161 143 202 135 C242 128 243 98 281 98 C323 98 333 131 347 152 C389 160 406 181 415 219" fill="none" stroke="url(#arc)" stroke-width="29" stroke-linecap="butt"/>
+ <path d="M120 271 C124 303 154 318 196 329" fill="none" stroke="#0b3b79" stroke-width="26" stroke-linecap="round"/>
+ <path d="M397 274 C390 305 365 322 339 345" fill="none" stroke="#173fbe" stroke-width="26" stroke-linecap="round"/>
+ <path d="M185 301 C178 280 173 247 184 235 C197 217 216 237 228 249 L256 282 L292 242 C311 220 326 231 322 258 L305 351 C303 372 324 369 337 356 L366 329" fill="none" stroke="url(#mind)" stroke-width="37" stroke-linejoin="round" stroke-linecap="round"/>
+ <path d="M185 301 C178 280 173 247 184 235 C197 217 216 237 228 249 L256 282 L292 242 C311 220 326 231 322 258 L305 351 C303 372 324 369 337 356 L366 329" fill="none" stroke="#0b315c" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity=".55"/>
+ <circle cx="256" cy="182" r="23" fill="url(#dot)"/>
+ <circle cx="114" cy="250" r="25" fill="#09c5c8"/>
+ <circle cx="412" cy="250" r="25" fill="url(#purple)"/>
+ <circle cx="195" cy="330" r="25" fill="url(#dot)"/>
+</svg>
