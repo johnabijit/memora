@@ -86,7 +86,7 @@ public class MainActivity extends FragmentActivity {
         });
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
-        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/1.9");
+        settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/2.0");
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
@@ -109,7 +109,7 @@ public class MainActivity extends FragmentActivity {
         errorPanel.setPadding(dp(28),dp(28),dp(28),dp(28));
         errorPanel.setBackgroundColor(Color.rgb(12,16,25));
         TextView title = new TextView(this);
-        title.setText("Memora couldn't load");
+        title.setText("Ormemora couldn't load");
         title.setTextColor(Color.WHITE);
         title.setTextSize(23);
         title.setGravity(Gravity.CENTER);
@@ -120,7 +120,7 @@ public class MainActivity extends FragmentActivity {
         details.setGravity(Gravity.CENTER);
         errorPanel.addView(details,new LinearLayout.LayoutParams(-1,dp(65)));
         Button retry = new Button(this);
-        retry.setText("Retry Memora");
+        retry.setText("Retry Ormemora");
         retry.setOnClickListener(v -> { errorPanel.setVisibility(View.GONE); loading.setVisibility(View.VISIBLE); webView.loadUrl(HOME); });
         errorPanel.addView(retry);
         Button browser = new Button(this);
@@ -236,8 +236,8 @@ public class MainActivity extends FragmentActivity {
         intent.setData(Uri.parse("memora://shortcut/quick-ask"));
         ShortcutInfo shortcut=new ShortcutInfo.Builder(this,"memora-quick-ask")
             .setShortLabel("Quick Ask")
-            .setLongLabel("Ask Memora")
-            .setIcon(Icon.createWithResource(this,com.memora.mobile.R.drawable.ic_memora))
+            .setLongLabel("Ask Ormemora")
+            .setIcon(Icon.createWithResource(this,com.memora.mobile.R.mipmap.ic_ormemora))
             .setIntent(intent)
             .build();
         manager.requestPinShortcut(shortcut,null);
@@ -255,7 +255,7 @@ public class MainActivity extends FragmentActivity {
         cover.setOrientation(LinearLayout.VERTICAL);
         cover.setPadding(dp(30),dp(30),dp(30),dp(30));
         TextView title=new TextView(this);
-        title.setText("Memora is locked");
+        title.setText("Ormemora is locked");
         title.setTextColor(Color.WHITE);
         title.setTextSize(25);
         title.setGravity(Gravity.CENTER);
@@ -266,7 +266,7 @@ public class MainActivity extends FragmentActivity {
         note.setGravity(Gravity.CENTER);
         cover.addView(note,new LinearLayout.LayoutParams(-1,dp(80)));
         Button unlock=new Button(this);
-        unlock.setText("Unlock Memora");
+        unlock.setText("Unlock Ormemora");
         unlock.setOnClickListener(view->requestDeviceAuth("unlock"));
         cover.addView(unlock);
         return cover;
@@ -296,11 +296,11 @@ public class MainActivity extends FragmentActivity {
                     if("enable".equals(purpose)){
                         getSharedPreferences("memora-security",Context.MODE_PRIVATE).edit()
                             .putBoolean("device-lock-enabled",true).apply();
-                        Toast.makeText(MainActivity.this,"Device unlock enabled for Memora",Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this,"Device unlock enabled for Ormemora",Toast.LENGTH_LONG).show();
                     }else if("disable".equals(purpose)){
                         getSharedPreferences("memora-security",Context.MODE_PRIVATE).edit()
                             .putBoolean("device-lock-enabled",false).apply();
-                        Toast.makeText(MainActivity.this,"Memora device unlock disabled",Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this,"Ormemora device unlock disabled",Toast.LENGTH_LONG).show();
                     }
                     revealWebView();
                 }
@@ -314,7 +314,7 @@ public class MainActivity extends FragmentActivity {
                 }
             });
         BiometricPrompt.PromptInfo info=new BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Memora device security")
+            .setTitle("Ormemora device security")
             .setSubtitle("Confirm your device identity")
             .setAllowedAuthenticators(accepted).build();
         try{prompt.authenticate(info);}
@@ -359,7 +359,7 @@ public class MainActivity extends FragmentActivity {
             return true;
         }
         if ("https".equalsIgnoreCase(scheme) && host != null) {
-            // The only pages displayed inside the WebView are Memora pages.
+            // The only pages displayed inside the WebView are Ormemora pages.
             // Identity providers open securely inside an in-app Custom Tab, never in the WebView.
             if (host.equalsIgnoreCase("memora-37z.pages.dev")) return false;
             if (isIdentityProvider(uri)) openIdentityTab(uri);
