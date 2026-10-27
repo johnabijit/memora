@@ -3075,3 +3075,28 @@ body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal{
   transform:none!important;
   transition:none!important;
 }
+
+/* Keep Play/Pause visible on small screens. Older rules hid nth-child(2),
+   which is the actual Play button. Preserve previous, play, next, expand. */
+@media(max-width:700px){
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPrevious,
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerNext,
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPlay{
+  display:inline-flex!important;
+  align-items:center!important;justify-content:center!important;
+  min-width:40px!important;width:40px!important;
+  height:44px!important;flex:0 0 auto!important;
+ }
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPlay{
+  min-width:46px!important;width:46px!important;
+ }
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerExpand{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:38px!important;min-width:38px!important;height:44px!important;
+ }
+}
+@media(max-width:360px){
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerExpand{
+  display:none!important;
+ }
+}
