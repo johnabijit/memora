@@ -1,4 +1,4 @@
-const CACHE = 'ormemora-v44.0'
+const CACHE = 'ormemora-v44.2'
 const ASSETS = ['./', './index.html', './styles.css?v=43.1', './app.js?v=43.1', './icon.svg', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './manifest.webmanifest']
 const assetPaths = new Set(ASSETS.map(path => new URL(path, self.location.href).pathname))
 
