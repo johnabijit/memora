@@ -9,6 +9,8 @@ const sessionStore = safeStorage('sessionStorage')
 // The native Android WebView must keep the PKCE code verifier in its own
 // storage while Google sign-in completes in the system browser.
 const isMemoraAndroidApp = /\bMemoraAndroid\/\d+\b/.test(navigator.userAgent)
+// Native Android already applies WindowInsets for the status/navigation bars.
+if(isMemoraAndroidApp) document.documentElement.classList.add('ormemora-native')
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth:{storage:localStore,experimental:{passkey:true},...(isMemoraAndroidApp?{flowType:'pkce'}:{})}
 })
@@ -472,7 +474,7 @@ function modal(title,body){
   wrap.onclick=e=>{if(e.target===wrap)close()}
   wrap.addEventListener('keydown',e=>{
     if(e.key==='Escape'){e.stopPropagation();close()}
-    if(e.key==='Tab'){
+    if(e.key==='Tab'&&!wrap.classList.contains('audio-hub-backdrop')){
       const nodes=[...wrap.querySelectorAll('button,input,select,textarea,a[href],iframe,[tabindex="0"]')].filter(n=>!n.disabled&&n.getClientRects().length)
       const first=nodes[0],last=nodes[nodes.length-1]
       if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
@@ -1188,13 +1190,32 @@ function mediaPlayerVisible(){
 }
 
 let playerPlacementObserver=null
+// Audio browsing keeps the SAME dock as Home. Navigate after closing
+// the catalogue to prevent an orphaned overlay on the next route.
+if(!window.__ormemoraAudioDockNavigation){
+  window.__ormemoraAudioDockNavigation=true
+  document.addEventListener('click',event=>{
+    if(!document.body.classList.contains('ormemora-audio-open')) return
+    const clicked=event.target.closest?.('.dock button')
+    if(!clicked) return
+    document.querySelector('.audio-hub-backdrop .close')?.click()
+    if(clicked.id==='dockAudio'){
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+  },true)
+}
+
 function updatePlayerPlacement(){
   const mini=document.getElementById('memoraMediaPlayer')
   if(!mini||!user)return
   // Fixed to document.body, never nested inside route views or search dialogs.
   // Dialogs are padded so their action buttons cannot be covered.
-  const hasDialog=Boolean(document.querySelector('.modal-backdrop'))
+  const dialogs=[...document.querySelectorAll('.modal-backdrop')]
+  const hasDialog=dialogs.length>0
+  const audioVisible=Boolean(dialogs.at(-1)?.classList.contains('audio-hub-backdrop'))
   document.body.classList.toggle('player-with-dialog',hasDialog)
+  document.body.classList.toggle('ormemora-audio-open',audioVisible)
   const narrow=window.matchMedia?.('(max-width: 760px)')?.matches||false
   const keyboardVisible=window.visualViewport&&window.visualViewport.height<
     window.innerHeight*(narrow?0.72:0.62)
@@ -1412,59 +1433,10 @@ function openNowPlayingSheet(){
 // The main mini player is deliberately obscured by dialogs. The audio hub
 // therefore exposes its own always-visible transport bar backed by the SAME
 // underlying <audio> element, preventing duplicate streams or lost playback.
-function syncAudioHubTransport(){
-  const bar=document.querySelector('.audio-hub-modal .audio-hub-transport')
-  if(!bar) return
-  const audio=mediaAudio(), current=mediaPlayerState.current
-  const playing=Boolean(audio&&!audio.paused&&!audio.ended)
-  const title=bar.querySelector('[data-hub-track]')
-  const state=bar.querySelector('[data-hub-state]')
-  const toggle=bar.querySelector('[data-hub-play]')
-  const mute=bar.querySelector('[data-hub-mute]')
-  if(title) title.textContent=current?.title||'Choose something to listen to'
-  if(state){
-    const shared=document.getElementById('playerStatus')?.textContent
-    state.textContent=shared|| (playing?'Playing':'Paused')
-  }
-  if(toggle){
-    toggle.textContent=playing?'Pause':'Play'
-    toggle.setAttribute('aria-label',playing?'Pause current audio':'Play current audio')
-  }
-  if(mute) mute.textContent=audio?.muted?'Unmute':'Mute'
-}
-
-function mountAudioHubTransport(box){
-  const modalElement=box.querySelector('.audio-hub-modal')
-  if(!modalElement) return
-  const bar=document.createElement('div')
-  bar.className='audio-hub-transport'
-  bar.setAttribute('role','region')
-  bar.setAttribute('aria-label','Music playback controls')
-  bar.innerHTML=`
-    <div class="audio-hub-track" aria-live="polite" aria-atomic="true">
-      <span class="audio-hub-transport-label">NOW PLAYING</span>
-      <strong data-hub-track>Choose something to listen to</strong>
-      <small data-hub-state>Ready</small>
-    </div>
-    <div class="audio-hub-transport-actions">
-      <button type="button" data-hub-previous aria-label="Previous track">‹</button>
-      <button type="button" data-hub-play aria-label="Play current audio">Play</button>
-      <button type="button" data-hub-next aria-label="Next track">›</button>
-      <button type="button" data-hub-mute aria-label="Mute current audio">Mute</button>
-    </div>
-  `
-  modalElement.appendChild(bar)
-  bar.querySelector('[data-hub-previous]').addEventListener('click',()=>previousMediaTrack(true).catch(()=>setPlayerStatus('Could not open previous track')))
-  bar.querySelector('[data-hub-play]').addEventListener('click',()=>toggleMediaPlayback().catch(()=>setPlayerStatus('Tap again to start playback')))
-  bar.querySelector('[data-hub-next]').addEventListener('click',()=>nextMediaTrack(true).catch(()=>setPlayerStatus('Could not open next track')))
-  bar.querySelector('[data-hub-mute]').addEventListener('click',()=>toggleMediaMute().catch(()=>setPlayerStatus('Could not change volume')))
-  syncAudioHubTransport()
-}
-
 function setPlayerStatus(message){
   const el=document.getElementById('playerStatus')
   if(el) el.textContent=message
-  syncAudioHubTransport()
+  
 }
 
 function updateAudioVisualScene(item,playing){
@@ -1541,7 +1513,7 @@ function refreshMediaPlayerUI(){
   updateAudioVisualScene(current,playing)
   updateSoundButton()
   syncNowPlayingProgress()
-  syncAudioHubTransport()
+  
 }
 
 async function loadRadioCountries(){
@@ -2378,7 +2350,8 @@ async function openSoundscapePicker(){
   }).catch(()=>{})
   box.classList.add('audio-hub-backdrop')
   box.querySelector('.modal')?.classList.add('audio-hub-modal')
-  mountAudioHubTransport(box)
+  // The existing global mini player is the only transport in every view.
+  box.querySelector('.modal')?.setAttribute('aria-modal','false')
   const modeTabs=[...box.querySelectorAll('[data-audio-mode]')]
   const panels=[...box.querySelectorAll('[data-audio-panel]')]
   const discoverMore=box.querySelector('#audioDiscoverMore')
@@ -2414,7 +2387,7 @@ async function openSoundscapePicker(){
       const playing=await playForMood(latestMood?.mood||'calm')
       button.textContent=playing?'Playing':'Choose another mood or tap Play'
       button.disabled=false
-      syncAudioHubTransport()
+      
     }catch{
       button.disabled=false
       button.textContent='Try again'
@@ -2425,13 +2398,13 @@ async function openSoundscapePicker(){
     const button=event.currentTarget
     button.disabled=true
     button.textContent='Building mix...'
-    try{const playing=await playMemoryMix();button.textContent=playing?'Playing':'Choose a track or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Memory Mix unavailable; try a search')}finally{button.disabled=false;syncAudioHubTransport()}
+    try{const playing=await playMemoryMix();button.textContent=playing?'Playing':'Choose a track or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Memory Mix unavailable; try a search')}finally{button.disabled=false;}
   })
   box.querySelector('#audioWorldSurprise')?.addEventListener('click',async event=>{
     const button=event.currentTarget
     button.disabled=true
     button.textContent='Tuning...'
-    try{const playing=await playWorldSurprise();button.textContent=playing?'Playing':'Choose a station or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Radio unavailable; try another station')}finally{button.disabled=false;syncAudioHubTransport()}
+    try{const playing=await playWorldSurprise();button.textContent=playing?'Playing':'Choose a station or tap Play'}catch{button.textContent='Try again';setPlayerStatus('Radio unavailable; try another station')}finally{button.disabled=false;}
   })
 
   const activeMode=()=>modeTabs.find(tab=>tab.classList.contains('active'))?.dataset.audioMode||'music'

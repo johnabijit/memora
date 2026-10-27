@@ -462,33 +462,39 @@ test('Memora Visual Worlds has real theme families manual region festival and Cl
 })
 
 
-test('audio hub keeps a second accessible transport visible while catalog scrolls',async()=>{
+test('audio browsing reuses the exact Home audio element and transport; no duplicate player',async()=>{
  const {dom,w,api}=await appFixture()
  try{
    api.setUser()
-   api.ensureMediaPlayer()
+   await api.go('home')
+   const player=api.ensureMediaPlayer()
+   const originalAudio=w.document.getElementById('memoraAudio')
+   assert.ok(player)
+   assert.ok(originalAudio)
    api.openSoundscapePicker()
+   await new Promise(resolve=>setTimeout(resolve,12))
    const sheet=w.document.querySelector('.audio-hub-modal')
-   assert.ok(sheet,'audio dialog missing')
+   assert.ok(sheet,'audio browser missing')
    assert.ok(sheet.querySelector('.audio-hub'),'scrollable catalog missing')
-   const bar=sheet.querySelector('.audio-hub-transport')
-   assert.ok(bar,'always-visible transport must be inside audio dialog')
-   assert.equal(bar.parentElement,sheet)
-   for(const control of ['play','previous','next','mute']){
-     assert.ok(bar.querySelector('[data-hub-'+control+']'),'missing '+control)
-   }
-   const track={id:'audio-hub-test',title:'Fixture radio station',type:'radio',url:'https://fixture.test/stream.mp3'}
-   api.mediaPlayerState.library=[track]
-   await api.selectMediaTrack(track,false)
-   assert.match(bar.querySelector('[data-hub-track]').textContent,/Fixture radio station/)
-   assert.equal(bar.querySelector('[data-hub-play]').getAttribute('aria-label'),'Play current audio')
-   bar.querySelector('[data-hub-play]').click()
-   await new Promise(resolve=>setTimeout(resolve,10))
-   assert.equal(w.document.getElementById('memoraAudio').paused,false)
-   assert.equal(bar.querySelector('[data-hub-play]').getAttribute('aria-label'),'Pause current audio')
-   sheet.querySelector('.close').click()
-   assert.equal(w.document.querySelector('.audio-hub-modal'),null)
-   assert.equal(w.document.getElementById('memoraMediaPlayer').parentElement,w.document.body)
+   assert.equal(sheet.getAttribute('aria-modal'),'false')
+   assert.equal(w.document.querySelector('.audio-hub-transport'),null,'duplicate player must never be mounted')
+   assert.equal(w.document.querySelectorAll('#memoraMediaPlayer').length,1)
+   assert.equal(w.document.body.classList.contains('ormemora-audio-open'),true)
+   assert.equal(w.document.getElementById('memoraAudio'),originalAudio)
+   const item={id:'audio-unified-test',title:'Fixture radio',type:'radio',url:'https://fixture.test/live.mp3'}
+   api.mediaPlayerState.library=[item]
+   await api.selectMediaTrack(item,false)
+   assert.match(player.querySelector('#playerTitle').textContent,/Fixture radio/)
+   const play=player.querySelector('#playerPlay')
+   assert.ok(play)
+   play.click()
+   await new Promise(resolve=>setTimeout(resolve,12))
+   assert.equal(originalAudio.paused,false)
+   // Existing nav should close audio browser, not leave an orphaned modal.
+   w.document.querySelector('.dock button[data-nav="home"]').click()
+   await new Promise(resolve=>setTimeout(resolve,12))
+   assert.equal(w.document.querySelector('.audio-hub-backdrop'),null)
+   assert.equal(w.document.getElementById('memoraMediaPlayer'),player)
  }finally{dom.window.close()}
 })
 
@@ -504,6 +510,7 @@ test('audio surprise does not claim playback when catalog returns no stations',a
    await new Promise(resolve=>setTimeout(resolve,55))
    assert.notEqual(button.textContent,'Playing')
    assert.equal(button.disabled,false)
-   assert.ok(w.document.querySelector('.audio-hub-transport'))
+   assert.equal(w.document.querySelector('.audio-hub-transport'),null)
+   assert.ok(w.document.getElementById('memoraMediaPlayer'))
  }finally{dom.window.close()}
 })

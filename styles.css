@@ -2884,198 +2884,219 @@ html[data-appearance="light"] .chat-evidence-tag{background:#e8f4fc!important;co
 .ormemora-faq details p{color:var(--text);line-height:1.6;font-size:14px;padding:13px 15px;margin:0}
 html[data-appearance="light"] .ormemora-faq details{background:#f8fbff!important}
 
-/* Ormemora v44.1 — audio hub is a contained three-row viewport sheet.
-   Header and transport stay on screen; only the catalog scrolls.
-   The separate global mini player deliberately yields to its accessible
-   transport INSIDE this dialog, so it never blocks search, filters or controls. */
-body:has(.audio-hub-backdrop){overflow:hidden!important}
-.audio-hub-backdrop{box-sizing:border-box!important;overscroll-behavior:contain!important}
-.audio-hub-backdrop .audio-hub-modal{
-  box-sizing:border-box!important;display:grid!important;
-  grid-template-rows:auto minmax(0,1fr) auto!important;
-  overflow:hidden!important;min-width:0!important;
+
+/* Ormemora v45 — ONE player, ONE dock, ONE viewport-safe header.
+   Android WebView host applies system bar insets. Do not double-apply CSS env().
+   The audio browser shares the same floating player as the Home screen. */
+:root{
+  --orm-ui-safe-top:env(safe-area-inset-top,0px);
+  --orm-ui-safe-bottom:env(safe-area-inset-bottom,0px);
+  --orm-dock-height:74px;
+  --orm-player-height:76px;
+  --orm-dock-bottom:calc(var(--orm-ui-safe-bottom) + 8px);
+  --orm-player-bottom:calc(var(--orm-dock-bottom) + var(--orm-dock-height) + 8px);
+  --orm-chrome-height:calc(var(--orm-player-bottom) + var(--orm-player-height) + 8px);
 }
-.audio-hub-modal>.modal-head{
-  flex:0 0 auto!important;
-  min-height:52px!important;
-  padding:10px 14px!important;
-  margin:0 0 10px!important;
-  border-radius:14px!important;
-  background:#132742!important;
-  color:#f7fbff!important;
-  display:flex!important;align-items:center!important;justify-content:space-between!important;
-  gap:8px!important;
+html.ormemora-native{
+  --orm-ui-safe-top:0px;
+  --orm-ui-safe-bottom:0px;
 }
-.audio-hub-modal>.modal-head h3{
-  font:750 clamp(19px,4vw,25px)/1.25 system-ui,-apple-system,"Segoe UI",sans-serif!important;
-  color:#f7fbff!important;margin:0!important;min-width:0!important;overflow-wrap:anywhere;
+html,body{overscroll-behavior-y:none!important}
+body:has(.app){padding-top:0!important}
+body.has-memora-player .dock{
+  bottom:var(--orm-dock-bottom)!important;
+  height:var(--orm-dock-height)!important;
+  min-height:var(--orm-dock-height)!important;
+  max-height:var(--orm-dock-height)!important;
+  box-sizing:border-box!important;
+  z-index:90!important;
 }
-.audio-hub-modal>.modal-head .close{
-  position:static!important;flex:0 0 44px!important;width:44px!important;height:44px!important;
-  display:grid!important;place-items:center!important;border-radius:12px!important;
-  color:#fff!important;background:#294363!important;
-  cursor:pointer!important;touch-action:manipulation!important;
+body.has-memora-player .memora-player.compact-player{
+  bottom:var(--orm-player-bottom)!important;
+  height:var(--orm-player-height)!important;
+  min-height:var(--orm-player-height)!important;
+  max-height:var(--orm-player-height)!important;
+  box-sizing:border-box!important;
+  z-index:110!important;
 }
-.audio-hub-modal>.audio-hub{
-  min-height:0!important;min-width:0!important;overflow-y:auto!important;
-  overflow-x:hidden!important;overscroll-behavior:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-  padding:0 3px 10px!important;scrollbar-gutter:stable;
+body.has-memora-player .app::after{
+  content:"";position:fixed;left:0;right:0;bottom:0;
+  height:var(--orm-chrome-height);pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,19,35,.96) 0%,#081323 32%,#081323 100%);
+  z-index:69;
 }
-.audio-hub-transport{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  min-width:0!important;flex:0 0 auto!important;
-  margin-top:8px;padding:10px 12px;
-  border-radius:16px;
-  background:#102742!important;color:#f5faff!important;
-  border:1px solid #426181!important;
-  box-shadow:0 -7px 28px rgba(0,0,0,.22);
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif!important;
+body.has-memora-player .main{
+  padding-bottom:calc(var(--orm-chrome-height) + 28px)!important;
 }
-.audio-hub-track{display:flex;flex:1 1 auto;min-width:0;flex-direction:column;gap:1px;line-height:1.3}
-.audio-hub-transport-label{font-size:9px;font-weight:750;letter-spacing:.1em;color:#9de3f4!important}
-.audio-hub-track strong{
-  color:#fff!important;font-size:13px!important;font-weight:750!important;
-  display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+body.has-memora-player .app{
+  padding-bottom:0!important;
 }
-.audio-hub-track small{color:#cbd9ea!important;font-size:11px!important;line-height:1.4!important}
-.audio-hub-transport-actions{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:5px}
-.audio-hub-transport-actions button{
-  flex:0 0 auto;min-height:44px;min-width:44px;
-  display:grid;place-items:center;padding:6px 9px;
-  font:700 14px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;
-  cursor:pointer;touch-action:manipulation;
-  border:1px solid #546f91;border-radius:12px;
-  color:#fff!important;background:#284565!important;
-}
-.audio-hub-transport-actions button[data-hub-play]{
-  background:#13a7ac!important;color:#041b27!important;border-color:#52d8d8!important;
-  min-width:58px;
-}
-.audio-hub-transport-actions button:focus-visible,.audio-hub-modal>.modal-head .close:focus-visible{
-  outline:3px solid #85edff!important;outline-offset:2px;
-}
-html[data-appearance="light"] .audio-hub-modal>.modal-head{
-  background:#e8f1fa!important;color:#173047!important;border:1px solid #abc3d7!important;
-}
-html[data-appearance="light"] .audio-hub-modal>.modal-head h3{color:#173047!important}
-html[data-appearance="light"] .audio-hub-modal>.modal-head .close{
-  color:#15324d!important;background:#d0e1f1!important;border:1px solid #91b4d3!important;
-}
-html[data-appearance="light"] .audio-hub-transport{
-  background:#e8f1fa!important;color:#12324a!important;border-color:#9ebad0!important;
-}
-html[data-appearance="light"] .audio-hub-track strong{color:#193248!important}
-html[data-appearance="light"] .audio-hub-track small{color:#344e68!important}
-html[data-appearance="light"] .audio-hub-transport-label{color:#096b7f!important}
-html[data-appearance="light"] .audio-hub-transport-actions button:not([data-hub-play]){
-  color:#183953!important;background:#d4e4f2!important;border-color:#9cb5ca!important;
-}
-@media(max-width:760px){
-  /* Prevent dialog jumping underneath Android's system clock or iPhone notch.
-     Android native WebView additionally applies WindowInsets to its host. */
-  .audio-hub-backdrop{
-    position:fixed!important;inset:0!important;
-    width:100vw!important;height:100dvh!important;max-height:100dvh!important;
-    overflow:hidden!important;
-    padding: max(10px,env(safe-area-inset-top,0px))
-             max(7px,env(safe-area-inset-left,0px))
-             max(10px,env(safe-area-inset-bottom,0px))
-             max(7px,env(safe-area-inset-right,0px))!important;
-    align-items:stretch!important;justify-content:center!important;
-    display:flex!important;
+@media(max-width:700px){
+  :root{--orm-dock-height:70px;--orm-player-height:72px}
+  body:not(.memora-quick-ask) .app{
+    padding-top:calc(64px + var(--orm-ui-safe-top))!important;
+    min-height:100dvh!important;
   }
-  .audio-hub-backdrop .audio-hub-modal{
-    width:100%!important;max-width:100%!important;
-    height:100%!important;max-height:100%!important;
-    min-height:0!important;
-    padding:10px!important;border-radius:19px!important;
-    grid-template-rows:auto minmax(0,1fr) auto!important;
-    display:grid!important;overflow:hidden!important;
+  body:not(.memora-quick-ask) .topbar{
+    position:fixed!important;
+    top:var(--orm-ui-safe-top)!important;
+    bottom:auto!important;left:0!important;right:0!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+    height:64px!important;min-height:64px!important;max-height:64px!important;
+    transform:none!important;
+    background:#0a1528!important;
+    border-bottom:1px solid #253b56!important;
+    z-index:500!important;
+    overscroll-behavior:contain!important;
   }
-  .audio-hub-modal>.audio-hub{
-    min-height:0!important;max-height:none!important;
-    padding-bottom:12px!important;
+  body.memora-quick-ask .app{padding-top:0!important}
+  body.memora-quick-ask .memora-player.compact-player{
+    bottom:calc(var(--orm-ui-safe-bottom) + 8px)!important;
   }
-  .audio-hub-modal>.modal-head{
-    min-height:50px!important;position:relative!important;top:auto!important;
-    margin-bottom:8px!important;padding:6px 10px!important;
-  }
-  .audio-hub .audio-mode-tabs.four{
-    position:sticky!important;top:0!important;
-    z-index:8!important;min-width:0!important;
-    display:flex!important;overflow-x:auto!important;scrollbar-width:none;
-  }
-  .audio-hub .audio-mode-tab{flex:1 0 auto;min-width:0;white-space:nowrap}
-  .audio-hub-transport{flex-direction:column;align-items:stretch;gap:6px;padding:7px 9px;margin-top:6px;border-radius:14px}
-  .audio-hub-track{max-width:100%;gap:0}
-  .audio-hub-track strong{font-size:12px!important}
-  .audio-hub-transport-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-  .audio-hub-transport-actions button{width:100%;min-width:0;min-height:44px}
-  .audio-hub-transport-actions button[data-hub-play]{min-width:0}
-  .modal-backdrop:not(.audio-hub-backdrop){
-    padding-top:max(12px,env(safe-area-inset-top,0px))!important;
-    padding-bottom:max(12px,env(safe-area-inset-bottom,0px))!important;
+  body.has-memora-player .dock{bottom:var(--orm-dock-bottom)!important}
+  body.has-memora-player .memora-player.compact-player{
+    bottom:var(--orm-player-bottom)!important;
+    margin:0!important;
   }
 }
 @media(max-width:360px){
-  .audio-hub-modal>.modal-head h3{font-size:18px!important}
-  .audio-hub-transport-actions{gap:4px}
-  .audio-hub-transport-actions button{font-size:12px!important;padding:4px}
+ body:not(.memora-quick-ask) .topbar .brand strong{font-size:12px!important}
+ body:not(.memora-quick-ask) .topbar .top-left{gap:2px!important}
+ body:not(.memora-quick-ask) .topbar .top-actions{gap:3px!important}
+ body:not(.memora-quick-ask) .topbar .search-mobile-launch,
+ body:not(.memora-quick-ask) .topbar .memora-refresh-button,
+ body:not(.memora-quick-ask) .topbar #settingsButton{min-width:35px!important;width:35px!important;flex-basis:35px!important}
 }
-@supports (-webkit-touch-callout:none){
-  @media(max-width:760px){
-    .audio-hub-backdrop{
-      height:100dvh!important;min-height:0!important;
-      align-items:stretch!important;
-    }
-    .audio-hub-backdrop .audio-hub-modal{
-      display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;
-      height:100%!important;max-height:100%!important;
-    }
-    .audio-hub-modal>.audio-hub{min-height:0!important;overflow-y:auto!important}
-  }
+/* Audio browser is a full viewport surface with a bounded scrolling catalog.
+   Only the existing Home player and dock are drawn above it. */
+body.ormemora-audio-open{overflow:hidden!important}
+html:has(body.ormemora-audio-open){overflow:hidden!important}
+body.ormemora-audio-open .app::after{display:none!important}
+body.ormemora-audio-open .modal-backdrop.audio-hub-backdrop{
+  position:fixed!important;inset:0!important;
+  width:100%!important;height:100dvh!important;max-height:100dvh!important;
+  display:flex!important;align-items:stretch!important;justify-content:center!important;
+  overflow:hidden!important;box-sizing:border-box!important;
+  padding:calc(var(--orm-ui-safe-top) + 8px) 8px calc(var(--orm-chrome-height) + 8px)!important;
+  background:#081323!important;
+  border:0!important;
+  z-index:2147483000!important;
+  overscroll-behavior:contain!important;
 }
-
-/* v44.2: the audio hub has its own transport, so no space must be reserved
-   outside the dialog for the obscured legacy mini player. Tested at 320–1440px. */
-body.player-with-dialog .modal-backdrop.audio-hub-backdrop{
- padding:12px max(12px,env(safe-area-inset-left,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-right,0px))!important;
- box-sizing:border-box!important;
+body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal{
+  width:min(980px,100%)!important;
+  min-width:0!important;max-width:100%!important;
+  height:100%!important;max-height:100%!important;min-height:0!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+  padding:9px!important;
+  overflow:hidden!important;
+  border-radius:18px!important;
 }
-body.player-with-dialog .modal-backdrop.audio-hub-backdrop .audio-hub-modal{
- width:min(980px,100%)!important;
- max-height:min(94dvh,940px)!important;
- height:min(94dvh,940px)!important;
- box-sizing:border-box!important;
+body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal>.modal-head{
+  position:relative!important;top:auto!important;
+  flex:none!important;min-height:50px!important;
+  display:flex!important;align-items:center!important;
+  justify-content:space-between!important;
+  padding:6px 10px!important;margin:0 0 7px!important;
+  background:#102742!important;border-radius:14px!important;
+}
+body.ormemora-audio-open .audio-hub-modal>.modal-head h3{
+  font:750 clamp(18px,4vw,24px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  color:#fff!important;margin:0!important;
+}
+body.ormemora-audio-open .audio-hub-modal>.modal-head .close{
+  position:static!important;flex:0 0 44px!important;
+  min-width:44px!important;min-height:44px!important;width:44px!important;
+  display:grid!important;place-items:center!important;
+  color:#fff!important;background:#244564!important;
+}
+body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal>.audio-hub{
+  flex:1 1 auto!important;min-height:0!important;min-width:0!important;
+  width:100%!important;max-height:none!important;
+  box-sizing:border-box!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  padding:0 3px 12px!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body.ormemora-audio-open .audio-hub-modal .audio-mode-tabs.four{
+  top:0!important;background:#112b44!important;border:1px solid #3f6485!important;
+}
+html[data-appearance="light"] body.ormemora-audio-open .modal-backdrop.audio-hub-backdrop{
+  background:#e9f1fa!important;
+}
+html[data-appearance="light"] body.ormemora-audio-open .audio-hub-modal .audio-mode-tabs.four{
+  background:#e6f0f8!important;border-color:#a9c0d6!important;
+}
+html[data-appearance="light"] body.ormemora-audio-open .audio-hub-modal>.modal-head{
+  background:#dfeaf5!important;
+}
+html[data-appearance="light"] body.ormemora-audio-open .audio-hub-modal>.modal-head h3,
+html[data-appearance="light"] body.ormemora-audio-open .audio-hub-modal>.modal-head .close{
+  color:#133049!important;
+}
+body.ormemora-audio-open .memora-player.compact-player,
+body.ormemora-audio-open #memoraMediaPlayer{
+  visibility:visible!important;opacity:1!important;
+  pointer-events:auto!important;filter:none!important;
+  bottom:var(--orm-player-bottom)!important;
+  z-index:2147483011!important;
+}
+body.ormemora-audio-open .dock{
+  visibility:visible!important;opacity:1!important;
+  pointer-events:auto!important;filter:none!important;
+  bottom:var(--orm-dock-bottom)!important;
+  z-index:2147483012!important;
 }
 @media(max-width:760px){
- body.player-with-dialog .modal-backdrop.audio-hub-backdrop{
-   padding:max(10px,env(safe-area-inset-top,0px)) max(7px,env(safe-area-inset-left,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(7px,env(safe-area-inset-right,0px))!important;
-   align-items:stretch!important;
+ body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal{
+   width:100%!important;max-width:100%!important;
  }
- body.player-with-dialog .modal-backdrop.audio-hub-backdrop .audio-hub-modal{
-   width:100%!important;min-height:0!important;
-   height:100%!important;max-height:100%!important;
+ body.ormemora-audio-open .audio-hub-modal .audio-mode-tabs.four{
+   display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+   overflow:hidden!important;gap:2px!important;
+ }
+ body.ormemora-audio-open .audio-hub-modal .audio-mode-tabs.four .audio-mode-tab{
+   min-width:0!important;width:auto!important;
+   padding:7px 2px!important;font-size:clamp(9px,2.4vw,11px)!important;
+   flex:none!important;
  }
 }
 
-/* v44.3 — the four audio categories are all visible, and sticky tab
-   backgrounds stay opaque so scrolling track titles never bleed through. */
-.audio-hub-modal .audio-mode-tabs.four{
- background:#132742!important;
- border:1px solid #46627e!important;
+/* Prevent the legacy .app isolation layer trapping the dock below the
+   audio browser; disable the old modal entrance slide, which could
+   overlap the persistent player before the animation settled. */
+body.ormemora-audio-open .app{isolation:auto!important}
+body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal{
+  animation:none!important;
+  transform:none!important;
+  transition:none!important;
 }
-html[data-appearance="light"] .audio-hub-modal .audio-mode-tabs.four{
- background:#e8f1fa!important;
- border-color:#b0c7dc!important;
+
+/* Keep Play/Pause visible on small screens. Older rules hid nth-child(2),
+   which is the actual Play button. Preserve previous, play, next, expand. */
+@media(max-width:700px){
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPrevious,
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerNext,
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPlay{
+  display:inline-flex!important;
+  align-items:center!important;justify-content:center!important;
+  min-width:40px!important;width:40px!important;
+  height:44px!important;flex:0 0 auto!important;
+ }
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerPlay{
+  min-width:46px!important;width:46px!important;
+ }
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerExpand{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  width:38px!important;min-width:38px!important;height:44px!important;
+ }
 }
-@media(max-width:500px){
- .audio-hub-modal .audio-mode-tabs.four .audio-mode-tab{
-   flex:1 1 0!important;
-   min-width:0!important;
-   padding:7px 2px!important;
-   font-size:clamp(9px,2.45vw,11px)!important;
-   letter-spacing:-.18px!important;
+@media(max-width:360px){
+ body.has-memora-player .memora-player.compact-player .mini-actions #playerExpand{
+  display:none!important;
  }
 }
