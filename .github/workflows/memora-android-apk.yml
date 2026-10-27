@@ -1,39 +1,67 @@
-name: Build Memora Android APK
+name: Build Ormemora Android 2.0 APK
 on:
   push:
-    branches: [android-v18-location-permission, mobile-installers]
+    branches: [release/ormemora-android-v2-20261027]
     paths:
       - 'mobile/android/**'
       - '.github/workflows/memora-android-apk.yml'
-  pull_request:
-    branches: [mobile-installers]
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   android-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: mobile/android
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Configure Android SDK
-        run: echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate launcher and Quick Ask icons from official Ormemora SVG
+        run: |
+          python -m pip install --disable-pip-version-check cairosvg pillow
+          python - <<'PY'
+          from pathlib import Path
+          import cairosvg, io
+          from PIL import Image, ImageStat
+          root=Path('mobile/android')
+          svg=root/'branding/ormemora.svg'
+          assert svg.is_file(), 'Official logo is missing'
+          for density, size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
+              dest=root/f'app/src/main/res/mipmap-{density}/ic_ormemora.png'
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              png=cairosvg.svg2png(url=str(svg),output_width=size,output_height=size)
+              im=Image.open(io.BytesIO(png)).convert('RGBA')
+              assert im.size==(size,size) and max(ImageStat.Stat(im.convert('RGB')).stddev)>18, 'Invalid launcher icon'
+              im.save(dest,optimize=True)
+              print(f'{dest}: {size}x{size} ({dest.stat().st_size} bytes)')
+          PY
+      - uses: android-actions/setup-android@v3
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12'
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon
-      - name: Rename installable APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Memora-Android-v1.9.apk
+      - name: Build Ormemora Android debug APK
+        working-directory: mobile/android
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify brand metadata, APK signature and integrity
+        run: |
+          APK=mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E "^(package:|application-label:|sdkVersion:|targetSdkVersion:)"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -Fx "application-label:'Ormemora'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E "^package: name='com.memora.mobile' versionCode='11' versionName='2.0.0'"
+          unzip -l "$APK" | grep "res/mipmap" | grep "ic_ormemora"
+          sha256sum "$APK"
+          cp "$APK" mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.0.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Memora-Android-v1.9-APK
-          path: mobile/android/app/build/outputs/apk/debug/Memora-Android-v1.9.apk
+          name: Ormemora-Android-v2.0-APK
+          path: mobile/android/app/build/outputs/apk/debug/Ormemora-Android-v2.0.apk
+          if-no-files-found: error
           retention-days: 30
