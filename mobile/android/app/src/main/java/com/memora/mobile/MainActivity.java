@@ -66,24 +66,37 @@ public class MainActivity extends FragmentActivity {
         else if (state == null) webView.loadUrl(quickAskIntent(getIntent()) ? HOME + "?view=ask&quick=1" : HOME);
     }
 
+
+    // Android 15+ enforces edge-to-edge for targetSdk 35. Without explicit
+    // WindowInsets the WebView (and audio modal) scrolls behind the clock,
+    // notification icons, camera cutout and navigation controls.
+    private void applyAndroidSystemBarInsets(View frame) {
+        if (Build.VERSION.SDK_INT < 35) return;
+        getWindow().getDecorView().setBackgroundColor(Color.rgb(12,16,25));
+        android.view.WindowInsetsController controller=getWindow().getInsetsController();
+        if(controller!=null){
+            controller.setSystemBarsAppearance(0,
+                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+        }
+        frame.setOnApplyWindowInsetsListener((view,insets)->{
+            android.graphics.Insets safe=insets.getInsets(
+                android.view.WindowInsets.Type.systemBars()
+                | android.view.WindowInsets.Type.displayCutout());
+            view.setPadding(safe.left,safe.top,safe.right,safe.bottom);
+            return insets;
+        });
+        frame.requestApplyInsets();
+    }
+
     private void initUi() {
         android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
         frame.setBackgroundColor(Color.rgb(12,16,25));
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(12,16,25));
-        webView.setOnTouchListener((view,event)->{
-            if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){touchStartY=event.getY();return false;}
-            if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){
-                float distance=event.getY()-touchStartY;
-                if(distance>dp(125)&&webView.getScrollY()==0&&!refreshing&&!authInProgress){
-                    refreshing=true;
-                    loading.setVisibility(View.VISIBLE);
-                    webView.reload();
-                    return true;
-                }
-            }
-            return false;
-        });
+        // The web client owns deliberate refresh gestures. A native WebView
+        // scrollY check cannot distinguish a modal's inner scroller from a
+        // page-at-top gesture and previously reloaded music unexpectedly.
         frame.addView(webView,new android.widget.FrameLayout.LayoutParams(-1,-1));
         WebSettings settings = webView.getSettings();
         settings.setUserAgentString(settings.getUserAgentString() + " MemoraAndroid/2.0");
@@ -134,6 +147,7 @@ public class MainActivity extends FragmentActivity {
         if(!deviceLockEnabled()) lockCover.setVisibility(View.GONE);
         else webView.setVisibility(View.INVISIBLE);
         setContentView(frame);
+        applyAndroidSystemBarInsets(frame);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
