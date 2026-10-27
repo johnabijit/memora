@@ -3059,3 +3059,23 @@ body.player-with-dialog .modal-backdrop.audio-hub-backdrop .audio-hub-modal{
    height:100%!important;max-height:100%!important;
  }
 }
+
+/* v44.3 — the four audio categories are all visible, and sticky tab
+   backgrounds stay opaque so scrolling track titles never bleed through. */
+.audio-hub-modal .audio-mode-tabs.four{
+ background:#132742!important;
+ border:1px solid #46627e!important;
+}
+html[data-appearance="light"] .audio-hub-modal .audio-mode-tabs.four{
+ background:#e8f1fa!important;
+ border-color:#b0c7dc!important;
+}
+@media(max-width:500px){
+ .audio-hub-modal .audio-mode-tabs.four .audio-mode-tab{
+   flex:1 1 0!important;
+   min-width:0!important;
+   padding:7px 2px!important;
+   font-size:clamp(9px,2.45vw,11px)!important;
+   letter-spacing:-.18px!important;
+ }
+}
