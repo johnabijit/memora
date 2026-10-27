@@ -1,7 +1,7 @@
 {
-  "name": "Memora | Your life, remembered beautifully",
-  "short_name": "Memora",
-  "description": "A beautiful private memory companion, search, music and world radio.",
+  "name": "Ormemora | Remember. Understand. Connect.",
+  "short_name": "Ormemora",
+  "description": "Your personal AI companion for trustworthy memories, contextual knowledge, music and experiences.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#101114",
@@ -35,8 +35,8 @@
   "shortcuts": [
     {
       "name": "Quick Ask",
-      "short_name": "Ask Memora",
-      "description": "Ask your private Memora memories directly",
+      "short_name": "Ask Ormemora",
+      "description": "Ask your private Ormemora memories directly",
       "url": "/?view=ask&quick=1",
       "icons": [
         {
