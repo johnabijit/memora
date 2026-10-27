@@ -1,0 +1,30 @@
+name: Ormemora v45 responsive QA assets
+on:
+  push:
+    branches: [fix/ormemora-unified-chrome-20261027]
+    paths:
+      - '.github/workflows/ormemora-v45-browser-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-assets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ormemora-v45-responsive-source
+          path: |
+            styles.css
+            app.js
+            dist/index.html
+            dist/assets/*.css
+          if-no-files-found: error
+          retention-days: 5
