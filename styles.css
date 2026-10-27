@@ -3036,3 +3036,26 @@ html[data-appearance="light"] .audio-hub-transport-actions button:not([data-hub-
     .audio-hub-modal>.audio-hub{min-height:0!important;overflow-y:auto!important}
   }
 }
+
+/* v44.2: the audio hub has its own transport, so no space must be reserved
+   outside the dialog for the obscured legacy mini player. Tested at 320–1440px. */
+body.player-with-dialog .modal-backdrop.audio-hub-backdrop{
+ padding:12px max(12px,env(safe-area-inset-left,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-right,0px))!important;
+ box-sizing:border-box!important;
+}
+body.player-with-dialog .modal-backdrop.audio-hub-backdrop .audio-hub-modal{
+ width:min(980px,100%)!important;
+ max-height:min(94dvh,940px)!important;
+ height:min(94dvh,940px)!important;
+ box-sizing:border-box!important;
+}
+@media(max-width:760px){
+ body.player-with-dialog .modal-backdrop.audio-hub-backdrop{
+   padding:max(10px,env(safe-area-inset-top,0px)) max(7px,env(safe-area-inset-left,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(7px,env(safe-area-inset-right,0px))!important;
+   align-items:stretch!important;
+ }
+ body.player-with-dialog .modal-backdrop.audio-hub-backdrop .audio-hub-modal{
+   width:100%!important;min-height:0!important;
+   height:100%!important;max-height:100%!important;
+ }
+}
