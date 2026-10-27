@@ -3065,3 +3065,13 @@ body.ormemora-audio-open .dock{
    flex:none!important;
  }
 }
+
+/* Prevent the legacy .app isolation layer trapping the dock below the
+   audio browser; disable the old modal entrance slide, which could
+   overlap the persistent player before the animation settled. */
+body.ormemora-audio-open .app{isolation:auto!important}
+body.ormemora-audio-open .audio-hub-backdrop .audio-hub-modal{
+  animation:none!important;
+  transform:none!important;
+  transition:none!important;
+}
